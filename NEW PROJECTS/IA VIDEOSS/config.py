@@ -5,8 +5,8 @@ import yaml
 
 
 DEFAULT_CONFIG = {
-    "llm": {"provider": "ollama", "model": "mistral:7b", "base_url": "http://localhost:11434", "temperature": 0.7, "max_tokens": 4096},
-    "tts": {"engine": "xtts-v2", "language": "en", "voice_sample": None, "output_format": "wav"},
+    "llm": {"provider": "ollama", "model": "llama3.1:latest", "base_url": "http://localhost:11434", "temperature": 0.7, "max_tokens": 4096},
+    "tts": {"engine": None, "language": "en", "voice_sample": None, "output_format": "wav"},
     "avatar": {"engine": "sadtalker", "cloud_provider": None, "cloud_api_key": None, "pose_style": 0, "still_mode": True},
     "lip_sync": {"engine": "wav2lip", "enhancer": "gfpgan"},
     "enhancement": {

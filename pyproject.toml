@@ -7,7 +7,7 @@ name = "free-claude-code"
 version = "2.0.0"
 description = "Middleware between Claude Code CLI (Anthropic API) and NVIDIA NIM"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi[standard]>=0.136.1",
     "uvicorn>=0.46.0",
@@ -22,6 +22,8 @@ dependencies = [
     "openai>=2.33.0",
     "loguru>=0.7.0",
     "aiohttp>=3.13.4",
+    "pillow>=12.2.0",
+    "requests>=2.32.5",
 ]
 
 [project.scripts]

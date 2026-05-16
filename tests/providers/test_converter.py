@@ -564,13 +564,48 @@ def test_assistant_redacted_thinking_omitted_from_openai_chat():
     assert "reasoning_content" not in result[0]
 
 
-def test_convert_user_message_image_raises():
+def test_convert_user_message_image_url_to_openai_format():
     content = [
         MockBlock(type="image", source={"type": "url", "url": "https://example.com/x"})
     ]
     messages = [MockMessage("user", content)]
-    with pytest.raises(OpenAIConversionError):
-        AnthropicToOpenAIConverter.convert_messages(messages)
+    result = AnthropicToOpenAIConverter.convert_messages(messages)
+    assert len(result) == 1
+    assert result[0]["role"] == "user"
+    assert result[0]["content"] == [
+        {"type": "image_url", "image_url": {"url": "https://example.com/x"}}
+    ]
+
+
+def test_convert_user_message_image_base64_to_openai_format():
+    content = [
+        MockBlock(
+            type="image",
+            source={"type": "base64", "media_type": "image/png", "data": "abc123"},
+        )
+    ]
+    messages = [MockMessage("user", content)]
+    result = AnthropicToOpenAIConverter.convert_messages(messages)
+    assert len(result) == 1
+    assert result[0]["role"] == "user"
+    assert result[0]["content"] == [
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc123"}}
+    ]
+
+
+def test_convert_user_message_image_mixed_with_text():
+    content = [
+        MockBlock(type="text", text="Look at this:"),
+        MockBlock(type="image", source={"type": "url", "url": "https://example.com/x"}),
+    ]
+    messages = [MockMessage("user", content)]
+    result = AnthropicToOpenAIConverter.convert_messages(messages)
+    assert len(result) == 1
+    assert result[0]["role"] == "user"
+    assert result[0]["content"] == [
+        {"type": "text", "text": "Look at this:"},
+        {"type": "image_url", "image_url": {"url": "https://example.com/x"}},
+    ]
 
 
 def test_convert_assistant_text_after_tool_use_splits_for_openai_chat():

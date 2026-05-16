@@ -3,21 +3,21 @@
 # LLM
 llm:
   provider: ollama          # ollama | openai | anthropic
-  model: mistral:7b         # local model name
+  model: llama3.1:latest         # local model name
   base_url: http://localhost:11434
   temperature: 0.7
   max_tokens: 4096
 
 # TTS
 tts:
-  engine: xtts-v2           # xtts-v2 | piper | bark | coqui
+  engine: null
   language: en
-  voice_sample: null        # path to reference voice clip for cloning
+  voice_sample: null
   output_format: wav
 
 # Avatar
 avatar:
-  engine: sadtalker         # sadtalker | musetalk | difftalk
+  engine: null         # sadtalker | musetalk | difftalk
   # Cloud provider fallback (if local not available)
   cloud_provider: null      # heygen | did | synthesia | null
   cloud_api_key: null

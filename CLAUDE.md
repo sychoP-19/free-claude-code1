@@ -2,6 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Coding Environment
+
+- Install astral uv: `curl -LsSf https://astral.sh/uv/install.sh | sh` (update if already installed)
+- Install Python 3.14: `uv python install 3.14`
+- Always use `uv run` to run files instead of global `python`
+- Current uv ruff formatter targets py314 (supports multiple exception types without parentheses, except TypeError, ValueError)
+- Read `.env.example` for environment variables
+- All CI checks must pass; failing checks block merge
+- Add tests for new changes (including edge cases), then run `uv run pytest`
+- Run checks in order: `uv run ruff format`, `uv run ruff check`, `uv run ty check`, `uv run pytest`
+- Do not add `# type: ignore` or `# ty: ignore`; fix the underlying type issue
+- All 5 checks are enforced in `tests.yml` on push/merge
+
 ## Essential Development Commands
 
 ### Standard Workflow Commands
@@ -129,6 +142,67 @@ uv run pytest tests/ -m "not smoke"
 
 This architecture enables the proxy to route Claude Code API traffic to various free backends while maintaining protocol compatibility and providing extensibility for new providers.
 
+## Architecture Principles
+
+- **Shared utilities**: Put shared Anthropic protocol logic in neutral `core/anthropic/` modules. Do not have one provider import from another provider's utils.
+- **DRY**: Extract shared base classes to eliminate duplication. Prefer composition over copy-paste.
+- **Encapsulation**: Use accessor methods for internal state (e.g. `set_current_task()`), not direct `_attribute` assignment from outside.
+- **Provider-specific config**: Keep provider-specific fields (e.g. `nim_settings`) in provider constructors, not in the base `ProviderConfig`.
+- **Dead code**: Remove unused code, legacy systems, and hardcoded values. Use settings/config instead of literals (e.g. `settings.provider_type` not `"nvidia_nim"`).
+- **Performance**: Use list accumulation for strings (not `+=` in loops), cache env vars at init, prefer iterative over recursive when stack depth matters.
+- **Platform-agnostic naming**: Use generic names (e.g. `PLATFORM_EDIT`) not platform-specific ones (e.g. `TELEGRAM_EDIT`) in shared code.
+- **No type ignores**: Do not add `# type: ignore` or `# ty: ignore`. Fix the underlying type issue.
+- **Complete migrations**: When moving modules, update imports to the new owner and remove old compatibility shims in the same change unless preserving a published interface is explicitly required.
+- **Maximum Test Coverage**: There should be maximum test coverage for everything, preferably live smoke test coverage to catch bugs early.
+
+## Cognitive Workflow
+
+1. **ANALYZE**: Read relevant files. Do not guess.
+2. **PLAN**: Map out the logic. Identify root cause or required changes. Order changes by dependency.
+3. **EXECUTE**: Fix the cause, not the symptom. Execute incrementally with clear commits.
+4. **VERIFY**: Run CI checks and relevant smoke tests. Confirm the fix via logs or output.
+5. **SPECIFICITY**: Do exactly as much as asked; nothing more, nothing less.
+6. **PROPAGATION**: Changes impact multiple files; propagate updates correctly.
+
+## Karpathy Guidelines
+
+### Think Before Coding
+
+- State assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them — don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### Simplicity First
+
+- Minimum code that solves the problem. Nothing speculative.
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+### Surgical Changes
+
+- Touch only what you must. Clean up only your own mess.
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it — don't delete it.
+- When your changes create orphans, remove imports/variables/functions that YOUR changes made unused.
+
+### Goal-Driven Execution
+
+- Define success criteria. Loop until verified.
+- Transform tasks into verifiable goals: "Add validation" → "Write tests for invalid inputs, then make them pass"
+- For multi-step tasks, state a brief plan with verification checkpoints
+- Strong success criteria let you loop independently. Weak criteria require constant clarification.
+
+## Summary Standards
+
+- Summaries must be technical and granular.
+- Include: [Files Changed], [Logic Altered], [Verification Method], [Residual Risks] (if no residual risks then say none).
+
 ## Agent Skills
 
 ### Issue tracker
@@ -139,3 +213,12 @@ Uses five canonical labels: `needs-triage`, `needs-info`, `ready-for-agent`, `re
 
 ### Domain docs
 Single-context layout. Core domains: AI proxy server + JobAgent Pro. See `docs/agents/domain.md`.
+
+## Tools
+
+- Prefer built-in tools (grep, read_file, etc.) over manual workflows. Check tool availability before use.
+
+## Session Continuity
+
+- Do NOT re-invoke `using-superpowers` after compaction — treat restored skills as authoritative.
+- Skills already loaded after compaction are valid; invoking them again wastes tokens and time.

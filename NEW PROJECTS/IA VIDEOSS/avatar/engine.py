@@ -29,12 +29,14 @@ class AvatarEngine:
 
             # Step 1: TTS
             audio_path = self._tts(text, request, seg_id)
-            if not audio_path:
+            # If TTS is disabled, we'll use a silent audio file or skip audio
+            if audio_path is None and self.config["tts"]["engine"] is not None:
                 return {"ok": False, "error": f"TTS failed for segment {seg_id}"}
 
             # Step 2: Avatar render with lip-sync
             video_path = self._render_avatar(audio_path, request, seg_id)
-            if not video_path:
+            # If avatar rendering is disabled, we can still proceed
+            if video_path is None and self.config["avatar"]["engine"] is not None:
                 return {"ok": False, "error": f"Avatar render failed for segment {seg_id}"}
 
             segment_videos.append(video_path)
@@ -43,13 +45,17 @@ class AvatarEngine:
         if len(segment_videos) > 1:
             final_path = self._concat_segments(segment_videos)
         else:
-            final_path = segment_videos[0]
+            final_path = segment_videos[0] if segment_videos and segment_videos[0] else None
 
-        return {"ok": True, "video_path": str(final_path), "segments": segment_videos}
+        return {"ok": True, "video_path": str(final_path) if final_path else None, "segments": segment_videos}
 
     def _tts(self, text: str, request, seg_id: str) -> str | None:
         engine = self.config["tts"]["engine"]
         out_path = self.temp_dir / f"{seg_id}.wav"
+
+        # If TTS is disabled, return None to skip TTS processing
+        if engine is None or engine == "null" or engine == "":
+            return None
 
         if engine == "xtts-v2":
             return self._tts_xtts(text, str(out_path), request)
@@ -100,6 +106,29 @@ class AvatarEngine:
     def _render_avatar(self, audio_path: str, request, seg_id: str) -> str | None:
         engine = self.config["avatar"]["engine"]
         out_path = self.temp_dir / f"{seg_id}_avatar.mp4"
+
+        # If no avatar engine is specified, return None
+        if engine is None or engine == "null" or engine == "":
+            # Create a simple video with the assets if available
+            return None
+
+        # If no audio is provided (TTS disabled), we can still generate avatar without lip-sync
+        if audio_path is None:
+            # Create a silent audio file for lip-sync
+            silent_audio = self.temp_dir / f"{seg_id}_silent.wav"
+            try:
+                # Create a 1-second silent WAV file
+                import wave
+                import struct
+                with wave.open(str(silent_audio), 'w') as f:
+                    f.setnchannels(1)
+                    f.setsampwidth(2)
+                    f.setframerate(44100)
+                    f.setnframes(44100)  # 1 second of silence
+                    f.writeframes(struct.pack('<h', 0) * 44100)
+            except Exception:
+                pass
+            audio_path = str(silent_audio)
 
         # Cloud provider fallback
         cloud = self.config["avatar"]["cloud_provider"]

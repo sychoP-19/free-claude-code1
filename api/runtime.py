@@ -113,8 +113,8 @@ class AppRuntime:
                     "Model pre-flight check failed (proxy will still start):\n{}",
                     exc.message,
                 )
-            self._provider_registry.start_model_list_refresh(self.settings)
-            await self._start_messaging_if_configured()
+            # PATCHED: self._provider_registry.start_model_list_refresh(self.settings)
+            # PATCHED: await self._start_messaging_if_configured()
             self._publish_state()
         except Exception as exc:
             log_startup_failure(self.settings, exc)
@@ -161,7 +161,7 @@ class AppRuntime:
         await self._shutdown_limiter()
         logger.info("Server shut down cleanly")
 
-    async def _start_messaging_if_configured(self) -> None:
+    # PATCHED: async def _start_messaging_if_configured(self) -> None:
         try:
             from messaging.platforms.factory import (
                 MessagingPlatformOptions,
