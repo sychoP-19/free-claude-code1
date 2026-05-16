@@ -1,0 +1,7 @@
+INFO:     Started server process [10640]
+INFO:     Waiting for application startup.
+ERROR:    Configured model validation failed:
+- sources=MODEL,MODEL_SONNET provider=open_router model=anthropic/claude-sonnet-4-5 problem=query failure: ValueError
+- sources=MODEL_OPUS provider=open_router model=anthropic/claude-opus-4-5 problem=query failure: ValueError
+- sources=MODEL_HAIKU provider=nvidia_nim model=meta/llama-3.1-8b-instruct problem=query failure: ValueError
+ERROR:    Application startup failed. Exiting.

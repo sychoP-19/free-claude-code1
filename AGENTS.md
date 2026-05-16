@@ -48,6 +48,17 @@
 - Summaries must be technical and granular.
 - Include: [Files Changed], [Logic Altered], [Verification Method], [Residual Risks] (if no residual risks then say none).
 
+## Agent Skills
+
+### Issue tracker
+Local markdown — issues tracked under `.scratch/<feature>/ISSUE.md`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+Uses five canonical labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+Single-context layout. Core domains: AI proxy server + JobAgent Pro. See `docs/agents/domain.md`.
+
 ## TOOLS
 
 - Prefer built-in tools (grep, read_file, etc.) over manual workflows. Check tool availability before use.

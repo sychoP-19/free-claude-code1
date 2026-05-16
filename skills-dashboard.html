@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKILLS MATRIX | CLAUDE CODE INTEGRATION</title>
+    <style>
+        :root {
+            --color-surface: oklch(12% 0.02 260);
+            --color-surface-2: oklch(16% 0.03 260);
+            --color-surface-3: oklch(22% 0.04 260);
+            --color-text: oklch(92% 0.02 260);
+            --color-text-muted: oklch(70% 0.03 260);
+            --color-accent: oklch(68% 0.21 250);
+            --color-accent-2: oklch(72% 0.18 280);
+            --color-accent-3: oklch(65% 0.25 220);
+            --color-success: oklch(75% 0.18 150);
+            --color-warning: oklch(78% 0.16 70);
+            --color-danger: oklch(70% 0.18 20);
+            --color-grid: oklch(25% 0.03 260);
+            --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 16px;
+            --glow-accent: 0 0 30px rgba(99, 102, 241, 0.3);
+            --glow-surface: 0 0 60px rgba(99, 102, 241, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--color-surface);
+            color: var(--color-text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Animated Grid Background */
+        .grid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(var(--color-grid) 1px, transparent 1px),
+                linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.3;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .grid-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 0%, var(--color-surface) 100%);
+        }
+
+        /* Scanline Effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.1) 0px,
+                rgba(0, 0, 0, 0.1) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 1000;
+            animation: scanlineMove 8s linear infinite;
+        }
+
+        @keyframes scanlineMove {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+
+        /* Header */
+        header {
+            position: relative;
+            z-index: 10;
+            padding: 3rem 2rem;
+            text-align: center;
+            border-bottom: 1px solid var(--color-grid);
+            background: linear-gradient(180deg, var(--color-surface-2) 0%, transparent 100%);
+        }
+
+        .logo {
+            font-family: var(--font-mono);
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            font-weight: 700;
+            letter-spacing: 0.3em;
+            background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 50%, var(--color-accent-3) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: var(--glow-accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            color: var(--color-text-muted);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            padding: 1rem 2rem;
+            background: var(--color-surface-2);
+            border-bottom: 1px solid var(--color-grid);
+            position: relative;
+            z-index: 10;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-success);
+            box-shadow: 0 0 10px var(--color-success);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Content */
+        main {
+            position: relative;
+            z-index: 5;
+            padding: 2rem;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        /* Section Styling */
+        section {
+            margin-bottom: 4rem;
+        }
+
+        .section-heading {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-family: var(--font-mono);
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-accent);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--color-accent);
+        }
+
+        .section-heading::before {
+            content: '[ ';
+            color: var(--color-text-muted);
+        }
+
+        .section-heading::after {
+            content: ' ]';
+            color: var(--color-text-muted);
+        }
+
+        /* Card Grid */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--color-surface-2);
+            border: 1px solid var(--color-grid);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--color-accent), var(--color-accent-2), var(--color-accent-3));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--color-accent);
+            box-shadow: var(--glow-accent);
+            transform: translateY(-4px);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--color-surface-3);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .card-title {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text);
+            margin-bottom: 0.5rem;
+        }
+
+        .card-description {
+            font-size: 0.875rem;
+            color: var(--color-text-muted);
+            line-height: 1.7;
+        }
+
+        .card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .tag {
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            padding: 0.25rem 0.75rem;
+            background: var(--color-surface-3);
+            border: 1px solid var(--color-grid);
+            border-radius: var(--radius-sm);
+            color: var(--color-accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Command Palette */
+        .command-palette {
+            background: var(--color-surface-2);
+            border: 1px solid var(--color-grid);
+            border-radius: var(--radius-md);
+            padding: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .command-group {
+            margin-bottom: 2rem;
+        }
+
+        .command-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .command-group-title {
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            color: var(--color-accent-2);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .command-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            background: var(--color-surface-3);
+            border: 1px solid var(--color-grid);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+        }
+
+        .command-item:hover {
+            border-color: var(--color-accent);
+            background: var(--color-surface);
+        }
+
+        .command-key {
+            background: var(--color-accent);
+            color: var(--color-surface);
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.7rem;
+        }
+
+        .command-desc {
+            color: var(--color-text-muted);
+            flex: 1;
+        }
+
+        /* Architecture Diagram */
+        .architecture-diagram {
+            background: var(--color-surface-2);
+            border: 1px solid var(--color-grid);
+            border-radius: var(--radius-md);
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .arch-node {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--color-surface-3) 0%, var(--color-surface) 100%);
+            border: 1px solid var(--color-accent);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--color-accent);
+            position: relative;
+            z-index: 2;
+            box-shadow: var(--glow-accent);
+        }
+
+        .arch-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .arch-arrow {
+            font-size: 1.5rem;
+            color: var(--color-accent);
+            animation: flow 1.5s ease-in-out infinite;
+        }
+
+        @keyframes flow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* Skills Categories */
+        .skills-categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .category {
+            background: var(--color-surface-2);
+            border: 1px solid var(--color-grid);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .category:hover {
+            border-color: var(--color-accent-2);
+            box-shadow: var(--glow-surface);
+        }
+
+        .category-header {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, var(--color-surface-3) 0%, var(--color-surface-2) 100%);
+            border-bottom: 1px solid var(--color-grid);
+        }
+
+        .category-title {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .category-count {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            background: var(--color-surface);
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+            margin-left: auto;
+        }
+
+        .category-items {
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .category-items::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .category-items::-webkit-scrollbar-track {
+            background: var(--color-surface);
+        }
+
+        .category-items::-webkit-scrollbar-thumb {
+            background: var(--color-accent);
+            border-radius: 3px;
+        }
+
+        .skill-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--color-grid);
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            transition: color 0.2s ease;
+        }
+
+        .skill-item:last-child {
+            border-bottom: none;
+        }
+
+        .skill-item:hover {
+            color: var(--color-accent);
+        }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .toggle-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--color-surface-3);
+            border: 1px solid var(--color-grid);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .toggle-btn.active {
+            background: var(--color-accent);
+            color: var(--color-surface);
+            border-color: var(--color-accent);
+            box-shadow: var(--glow-accent);
+        }
+
+        /* Statistics Panel */
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: var(--color-surface-2);
+            border: 1px solid var(--color-grid);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle at top right, var(--color-accent-3) 0%, transparent 70%);
+            opacity: 0.3;
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--color-accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            border-top: 1px solid var(--color-grid);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .card-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .skills-categories {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-panel {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .arch-flow {
+                flex-direction: column;
+            }
+
+            .arch-arrow {
+                transform: rotate(90deg);
+            }
+        }
+
+        /* Glitch Effect */
+        .glitch {
+            position: relative;
+        }
+
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .glitch::before {
+            animation: glitch-1 0.3s infinite;
+            color: var(--color-accent-3);
+            z-index: -1;
+        }
+
+        .glitch::after {
+            animation: glitch-2 0.3s infinite;
+            color: var(--color-accent-2);
+            z-index: -2;
+        }
+
+        @keyframes glitch-1 {
+            0%, 100% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+        }
+
+        @keyframes glitch-2 {
+            0%, 100% { transform: translate(0); }
+            20% { transform: translate(2px, -2px); }
+            40% { transform: translate(2px, 2px); }
+            60% { transform: translate(-2px, -2px); }
+            80% { transform: translate(-2px, 2px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-bg"></div>
+    <div class="scanlines"></div>
+
+    <header>
+        <h1 class="logo glitch" data-text="SKILLS MATRIX">SKILLS MATRIX</h1>
+        <p class="subtitle">CLAUDE CODE INTEGRATION SYSTEM v2.0</p>
+    </header>
+
+    <div class="status-bar">
+        <div class="status-item">
+            <span class="status-indicator"></span>
+            <span>SYSTEM ONLINE</span>
+        </div>
+        <div class="status-item">
+            <span class="status-indicator" style="background: var(--color-accent); box-shadow: 0 0 10px var(--color-accent);"></span>
+            <span>386 SKILLS LOADED</span>
+        </div>
+        <div class="status-item">
+            <span class="status-indicator" style="background: var(--color-warning); box-shadow: 0 0 10px var(--color-warning);"></span>
+            <span>GPSR CONFIG ACTIVE</span>
+        </div>
+    </div>
+
+    <main>
+        <!-- Statistics Panel -->
+        <section>
+            <div class="stats-panel">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-skills">386</div>
+                    <div class="stat-label">Total Skills</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">12</div>
+                    <div class="stat-label">Language Support</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">93%</div>
+                    <div class="stat-label">Confidence Threshold</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">27</div>
+                    <div class="stat-label">Active Hooks</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Command Palette -->
+        <section>
+            <h2 class="section-heading">ESSENTIAL COMMANDS</h2>
+            <div class="command-palette">
+                <div class="command-group">
+                    <h3 class="command-group-title">// Standard Workflow</h3>
+                    <div class="command-item">
+                        <span class="command-key">1</span>
+                        <span>uv run ruff format</span>
+                        <span class="command-desc">Code formatting</span>
+                    </div>
+                    <div class="command-item">
+                        <span class="command-key">2</span>
+                        <span>uv run ruff check</span>
+                        <span class="command-desc">Linting check</span>
+                    </div>
+                    <div class="command-item">
+                        <span class="command-key">3</span>
+                        <span>uv run ty check</span>
+                        <span class="command-desc">Type checking</span>
+                    </div>
+                    <div class="command-item">
+                        <span class="command-key">4</span>
+                        <span>uv run pytest</span>
+                        <span class="command-desc">Full test suite</span>
+                    </div>
+                </div>
+                <div class="command-group">
+                    <h3 class="command-group-title">// Development Tools</h3>
+                    <div class="command-item">
+                        <span class="command-key">//init</span>
+                        <span class="command-desc">Initialize CLAUDE.md</span>
+                    </div>
+                    <div class="command-item">
+                        <span class="command-key">/model</span>
+                        <span class="command-desc">Switch provider model</span>
+                    </div>
+                    <div class="command-item">
+                        <span class="command-key">/review</span>
+                        <span class="command-desc">Code quality review</span>
+                    </div>
+                    <div class="command-item">
+                        <span class="command-key">/security</span>
+                        <span class="command-desc">Security audit</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Architecture Diagram -->
+        <section>
+            <h2 class="section-heading">REQUEST PIPELINE</h2>
+            <div class="architecture-diagram">
+                <div class="arch-flow">
+                    <div class="arch-node">CLIENT REQUEST</div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-node">FastAPI ROUTES</div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-node">PROXY SERVICE</div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-node">PROVIDER</div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-node">SSE STREAM</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Skills Categories -->
+        <section>
+            <h2 class="section-heading">SKILLS DATABASE</h2>
+            <div class="toggle-container">
+                <button class="toggle-btn active" data-view="all">All Categories</button>
+                <button class="toggle-btn" data-view="ecc">ECC Suite</button>
+                <button class="toggle-btn" data-view="language">Language Specific</button>
+                <button class="toggle-btn" data-view="engineering">Engineering</button>
+            </div>
+            <div class="skills-categories" id="skillsContainer">
+            </div>
+        </section>
+
+        <!-- CLAUDE.md Quick Reference -->
+        <section>
+            <h2 class="section-heading">ARCHITECTURE NOTES</h2>
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-icon">🔌</div>
+                    <h3 class="card-title">Provider Abstraction</h3>
+                    <p class="card-description">
+                        Two transport implementations: OpenAIChatTransport for NVIDIA NIM/OpenRouter,
+                        AnthropicMessagesTransport for DeepSeek/LM Studio/Ollama/llama.cpp.
+                    </p>
+                    <div class="card-tags">
+                        <span class="tag">openai_chat</span>
+                        <span class="tag">anthropic_messages</span>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🔄</div>
+                    <h3 class="card-title">Protocol Translation</h3>
+                    <p class="card-description">
+                        SSEBuilder converts responses to Anthropic-compatible SSE format.
+                        HeuristicToolParser extracts tool calls from streaming responses.
+                    </p>
+                    <div class="card-tags">
+                        <span class="tag">sse</span>
+                        <span class="tag">tool_parser</span>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🧠</div>
+                    <h3 class="card-title">Thinking Support</h3>
+                    <p class="card-description">
+                        ThinkTagParser detects reasoning blocks for thinking mode support.
+                        Configurable per-model thinking preferences.
+                    </p>
+                    <div class="card-tags">
+                        <span class="tag">thinking</span>
+                        <span class="tag">reasoning</span>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🔧</div>
+                    <h3 class="card-title">Adding Providers</h3>
+                    <p class="card-description">
+                        1. Add to provider_catalog.py
+                        2. Create provider module
+                        3. Register in registry.py
+                        4. Add tests
+                    </p>
+                    <div class="card-tags">
+                        <span class="tag">extension</span>
+                        <span class="tag">provider</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>FREE CLAUDE CODE PROXY v2.0.0 | Powered by NVIDIA NIM / OpenRouter / DeepSeek</p>
+        <p style="margin-top: 0.5rem; opacity: 0.6;">SYSTEM STATUS: FULLY OPERATIONAL | LAST SYNC: 2026-05-09</p>
+    </footer>
+
+    <script>
+        // Skills Data
+        const skillsData = {
+            'ecc': {
+                title: 'ECC Suite',
+                icon: '⚡',
+                color: 'var(--color-accent)',
+                skills: [
+                    'agent-harness-construction', 'agent-introspection-debugging', 'agent-sort',
+                    'agentic-engineering', 'ai-first-engineering', 'ai-regression-testing',
+                    'android-clean-architecture', 'api-connector-builder', 'api-design',
+                    'article-writing', 'automation-audit-ops', 'autonomous-loops',
+                    'backend-patterns', 'blueprint', 'brand-voice',
+                    'carrier-relationship-management', 'claude-devfleet', 'clickhouse-io',
+                    'code-tour', 'coding-standards', 'compose-multiplatform-patterns',
+                    'configure-ecc', 'connections-optimizer', 'content-engine',
+                    'continuous-agent-loop', 'continuous-learning', 'cost-aware-llm-pipeline',
+                    'council', 'cpp-coding-standards', 'cpp-testing', 'crosspost',
+                    'csharp-testing', 'customer-billing-ops', 'customs-trade-compliance',
+                    'dart-flutter-patterns', 'dashboard-builder', 'data-scraper-agent',
+                    'database-migrations', 'deep-research', 'defi-amm-security',
+                    'deployment-patterns', 'django-patterns', 'django-security', 'django-tdd',
+                    'docker-patterns', 'dotnet-patterns', 'e2e-testing', 'email-ops',
+                    'energy-procurement', 'enterprise-agent-ops', 'eval-harness',
+                    'evm-token-decimals', 'exa-search', 'fal-ai-media',
+                    'finance-billing-ops', 'frontend-patterns', 'frontend-slides',
+                    'github-ops', 'golang-patterns', 'golang-testing', 'google-workspace-ops'
+                ]
+            },
+            'language': {
+                title: 'Language Specific',
+                icon: '💻',
+                color: 'var(--color-accent-2)',
+                skills: [
+                    'cpp-build', 'cpp-review', 'cpp-test',
+                    'dart-build', 'dart-review', 'dart-test',
+                    'feature-dev', 'flutter-build', 'flutter-review', 'flutter-test',
+                    'gan-build', 'gan-design', 'go-build', 'go-review', 'go-test',
+                    'gradle-build', 'java-review', 'kotlin-build', 'kotlin-review', 'kotlin-test',
+                    'python-review', 'rust-build', 'rust-review', 'rust-test'
+                ]
+            },
+            'engineering': {
+                title: 'Engineering Tools',
+                icon: '🔨',
+                color: 'var(--color-accent-3)',
+                skills: [
+                    'e2e', 'eval', 'evolve', 'gan-build', 'gan-design',
+                    'harness-audit', 'hookify', 'jira', 'job-hunter-pro', 'learn',
+                    'loop-start', 'plan', 'pm2', 'postiz', 'projects', 'promote',
+                    'prompt-optimize', 'prp-commit', 'prp-implement', 'prp-plan', 'prp-pr',
+                    'prp-prd', 'prune', 'quality-gate', 'refactor-clean', 'review-pr',
+                    'rules-distill', 'security-review', 'security-scan', 'security-testing-toolkit',
+                    'simplify', 'tdd', 'test-coverage', 'update-codemaps', 'update-docs', 'verify'
+                ]
+            },
+            'workflow': {
+                title: 'Workflow & Planning',
+                icon: '📋',
+                color: 'var(--color-success)',
+                skills: [
+                    'agent-sort', 'agentic-engineering', 'blueprint', 'configure-ecc',
+                    'continuous-learning', 'continuous-learning-v2', 'continuous-agent-loop',
+                    'loop-start', 'plan', 'prp-plan', 'prp-prd', 'prp-implement', 'prp-commit',
+                    'tdd', 'prp-pr', 'review', 'verify', 'refactor-clean'
+                ]
+            },
+            'security': {
+                title: 'Security & Compliance',
+                icon: '🔒',
+                color: 'var(--color-danger)',
+                skills: [
+                    'security-review', 'security-scan', 'security-testing-toolkit',
+                    'django-security', 'springboot-security', 'perl-security', 'cpp-review',
+                    'typescript-reviewer', 'cockroach-bank-security-review'
+                ]
+            },
+            'testing': {
+                title: 'Testing Frameworks',
+                icon: '🧪',
+                color: 'var(--color-warning)',
+                skills: [
+                    'e2e', 'e2e-testing', 'test-coverage', 'tdd', 'tdd-guide', 'cpp-testing',
+                    'golang-testing', 'kotlin-test', 'python-testing', 'rust-testing',
+                    'django-tdd', 'springboot-tdd', 'perl-testing', 'go-test', 'java-test'
+                ]
+            }
+        };
+
+        // Render Skills Categories
+        function renderSkills() {
+            const container = document.getElementById('skillsContainer');
+            for (const [key, category] of Object.entries(skillsData)) {
+                const div = document.createElement('div');
+                div.className = 'category';
+                div.dataset.view = key;
+                div.innerHTML = `
+                    <div class="category-header">
+                        <h3 class="category-title">
+                            <span>${category.icon}</span>
+                            ${category.title}
+                            <span class="category-count">${category.skills.length}</span>
+                        </h3>
+                    </div>
+                    <div class="category-items">
+                        ${category.skills.map(skill => `
+                            <div class="skill-item">${skill}</div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        // Toggle Buttons
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                const view = this.dataset.view;
+                document.querySelectorAll('.category').forEach(cat => {
+                    if (view === 'all' || cat.dataset.view === view) {
+                        cat.style.display = '';
+                    } else {
+                        cat.style.display = 'none';
+                    }
+                });
+            });
+        });
+
+        // Animate Stats on Load
+        function animateStats() {
+            const statValues = document.querySelectorAll('.stat-value');
+            statValues.forEach(stat => {
+                const target = stat.textContent;
+                if (/\d+/.test(target)) {
+                    const num = parseInt(target);
+                    let current = 0;
+                    const increment = num / 50;
+                    const timer = setInterval(() => {
+                        current += increment;
+                        if (current >= num) {
+                            stat.textContent = target;
+                            clearInterval(timer);
+                        } else {
+                            stat.textContent = Math.floor(current);
+                        }
+                    }, 30);
+                }
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSkills();
+            animateStats();
+        });
+    </script>
+</body>
+</html>

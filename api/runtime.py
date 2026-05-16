@@ -104,7 +104,15 @@ class AppRuntime:
         self.app.state.provider_registry = self._provider_registry
         try:
             warn_if_process_auth_token(self.settings)
-            await self._provider_registry.validate_configured_models(self.settings)
+            try:
+                await self._provider_registry.validate_configured_models(self.settings)
+            except ServiceUnavailableError as exc:
+                # Warn but continue — provider APIs may be rate-limited or temporarily
+                # unavailable at startup; actual errors surface per-request.
+                logger.warning(
+                    "Model pre-flight check failed (proxy will still start):\n{}",
+                    exc.message,
+                )
             self._provider_registry.start_model_list_refresh(self.settings)
             await self._start_messaging_if_configured()
             self._publish_state()

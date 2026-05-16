@@ -1,0 +1,40 @@
+.cal-today-bar {
+  background: #1E293B;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border: 1px solid #334155;
+}
+
+.cal-today-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #CBD5E1;
+  margin-bottom: 10px;
+}
+
+.cal-today-info strong { color: #F8FAFC; }
+
+.cal-left { color: #10B981; }
+.cal-over { color: #EF4444; }
+
+.cal-progress-track {
+  height: 8px;
+  background: #0F172A;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.cal-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+
+.history-note {
+  flex: 1;
+  font-size: 0.8rem;
+  color: #64748B;
+  font-style: italic;
+}

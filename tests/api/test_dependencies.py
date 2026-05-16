@@ -330,7 +330,7 @@ async def test_get_provider_unknown_type():
     with patch("api.dependencies.get_settings") as mock_settings:
         mock_settings.return_value = _make_mock_settings(provider_type="unknown")
 
-        with pytest.raises(UnknownProviderTypeError, match="Unknown provider_type"):
+        with pytest.raises(UnknownProviderTypeError, match="Unknown provider type"):
             get_provider()
 
 

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobAgent Pro</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Status Bar -->
+<header class="statusbar">
+  <div class="statusbar-brand">
+    <span>JobAgent</span>
+    <span class="badge">PRO</span>
+  </div>
+  <div class="statusbar-info">
+    <span id="statusText">Ready</span>
+    <span class="statusbar-dot"></span>
+  </div>
+</header>
+
+<div class="app-layout">
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-nav">
+      <button class="nav-item active" data-route="dashboard">
+        <span class="nav-icon">&#9632;</span>
+        Dashboard
+      </button>
+      <button class="nav-item" data-route="search">
+        <span class="nav-icon">&#9740;</span>
+        Search
+      </button>
+      <button class="nav-item" data-route="keywords">
+        <span class="nav-icon">#</span>
+        Keywords
+      </button>
+      <button class="nav-item" data-route="resume">
+        <span class="nav-icon">&#9776;</span>
+        Resume
+      </button>
+      <button class="nav-item" data-route="approved">
+        <span class="nav-icon">&#10003;</span>
+        Approved
+        <span class="nav-count" id="approvedCount">0</span>
+      </button>
+      <button class="nav-item" data-route="export">
+        <span class="nav-icon">&#8615;</span>
+        Export
+      </button>
+      <button class="nav-item" data-route="settings">
+        <span class="nav-icon">&#9881;</span>
+        Settings
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main-content" id="mainContent">
+
+    <!-- ==================== DASHBOARD ==================== -->
+    <section class="page-section active" id="page-dashboard">
+      <div class="page-header">
+        <h1>Dashboard</h1>
+        <p>Overview of your job search activity</p>
+      </div>
+      <div class="bento-grid" id="dashboardStats">
+        <div class="bento-card skeleton-card" data-stat="statTotal">
+          <div class="bento-icon accent">&#9632;</div>
+          <div class="bento-value skeleton-text">Loading...</div>
+          <div class="bento-label">Total Jobs Found</div>
+        </div>
+        <div class="bento-card skeleton-card" data-stat="statNew">
+          <div class="bento-icon coral">!</div>
+          <div class="bento-value skeleton-text">Loading...</div>
+          <div class="bento-label">New / Pending</div>
+        </div>
+        <div class="bento-card skeleton-card" data-stat="statApproved">
+          <div class="bento-icon green">&#10003;</div>
+          <div class="bento-value skeleton-text">Loading...</div>
+          <div class="bento-label">Approved</div>
+        </div>
+        <div class="bento-card skeleton-card" data-stat="statAvgScore">
+          <div class="bento-icon amber">&#9733;</div>
+          <div class="bento-value skeleton-text">Loading...</div>
+          <div class="bento-label">Avg Match Score</div>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <div class="card-header">
+          <span>Recent Notes</span>
+        </div>
+        <div class="card-body">
+          <div class="notes-list" id="dashboardNotes">
+            <div class="empty-state">
+              <div class="empty-icon">&#9998;</div>
+              <h3>No notes yet</h3>
+              <p>Add notes to keep track of your job search progress.</p>
+            </div>
+          </div>
+          <div class="notes-input-area">
+            <div style="display:flex;gap:8px">
+              <input type="text" class="input-field" id="noteInput" placeholder="Write a note..." style="flex:1">
+              <button class="btn btn-primary btn-sm" id="btnAddNote">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SEARCH ==================== -->
+    <section class="page-section" id="page-search">
+      <div class="page-header">
+        <h1>Search Jobs</h1>
+        <p>Run live scrapers and review results</p>
+      </div>
+
+      <div class="glass-card" style="margin-bottom:18px">
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="searchKeywords">Keywords (comma separated)</label>
+              <input type="text" class="input-field" id="searchKeywords" placeholder="e.g. python, react, remote">
+            </div>
+            <div class="form-group">
+              <label>Search</label>
+              <div class="btn-group" style="margin-top:6px">
+                <button class="btn btn-primary" id="btnSearch">&#9740; Run Search</button>
+                <button class="btn btn-glass" id="btnPreview">Preview</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="searchStatus" class="search-status" style="display:none">
+        <div class="spinner"></div>
+        <span id="searchStatusText">Searching...</span>
+        <span id="searchTimer" style="margin-left:auto;font-family:var(--font-mono);font-size:0.78rem;color:var(--color-text-muted)"></span>
+      </div>
+
+      <div class="table-container" id="searchResultsContainer" style="display:none">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Title</th>
+              <th>Company</th>
+              <th>Location</th>
+              <th>Source</th>
+              <th>Date</th>
+              <th>Match</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="searchResultsBody"></tbody>
+        </table>
+      </div>
+
+      <div id="searchEmpty" class="empty-state">
+        <div class="empty-icon">&#9740;</div>
+        <h3>Ready to search</h3>
+        <p>Enter keywords above and click "Run Search" to find live job listings.</p>
+      </div>
+      <div id="searchNoResults" class="empty-state" style="display:none">
+        <div class="empty-icon">&#9740;</div>
+        <h3>No jobs found</h3>
+        <p>Try different keywords or check your location settings.</p>
+      </div>
+    </section>
+
+    <!-- ==================== KEYWORDS ==================== -->
+    <section class="page-section" id="page-keywords">
+      <div class="page-header">
+        <h1>Keywords</h1>
+        <p>Manage search keywords for job matching</p>
+      </div>
+
+      <div class="glass-card" style="margin-bottom:18px">
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="newKeyword">Add Keyword</label>
+              <div style="display:flex;gap:8px">
+                <input type="text" class="input-field" id="newKeyword" placeholder="e.g. machine learning" style="flex:1">
+                <button class="btn btn-primary" id="btnAddKeyword">Add</button>
+              </div>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end">
+              <button class="btn btn-glass" id="btnImportKeywords">&#8593; Import from Resume</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <div class="card-header">
+          <span>Active Keywords</span>
+          <span id="keywordCount" style="font-size:0.78rem">0</span>
+        </div>
+        <div class="card-body">
+          <div class="chip-container" id="keywordsList">
+            <div class="empty-state">
+              <div class="empty-icon">#</div>
+              <h3>No keywords</h3>
+              <p>Add keywords or import them from your resume.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== RESUME ==================== -->
+    <section class="page-section" id="page-resume">
+      <div class="page-header">
+        <h1>Resume</h1>
+        <p>Your resume text and skills profile</p>
+      </div>
+
+      <div class="resume-panel">
+        <div class="glass-card">
+          <div class="card-header">
+            <span>Resume Text</span>
+          </div>
+          <div class="card-body">
+            <div class="resume-text-block" id="resumeText">Loading...</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="glass-card" style="margin-bottom:18px">
+            <div class="card-header">
+              <span>Skills &amp; Keywords</span>
+            </div>
+            <div class="card-body">
+              <div class="chip-container" id="resumeKeywords">
+                <div class="empty-state" style="padding:12px">
+                  <p>No skills extracted.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-header">
+              <span>Languages</span>
+            </div>
+            <div class="card-body">
+              <div class="chip-container" id="resumeLanguages"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== APPROVED ==================== -->
+    <section class="page-section" id="page-approved">
+      <div class="page-header">
+        <h1>Approved Jobs</h1>
+        <p>Jobs you've approved for follow-up</p>
+      </div>
+
+      <div id="approvedContainer">
+        <div class="empty-state">
+          <div class="empty-icon">&#10003;</div>
+          <h3>No approved jobs</h3>
+          <p>Search for jobs and approve matching ones from the results.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== EXPORT ==================== -->
+    <section class="page-section" id="page-export">
+      <div class="page-header">
+        <h1>Export</h1>
+        <p>Download your job data</p>
+      </div>
+
+      <div class="export-grid">
+        <div class="export-card" id="exportPDF">
+          <div class="export-icon">&#128196;</div>
+          <h3>Export as PDF</h3>
+          <p>Generate a formatted report of all jobs</p>
+        </div>
+        <div class="export-card" id="exportReport">
+          <div class="export-icon">&#128202;</div>
+          <h3>Full Report</h3>
+          <p>Complete job search analysis with stats</p>
+        </div>
+        <div class="export-card" id="exportPrint">
+          <div class="export-icon">&#128424;</div>
+          <h3>Print</h3>
+          <p>Open a print-friendly view</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SETTINGS ==================== -->
+    <section class="page-section" id="page-settings">
+      <div class="page-header">
+        <h1>Settings</h1>
+        <p>Configure your job agent</p>
+      </div>
+
+      <div class="settings-grid">
+        <div class="settings-card">
+          <div class="form-section-title">Gmail Notification</div>
+          <div class="form-group">
+            <label for="setGmailUser">Email</label>
+            <input type="email" class="input-field" id="setGmailUser" placeholder="your@gmail.com">
+          </div>
+          <div class="form-group">
+            <label for="setGmailPass">App Password</label>
+            <input type="password" class="input-field" id="setGmailPass" placeholder="App password">
+          </div>
+          <button class="btn btn-glass btn-sm" id="btnTestEmail">Test Email</button>
+        </div>
+
+        <div class="settings-card">
+          <div class="form-section-title">Schedule</div>
+          <div class="form-group">
+            <label for="setScheduleTime">Daily Search Time</label>
+            <input type="time" class="input-field" id="setScheduleTime">
+          </div>
+          <div class="form-group">
+            <label for="setMatchThreshold">Match Threshold</label>
+            <input type="range" id="setMatchThreshold" min="0" max="100" value="50">
+            <div style="text-align:right;font-size:0.78rem;color:var(--color-text-secondary)" id="matchThresholdLabel">50%</div>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <div class="form-section-title">Locations</div>
+          <div class="toggle-group" id="locationToggles"></div>
+        </div>
+
+        <div class="settings-card">
+          <div class="form-section-title">Languages</div>
+          <div class="toggle-group" id="languageToggles"></div>
+        </div>
+
+        <div class="settings-card full">
+          <div style="display:flex;justify-content:flex-end;gap:8px">
+            <button class="btn btn-primary" id="btnSaveSettings">Save Settings</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

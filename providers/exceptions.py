@@ -91,10 +91,19 @@ class APIError(ProviderError):
 
 
 class UnknownProviderTypeError(InvalidRequestError):
-    """Raised when ``provider_id`` is not registered in the provider map."""
+    """Raised when ``provider_id`` is not registered in the provider map.
+
+    The message deliberately omits the list of supported providers to avoid
+    leaking backend topology information to callers. The full list is logged
+    server-side in :func:`~api.dependencies._resolve_with_registry`.
+    """
+
+    _USER_FACING_MESSAGE = (
+        "Unknown provider type. Check server logs for supported providers."
+    )
 
     def __init__(self, message: str) -> None:
-        super().__init__(message)
+        super().__init__(self._USER_FACING_MESSAGE)
 
 
 class ServiceUnavailableError(ProviderError):

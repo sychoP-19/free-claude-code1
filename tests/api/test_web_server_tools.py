@@ -94,8 +94,10 @@ def test_web_server_tool_not_detected_when_forced_name_missing_from_tools():
     assert not is_web_server_tool_request(request)
 
 
-def test_service_rejects_forced_server_tool_on_openai_when_disabled():
+def test_service_rejects_forced_server_tool_on_openai_when_disabled(monkeypatch):
     """OpenAI Chat upstreams cannot run forced server tools without the local handler."""
+    monkeypatch.delenv("ENABLE_WEB_SERVER_TOOLS", raising=False)
+    monkeypatch.setitem(Settings.model_config, "env_file", ())
     settings = Settings()
     assert settings.enable_web_server_tools is False
     service = ClaudeProxyService(

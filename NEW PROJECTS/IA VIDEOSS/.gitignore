@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Environment
+.env
+*.key
+*.secret
+
+# Generated files
+temp/
+output/
+data/*.db
+models/*.gguf
+models/*.safetensors
+assets/*.png
+assets/*.jpg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SadTalker / MuseTalk checkpoints (large)
+SadTalker/checkpoints/
+MuseTalk/models/

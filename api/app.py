@@ -16,19 +16,25 @@ from config.settings import get_settings
 from providers.exceptions import ProviderError
 
 from .routes import router
-from .runtime import AppRuntime, startup_failure_message
+from .runtime import AppRuntime, best_effort, startup_failure_message
 from .validation_log import summarize_request_validation_body
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager."""
-    runtime = AppRuntime.for_app(app, settings=get_settings())
-    await runtime.startup()
+    """Application lifespan manager with startup-failure guard."""
+    settings = get_settings()
+    runtime = AppRuntime.for_app(app, settings=settings)
+    try:
+        await runtime.startup()
+    except Exception:
+        await best_effort("runtime.shutdown", runtime.shutdown())
+        raise
 
-    yield
-
-    await runtime.shutdown()
+    try:
+        yield
+    finally:
+        await runtime.shutdown()
 
 
 class GracefulLifespanApp:

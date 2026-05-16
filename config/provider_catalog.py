@@ -14,6 +14,7 @@ TransportType = Literal["openai_chat", "anthropic_messages"]
 # Default upstream base URLs (also re-exported via :mod:`providers.defaults`)
 NVIDIA_NIM_DEFAULT_BASE = "https://integrate.api.nvidia.com/v1"
 KIMI_DEFAULT_BASE = "https://api.moonshot.ai/v1"
+GLM_DEFAULT_BASE = "https://open.bigmodel.cn/api/paas/v4"
 # DeepSeek Anthropic-compatible Messages API (not OpenAI ``/v1`` chat completions).
 DEEPSEEK_ANTHROPIC_DEFAULT_BASE = "https://api.deepseek.com/anthropic"
 # Historical export name: DeepSeek upstream is the native Anthropic path above.
@@ -111,6 +112,16 @@ PROVIDER_CATALOG: dict[str, ProviderDescriptor] = {
         credential_attr="kimi_api_key",
         default_base_url=KIMI_DEFAULT_BASE,
         proxy_attr="kimi_proxy",
+        capabilities=("chat", "streaming", "tools"),
+    ),
+    "glm": ProviderDescriptor(
+        provider_id="glm",
+        transport_type="openai_chat",
+        credential_env="GLM_API_KEY",
+        credential_url="https://bigmodel.cn/usercenter/proj-mgmt/apikeys",
+        credential_attr="glm_api_key",
+        default_base_url=GLM_DEFAULT_BASE,
+        proxy_attr="glm_proxy",
         capabilities=("chat", "streaming", "tools"),
     ),
 }

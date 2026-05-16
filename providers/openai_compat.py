@@ -186,7 +186,7 @@ class OpenAIChatTransport(BaseProvider):
         if not state or not state.started:
             name_ok = bool((resolved_name or "").strip())
             if name_ok:
-                tool_id = str(resolved_id) if resolved_id else f"tool_{uuid.uuid4()}"
+                tool_id = str(resolved_id) if resolved_id else f"tool_{uuid.uuid4().hex[:12]}"
                 display_name = (resolved_name or "").strip() or "tool_call"
                 yield sse.start_tool_block(tc_index, tool_id, display_name)
                 state = sse.blocks.tool_states[tc_index]
@@ -338,7 +338,7 @@ class OpenAIChatTransport(BaseProvider):
                             for event in self._process_tool_call(tc_info, sse):
                                 yield event
 
-            except asyncio.CancelledError, GeneratorExit:
+            except (asyncio.CancelledError, GeneratorExit):
                 raise
             except Exception as e:
                 self._log_stream_transport_error(tag, req_tag, e)
@@ -364,7 +364,7 @@ class OpenAIChatTransport(BaseProvider):
                 else:
                     for event in sse.emit_error(error_message):
                         yield event
-                yield sse.message_delta("end_turn", 1)
+                yield sse.message_delta(map_stop_reason("end_turn"), 1)
                 yield sse.message_stop()
                 return
 

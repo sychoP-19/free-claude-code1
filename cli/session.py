@@ -107,8 +107,10 @@ class CLISession:
             self._is_busy = True
             env = os.environ.copy()
 
+            # The proxy validates the real API key from config; the env var is
+            # only set so the CLI child process doesn't error on missing key.
             if "ANTHROPIC_API_KEY" not in env:
-                env["ANTHROPIC_API_KEY"] = "sk-placeholder-key-for-proxy"
+                env["ANTHROPIC_API_KEY"] = os.environ.get("ANTHROPIC_API_KEY", "sk-placeholder")
 
             env["ANTHROPIC_API_URL"] = self.api_url
             if self.api_url.endswith("/v1"):
@@ -263,6 +265,10 @@ class CLISession:
     ) -> AsyncGenerator[dict]:
         """Process a single line and yield events."""
         try:
+            if len(line_str) > 131072:
+                logger.warning("CLI line too large ({} chars), discarding", len(line_str))
+                yield {"type": "raw", "content": "<line too large>"}
+                return
             event = json.loads(line_str)
             if not session_id_extracted:
                 extracted_id = self._extract_session_id(event)

@@ -362,11 +362,9 @@ class AnthropicMessagesTransport(BaseProvider):
                         await send_response.aclose()
                         send_response.raise_for_status()
                     if send_response.status_code != 200:
-                        try:
-                            await self._raise_for_status(send_response, req_tag=req_tag)
-                        finally:
-                            if not send_response.is_closed:
-                                await send_response.aclose()
+                        await self._raise_for_status(send_response, req_tag=req_tag)
+                        if not send_response.is_closed:
+                            await send_response.aclose()
                     return send_response
 
                 response = await self._global_rate_limiter.execute_with_retry(

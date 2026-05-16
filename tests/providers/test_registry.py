@@ -116,7 +116,7 @@ def test_provider_registry_caches_by_provider_id():
 
 
 def test_unknown_provider_raises_unknown_provider_type_error():
-    with pytest.raises(UnknownProviderTypeError, match="Unknown provider_type"):
+    with pytest.raises(UnknownProviderTypeError, match="Unknown provider type"):
         create_provider("unknown", _make_settings())
 
 

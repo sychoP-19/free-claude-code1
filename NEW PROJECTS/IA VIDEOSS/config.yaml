@@ -1,0 +1,86 @@
+# ── AI Avatar Video Agent Configuration ──
+
+# LLM
+llm:
+  provider: ollama          # ollama | openai | anthropic
+  model: mistral:7b         # local model name
+  base_url: http://localhost:11434
+  temperature: 0.7
+  max_tokens: 4096
+
+# TTS
+tts:
+  engine: xtts-v2           # xtts-v2 | piper | bark | coqui
+  language: en
+  voice_sample: null        # path to reference voice clip for cloning
+  output_format: wav
+
+# Avatar
+avatar:
+  engine: sadtalker         # sadtalker | musetalk | difftalk
+  # Cloud provider fallback (if local not available)
+  cloud_provider: null      # heygen | did | synthesia | null
+  cloud_api_key: null
+  pose_style: 0             # SadTalker pose style 0-45
+  expression: neutral
+  still_mode: true          # Less head movement for professional look
+
+# Lip Sync
+lip_sync:
+  engine: wav2lip           # wav2lip | latentsync | videoretalking
+  enhancer: gfpgan          # gfpgan | realesrgan | null
+
+# Enhancement Pipeline
+enhancement:
+  background:
+    remove: true            # Remove original background
+    replace: null           # Path to replacement image or null for transparent
+    engine: rembg           # rembg | modnet
+  captions:
+    enabled: true
+    engine: faster-whisper  # whisper | faster-whisper
+    style: default          # default | bold | cinematic | minimal
+    font_size: 24
+    position: bottom        # top | bottom | center
+  branding:
+    logo: null              # Path to logo image
+    watermark_text: null
+    watermark_opacity: 0.3
+    position: bottom-right
+  music:
+    enabled: false
+    file: null              # Path to background music
+    volume: 0.15            # Background music volume (0.0 - 1.0)
+    fade_in: 1.0            # seconds
+    fade_out: 2.0           # seconds
+  quality:
+    upscale: false
+    upscale_engine: realesrgan  # realesrgan | gfpgan
+    denoise: true
+    target_resolution: 1080 # 720 | 1080 | 4k
+
+# Review
+review:
+  preview_quality: medium   # low | medium | high
+  serve_port: 7860          # localhost preview port
+  auto_open: true
+
+# Output
+output:
+  format: mp4               # mp4 | webm | gif | all
+  codec: libx264
+  fps: 25
+  resolution: 1920x1080
+  output_dir: ./output
+
+# Storage
+storage:
+  db_path: ./data/avatar_agent.db
+  models_dir: ./models
+  assets_dir: ./assets
+  temp_dir: ./temp
+
+# GPU
+gpu:
+  device: auto              # auto | cuda | rocm | metal | cpu
+  memory_limit_gb: null     # null = no limit

@@ -1,0 +1,62 @@
+.profile { max-width: 560px; margin: 0 auto; padding-bottom: 80px; }
+
+.profile-card {
+  background: var(--glass-bg); backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border); border-radius: 16px;
+  padding: 24px; display: flex; flex-direction: column; gap: 18px;
+}
+.profile-field { display: flex; flex-direction: column; gap: 6px; }
+.profile-field label {
+  font-size: 0.8rem; font-weight: 600; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.profile-field input {
+  padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font-size: 0.95rem; outline: none;
+  transition: border-color 0.15s;
+}
+.profile-field input:focus { border-color: var(--primary); }
+
+.profile-avatar-row {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 16px;
+}
+.profile-avatar {
+  width: 56px; height: 56px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 1.5rem;
+  font-weight: 700; color: #FFF; flex-shrink: 0;
+}
+.color-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+.color-picker.small .color-swatch { width: 24px; height: 24px; }
+.color-swatch {
+  width: 36px; height: 36px; border-radius: 50%; border: 3px solid transparent;
+  cursor: pointer; transition: all 0.15s; outline: none;
+}
+.color-swatch.active { border-color: var(--text); transform: scale(1.15); }
+.color-swatch:hover { transform: scale(1.1); }
+
+.theme-picker { display: flex; gap: 8px; }
+.theme-btn {
+  padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text2); cursor: pointer;
+  font-size: 0.8rem; font-weight: 600; transition: all 0.15s;
+}
+.theme-btn.active { border-color: var(--primary); background: rgba(79,70,229,0.15); color: var(--primary); }
+
+.wizard-nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 4px; }
+
+.wizard-progress {
+  height: 4px; background: var(--surface2); border-radius: 2px; margin-bottom: 20px; overflow: hidden;
+}
+.wizard-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.4s ease; }
+
+.profile-export {
+  margin-top: 24px; background: var(--glass-bg); backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px;
+}
+.export-btns { display: flex; gap: 12px; }
+.export-btns .btn {
+  padding: 10px 20px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); font-size: 0.85rem;
+  font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.export-btns .btn:hover { border-color: var(--primary); background: rgba(79,70,229,0.1); }

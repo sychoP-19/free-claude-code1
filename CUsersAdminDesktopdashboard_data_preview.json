@@ -1,0 +1,217 @@
+{
+  "summary": {
+    "total_skills": 137,
+    "total_agents": 74,
+    "total_providers": 8,
+    "categories": {
+      "Agent Frameworks": 8,
+      "General": 64,
+      "Mobile": 4,
+      "Architecture": 3,
+      "Web Development": 4,
+      "Documentation": 3,
+      "Creative": 1,
+      "Database": 3,
+      "Configuration": 1,
+      "Prompt Engineering": 3,
+      "Business Ops": 4,
+      "Compliance": 3,
+      "Security": 9,
+      "DevOps": 2,
+      "Python": 3,
+      "Testing": 4,
+      "Cost Management": 2,
+      "Go": 2,
+      "Hooks": 1,
+      "Java": 3,
+      "Kotlin": 4,
+      "AI/Video": 4,
+      "Rust": 1,
+      "CLI Tools": 1
+    }
+  },
+  "agents_sample": [
+    {
+      "id": "a11y-architect",
+      "name": "a11y-architect",
+      "desc": "---",
+      "status": "IDLE",
+      "usage": 190,
+      "success": 96.5,
+      "latency": 2.5,
+      "tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Grep"
+      ]
+    },
+    {
+      "id": "academic-anthropologist",
+      "name": "academic-anthropologist",
+      "desc": "---",
+      "status": "IDLE",
+      "usage": 591,
+      "success": 96.6,
+      "latency": 0.6,
+      "tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Grep",
+        "Glob"
+      ]
+    },
+    {
+      "id": "academic-historian",
+      "name": "academic-historian",
+      "desc": "---",
+      "status": "ACTIVE",
+      "usage": 108,
+      "success": 93.3,
+      "latency": 1.3,
+      "tools": [
+        "Read",
+        "Write"
+      ]
+    },
+    {
+      "id": "academic-psychologist",
+      "name": "academic-psychologist",
+      "desc": "---",
+      "status": "IDLE",
+      "usage": 593,
+      "success": 96.8,
+      "latency": 0.8,
+      "tools": [
+        "Read",
+        "Write",
+        "Edit"
+      ]
+    },
+    {
+      "id": "ai-bom-scanner",
+      "name": "ai-bom-scanner",
+      "desc": "---",
+      "status": "IDLE",
+      "usage": 336,
+      "success": 96.1,
+      "latency": 3.1,
+      "tools": [
+        "Read",
+        "Write"
+      ]
+    }
+  ],
+  "skills_sample": [
+    {
+      "name": "agent-harness-construction",
+      "category": "Agent Frameworks",
+      "desc": "---",
+      "status": "ACTIVE",
+      "invocations": 828
+    },
+    {
+      "name": "agent-introspection-debugging",
+      "category": "Agent Frameworks",
+      "desc": "---",
+      "status": "ACTIVE",
+      "invocations": 2269
+    },
+    {
+      "name": "agent-sort",
+      "category": "Agent Frameworks",
+      "desc": "---",
+      "status": "ACTIVE",
+      "invocations": 1211
+    },
+    {
+      "name": "agentic-engineering",
+      "category": "Agent Frameworks",
+      "desc": "---",
+      "status": "ACTIVE",
+      "invocations": 946
+    },
+    {
+      "name": "ai-first-engineering",
+      "category": "General",
+      "desc": "---",
+      "status": "ACTIVE",
+      "invocations": 1703
+    }
+  ],
+  "providers": [
+    {
+      "name": "Nvidia Nim",
+      "status": "HEALTHY",
+      "latency": 124,
+      "rateLimit": "124 RPM",
+      "models": 39,
+      "transport": "openai_chat",
+      "provider_id": "nvidia_nim"
+    },
+    {
+      "name": "Open Router",
+      "status": "HEALTHY",
+      "latency": 104,
+      "rateLimit": "104 RPM",
+      "models": 19,
+      "transport": "anthropic_messages",
+      "provider_id": "open_router"
+    },
+    {
+      "name": "Deepseek",
+      "status": "HEALTHY",
+      "latency": 364,
+      "rateLimit": "64 RPM",
+      "models": 39,
+      "transport": "anthropic_messages",
+      "provider_id": "deepseek"
+    },
+    {
+      "name": "Lmstudio",
+      "status": "HEALTHY",
+      "latency": 307,
+      "rateLimit": "107 RPM",
+      "models": 22,
+      "transport": "anthropic_messages",
+      "provider_id": "lmstudio"
+    },
+    {
+      "name": "Llamacpp",
+      "status": "HEALTHY",
+      "latency": 314,
+      "rateLimit": "114 RPM",
+      "models": 29,
+      "transport": "anthropic_messages",
+      "provider_id": "llamacpp"
+    },
+    {
+      "name": "Ollama",
+      "status": "HEALTHY",
+      "latency": 275,
+      "rateLimit": "75 RPM",
+      "models": 30,
+      "transport": "anthropic_messages",
+      "provider_id": "ollama"
+    },
+    {
+      "name": "Kimi",
+      "status": "HEALTHY",
+      "latency": 406,
+      "rateLimit": "106 RPM",
+      "models": 41,
+      "transport": "openai_chat",
+      "provider_id": "kimi"
+    },
+    {
+      "name": "Glm",
+      "status": "DEGRADED",
+      "latency": 82,
+      "rateLimit": "82 RPM",
+      "models": 37,
+      "transport": "openai_chat",
+      "provider_id": "glm"
+    }
+  ]
+}

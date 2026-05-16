@@ -1,0 +1,123 @@
+.diet-tracker { max-width: 800px; margin: 0 auto; }
+
+/* Macro summary bar */
+.macro-bar {
+  display: flex; gap: 12px; background: #1E293B; border-radius: 12px;
+  padding: 14px 18px; margin-bottom: 16px; border: 1px solid #334155;
+}
+.macro-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.macro-val { font-size: 1.15rem; font-weight: 700; color: #F8FAFC; }
+.macro-label { font-size: 0.7rem; color: #94A3B8; font-weight: 500; text-transform: uppercase; }
+.macro-goal { font-size: 0.7rem; color: #64748B; }
+.macro-item.prot .macro-val { color: #60A5FA; }
+.macro-item.carb .macro-val { color: #FBBF24; }
+.macro-item.fat .macro-val { color: #F97316; }
+
+/* Macro ring */
+.macro-ring-container {
+  display: flex; align-items: center; gap: 20px;
+  background: #1E293B; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; border: 1px solid #334155;
+}
+.macro-ring { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+.macro-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: #334155; stroke-width: 3; }
+.ring-prot { fill: none; stroke: #60A5FA; stroke-width: 3; }
+.ring-carb { fill: none; stroke: #FBBF24; stroke-width: 3; }
+.ring-fat { fill: none; stroke: #F97316; stroke-width: 3; }
+.macro-ring-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.ring-pct { font-size: 1rem; font-weight: 700; color: #F8FAFC; }
+.ring-sub { font-size: 0.6rem; color: #64748B; }
+.macro-ring-legend { display: flex; gap: 16px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #CBD5E1; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend-dot.prot { background: #60A5FA; }
+.legend-dot.carb { background: #FBBF24; }
+.legend-dot.fat { background: #F97316; }
+
+/* Add food section */
+.add-food-section {
+  background: #1E293B; border-radius: 12px; padding: 18px; margin-bottom: 16px; border: 1px solid #334155;
+}
+.add-food-header { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; align-items: flex-end; }
+.meal-type-btns { display: flex; gap: 4px; }
+.meal-type-btn {
+  padding: 6px 12px; border: 1px solid #334155; border-radius: 6px; background: #0F172A;
+  color: #94A3B8; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.meal-type-btn.active { background: #4F46E5; color: #FFF; border-color: #4F46E5; }
+.mode-toggle { display: flex; gap: 2px; background: #0F172A; border-radius: 6px; padding: 2px; }
+.mode-btn {
+  padding: 6px 14px; border: none; border-radius: 5px; background: none;
+  color: #94A3B8; font-size: 0.75rem; cursor: pointer; transition: all 0.15s;
+}
+.mode-btn.active { background: #334155; color: #F8FAFC; }
+
+/* Food search */
+.food-search { position: relative; }
+.food-search-input {
+  width: 100%; padding: 10px 14px; border: 1px solid #334155; border-radius: 8px;
+  background: #0F172A; color: #F8FAFC; font-size: 0.9rem; outline: none;
+}
+.food-search-input:focus { border-color: #4F46E5; }
+.food-results {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 10;
+  background: #1E293B; border: 1px solid #334155; border-radius: 0 0 8px 8px;
+  max-height: 240px; overflow-y: auto; margin-top: 2px;
+}
+.food-result-btn {
+  display: flex; justify-content: space-between; align-items: center; width: 100%;
+  padding: 10px 14px; background: none; border: none; border-bottom: 1px solid #334155;
+  color: #CBD5E1; cursor: pointer; text-align: left; transition: background 0.1s;
+}
+.food-result-btn:hover { background: #334155; }
+.food-result-name { font-size: 0.85rem; font-weight: 500; }
+.food-result-meta { font-size: 0.75rem; color: #64748B; }
+
+/* Selected food */
+.food-selected { padding: 14px; background: #0F172A; border-radius: 8px; margin-top: 10px; }
+.food-selected-info { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.food-selected-info strong { color: #F8FAFC; font-size: 0.9rem; }
+.food-selected-info span { font-size: 0.8rem; color: #94A3B8; }
+.food-servings { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.food-servings label { font-size: 0.75rem; color: #94A3B8; font-weight: 600; }
+.food-servings input {
+  width: 70px; padding: 6px 10px; border: 1px solid #334155; border-radius: 6px;
+  background: #1E293B; color: #F8FAFC; font-size: 0.85rem; outline: none;
+}
+.serving-size { font-size: 0.75rem; color: #64748B; }
+.food-selected-actions { display: flex; gap: 8px; }
+
+/* Custom food */
+.custom-food-form { display: flex; flex-direction: column; gap: 10px; }
+.custom-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.custom-row .form-field { flex: 1; min-width: 90px; }
+
+/* Meals by type */
+.meals-by-type { display: flex; flex-direction: column; gap: 12px; }
+.meal-type-group { background: #1E293B; border-radius: 10px; border: 1px solid #334155; overflow: hidden; }
+.meal-type-header {
+  padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.85rem; font-weight: 600; color: #CBD5E1; background: #263148;
+}
+.meal-type-cal { font-size: 0.75rem; color: #10B981; font-weight: 500; }
+.meal-entry {
+  padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid #334155;
+}
+.meal-entry-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.meal-entry-name { font-size: 0.85rem; color: #F8FAFC; font-weight: 500; }
+.meal-entry-meta { font-size: 0.75rem; color: #94A3B8; }
+.meal-entry-macros { font-size: 0.7rem; color: #64748B; }
+
+.btn-ghost { background: #334155; color: #94A3B8; border: 1px solid #475569; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+.btn-ghost:hover { color: #F8FAFC; }
+
+@media (max-width: 768px) {
+  .macro-bar { flex-wrap: wrap; }
+  .macro-ring-container { flex-direction: column; }
+  .meal-type-btns { flex-wrap: wrap; }
+  .add-food-header { flex-direction: column; align-items: stretch; }
+}
