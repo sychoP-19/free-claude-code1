@@ -6,6 +6,8 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Callable, Iterable, MutableMapping
 from contextlib import suppress
+from dataclasses import dataclass
+from datetime import datetime
 
 import httpx
 from loguru import logger
@@ -27,6 +29,17 @@ from providers.exceptions import (
 from providers.model_listing import ProviderModelInfo, model_infos_from_ids
 
 ProviderFactory = Callable[[ProviderConfig, Settings], BaseProvider]
+
+
+@dataclass
+class DiscoveryStatus:
+    """Status of model discovery for a single provider."""
+    provider_id: str
+    status: Literal["pending", "in_progress", "completed", "failed"]
+    model_count: int = 0
+    error: str | None = None
+    completed_at: datetime | None = None
+
 
 # Backwards-compatible name for the catalog (single source: ``config.provider_catalog``).
 PROVIDER_DESCRIPTORS: dict[str, ProviderDescriptor] = PROVIDER_CATALOG
@@ -241,6 +254,7 @@ class ProviderRegistry:
         self._model_ids_by_provider: dict[str, frozenset[str]] = {}
         self._model_infos_by_provider: dict[str, dict[str, ProviderModelInfo]] = {}
         self._model_list_refresh_task: asyncio.Task[None] | None = None
+        self._discovery_status: dict[str, DiscoveryStatus] = {}
 
     def is_cached(self, provider_id: str) -> bool:
         """Return whether a provider for this id is already in the cache."""
@@ -297,6 +311,26 @@ class ProviderRegistry:
                 )
             )
         return tuple(infos)
+
+    def get_discovery_status(self) -> dict[str, dict]:
+        """Return discovery status for all providers."""
+        return {
+            provider_id: {
+                "status": status.status,
+                "model_count": status.model_count,
+                "error": status.error,
+                "completed_at": status.completed_at.isoformat() if status.completed_at else None,
+            }
+            for provider_id, status in self._discovery_status.items()
+        }
+
+    def is_discovery_complete(self) -> bool:
+        """Check if all providers have been discovered."""
+        if not self._discovery_status:
+            return False
+        return all(
+            status.status == "completed" for status in self._discovery_status.values()
+        )
 
     async def refresh_model_list_cache(
         self, settings: Settings, *, only_missing: bool = False
@@ -357,7 +391,16 @@ class ProviderRegistry:
                 provider = self.get(provider_id, settings)
             except Exception as exc:
                 _log_model_discovery_failure(provider_id, exc, settings)
+                self._discovery_status[provider_id] = DiscoveryStatus(
+                    provider_id=provider_id,
+                    status="failed",
+                    error=_provider_query_failure_reason(exc, settings),
+                )
                 continue
+            self._discovery_status[provider_id] = DiscoveryStatus(
+                provider_id=provider_id,
+                status="in_progress",
+            )
             tasks[provider_id] = asyncio.create_task(provider.list_model_infos())
 
         if not tasks:
@@ -369,8 +412,19 @@ class ProviderRegistry:
                 if isinstance(result, asyncio.CancelledError):
                     raise result
                 _log_model_discovery_failure(provider_id, result, settings)
+                self._discovery_status[provider_id] = DiscoveryStatus(
+                    provider_id=provider_id,
+                    status="failed",
+                    error=_provider_query_failure_reason(result, settings),
+                )
                 continue
             self.cache_model_infos(provider_id, result)
+            self._discovery_status[provider_id] = DiscoveryStatus(
+                provider_id=provider_id,
+                status="completed",
+                model_count=len(result),
+                completed_at=datetime.now(),
+            )
             logger.info(
                 "Provider model discovery cached: provider={} models={}",
                 provider_id,

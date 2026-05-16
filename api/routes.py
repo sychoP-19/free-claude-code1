@@ -233,7 +233,72 @@ async def list_models(
     """List the model ids this proxy advertises to Claude-compatible clients."""
     registry = getattr(request.app.state, "provider_registry", None)
     provider_registry = registry if isinstance(registry, ProviderRegistry) else None
-    return _build_models_list_response(settings, provider_registry)
+    response = _build_models_list_response(settings, provider_registry)
+
+    # Add discovery status
+    if provider_registry:
+        response.discovery_status = {
+            "is_complete": provider_registry.is_discovery_complete(),
+            "is_degraded": not provider_registry.is_discovery_complete(),
+            "providers": provider_registry.get_discovery_status(),
+        }
+
+    return response
+
+
+@router.get("/v1/providers/health")
+async def provider_health(
+    request: Request,
+    _auth=Depends(require_api_key),
+):
+    """Return health status for all configured providers."""
+    registry = getattr(request.app.state, "provider_registry", None)
+    if not isinstance(registry, ProviderRegistry):
+        raise HTTPException(status_code=503, detail="Provider registry not initialized")
+
+    return {
+        "providers": registry.get_discovery_status(),
+        "is_complete": registry.is_discovery_complete(),
+    }
+
+
+@router.get("/v1/models/discovery-status")
+async def discovery_status(
+    request: Request,
+    _auth=Depends(require_api_key),
+):
+    """Return model discovery status for all providers."""
+    registry = getattr(request.app.state, "provider_registry", None)
+    if not isinstance(registry, ProviderRegistry):
+        raise HTTPException(status_code=503, detail="Provider registry not initialized")
+
+    return {
+        "providers": registry.get_discovery_status(),
+        "is_complete": registry.is_discovery_complete(),
+        "pending_providers": [
+            provider_id
+            for provider_id, status in registry.get_discovery_status().items()
+            if status["status"] in ("pending", "in_progress")
+        ],
+    }
+
+
+@router.post("/v1/models/refresh")
+async def refresh_models(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+    _auth=Depends(require_api_key),
+):
+    """Manually trigger model discovery refresh."""
+    registry = getattr(request.app.state, "provider_registry", None)
+    if not isinstance(registry, ProviderRegistry):
+        raise HTTPException(status_code=503, detail="Provider registry not initialized")
+
+    await registry.refresh_model_list_cache(settings, only_missing=False)
+    return {
+        "status": "refreshed",
+        "providers": registry.get_discovery_status(),
+    }
 
 
 @router.post("/stop")

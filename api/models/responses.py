@@ -28,6 +28,7 @@ class ModelsListResponse(BaseModel):
     first_id: str | None
     has_more: bool
     last_id: str | None
+    discovery_status: dict[str, Any] | None = None
 
 
 class Usage(BaseModel):

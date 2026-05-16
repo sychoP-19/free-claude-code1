@@ -13,7 +13,7 @@ TransportType = Literal["openai_chat", "anthropic_messages"]
 
 # Default upstream base URLs (also re-exported via :mod:`providers.defaults`)
 NVIDIA_NIM_DEFAULT_BASE = "https://integrate.api.nvidia.com/v1"
-KIMI_DEFAULT_BASE = "https://api.moonshot.ai/v1"
+KIMI_DEFAULT_BASE = "https://api.moonshot.cn/v1"
 GLM_DEFAULT_BASE = "https://open.bigmodel.cn/api/paas/v4"
 # DeepSeek Anthropic-compatible Messages API (not OpenAI ``/v1`` chat completions).
 DEEPSEEK_ANTHROPIC_DEFAULT_BASE = "https://api.deepseek.com/anthropic"
