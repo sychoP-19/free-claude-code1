@@ -205,6 +205,110 @@ New API routes added to `app.py`:
 - `POST /api/github/install` — install repo deps with uv
 - `GET /api/repos/services` — parallel port check (Ollama/ComfyUI/SD/Pixelle/n8n/Proxy)
 
+## Pipelines (in `content-creator/pipelines/`)
+
+| File | Purpose |
+|------|---------|
+| `auto_video.py` | Topic → script → Pollinations images → TTS → ffmpeg → 1080×1920 MP4 |
+| `reel_production.py` | 5-stage reel pipeline (discovery → script → assets → assemble → publish) |
+| `asset_generator.py` | Image + audio asset creation (Pollinations + TTS) |
+| `video_assembler.py` | Pillow frames → H.264/AAC MP4 via ffmpeg |
+
+### TTS Fallback Chain (auto_video & cinegen)
+
+1. **gTTS** — best quality, requires internet → Google TTS
+2. **pyttsx3** — offline Windows SAPI voices → no internet needed
+3. **ffmpeg sine-tone** — always available, placeholder audio
+
+Install pyttsx3 for offline TTS: `uv pip install pyttsx3`
+
+### Output Size Guard
+
+Both `auto_video` and `reel_production` pipelines reject videos < 100KB:
+```python
+_MIN_VIDEO_BYTES = 100_000  # guard in reel_production.py Stage 4
+```
+CineGen and auto-video routes surface the actual file size in `{size_bytes: ...}` responses.
+
+## New API Routes (May 2026 — MAJD v3.0)
+
+### Voice Lab (`/voice-lab`)
+
+| Method | Route | Body / Returns |
+|--------|-------|----------------|
+| POST | `/api/voice/synthesize` | `{text, lang?, voice_id?}` → `{ok, url, size_bytes}` MP3 |
+| GET | `/api/voice/library` | → list of voice profiles from `data/voices.json` |
+| POST | `/api/voice/clone` | `{name, lang, ...}` → `{ok, voice_id}` (profile saved, no neural clone) |
+| GET | `/api/voice/audio/{filename}` | → stream MP3 file from `outputs/audio/` |
+
+Audio files saved to `outputs/audio/{uuid}.mp3`.
+
+### CineGen (`/cinegen`)
+
+| Method | Route | Body / Returns |
+|--------|-------|----------------|
+| POST | `/api/cinegen/generate` | `{prompt, style?, duration?}` → `{ok, job_id}` (async job) |
+| GET | `/api/cinegen/status/{job_id}` | → `{status, progress, url, size_bytes}` |
+| GET | `/api/cinegen/history` | → list of completed videos from `outputs/videos/` |
+| POST | `/api/cinegen/image-to-video` | `{image_url, prompt}` → `{ok, job_id}` |
+
+Jobs tracked in `data/cinegen_jobs.json`. Outputs to `outputs/videos/{job_id}.mp4`.
+
+### Publish Hub (`/publish-hub`)
+
+| Method | Route | Body / Returns |
+|--------|-------|----------------|
+| POST | `/api/publish/now` | `{title, caption?, hashtags?, platforms, file_path?}` → `{ok, id, status:"queued"}` |
+| POST | `/api/publish/schedule` | same + `{scheduled_at}` → `{ok, id, status:"scheduled"}` |
+| GET | `/api/publish/queue` | → full queue from `data/publish_queue.json` |
+
+Queue persisted in `data/publish_queue.json`. No platform OAuth — manual publish required.
+
+### Orchestrator Fan-All
+
+| Method | Route | Body / Returns |
+|--------|-------|----------------|
+| POST | `/api/orchestrator/fan-all` | `{topic, niche?, platforms?}` → `{trends, monetization, youtube_topics, topic_metrics}` |
+
+Runs 4 agents concurrently via `asyncio.gather()`: TrendScoutAgent, MonetizationAgent, trending_agent (YouTube RSS), topic_discovery.
+
+## Data Files (in `content-creator/data/`)
+
+| File | Purpose |
+|------|---------|
+| `cinegen_jobs.json` | CineGen async job state (status, progress, output_url) |
+| `voices.json` | Voice profiles (id, name, lang, sample_url) |
+| `publish_queue.json` | Publish queue items (status: queued / scheduled) |
+| `ideas.json` | Content ideas backlog |
+
+## Output Locations
+
+```
+content-creator/outputs/
+├── auto_video/{slug}/video.mp4   # auto_video pipeline
+├── videos/{job_id}.mp4           # CineGen output
+├── audio/{timestamp}.mp3         # Voice synthesis
+├── blog/, carousel/, longform/   # Other pipeline outputs
+```
+
+## Testing
+
+```bash
+# From content-creator/ directory
+uv run pytest tests/ -q
+
+# Specific test file
+uv run pytest tests/test_stages.py -v
+```
+
+pytest config in `pyproject.toml`:
+```toml
+[tool.pytest.ini_options]
+asyncio_mode = "auto"   # required for async def test_* functions
+pythonpath = ["."]
+testpaths = ["tests"]
+```
+
 ## Verification Checklist
 
 Run after any restart:
@@ -213,9 +317,13 @@ Run after any restart:
 3. Mic button → browser mic permission → speak → text appears in chat
 4. Chat → JARVIS responds (English or Arabic) + voice speaks back
 5. Language dropdown → switch to AR → speak Arabic → JARVIS replies in Arabic
-6. `/api/trending/topics` → JSON with 10+ topics
-7. `/api/github/trending` → JSON with repos
-8. `/api/repos/services` → JSON with Ollama/proxy status (responds in ~2s)
+6. `GET /api/trending/topics` → JSON with 10+ topics
+7. `GET /api/github/trending` → JSON with repos
+8. `GET /api/repos/services` → JSON with Ollama/proxy status (responds in ~2s)
 9. `/github-hub` → trending repos grid loads
 10. `/skills` → 3 tabs work (calendar, revenue, alerts)
 11. Open `JARVIS.html` directly → Pollinations free image gen works
+12. `POST /api/voice/synthesize {"text":"Hello","lang":"en"}` → MP3 URL returned
+13. `POST /api/cinegen/generate {"prompt":"AI tools 2025"}` → job_id returned; poll status → done + MP4 > 100KB
+14. `POST /api/publish/now {"title":"Test","platforms":["youtube"]}` → queued item returned
+15. `POST /api/orchestrator/fan-all {"topic":"AI tools"}` → trends + monetization + youtube_topics
