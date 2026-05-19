@@ -155,6 +155,14 @@ class ReelProductionPipeline(PipelineRun):
         if not assembly_result.ok:
             raise RuntimeError(f"Video assembly failed: {assembly_result.errors}")
 
+        # Output size guard — reject videos that are suspiciously small
+        _MIN_VIDEO_BYTES = 100_000
+        if assembly_result.video_bytes < _MIN_VIDEO_BYTES:
+            raise RuntimeError(
+                f"Final video too small: {assembly_result.video_bytes} bytes (need >{_MIN_VIDEO_BYTES:,}). "
+                "Check TTS and image generation."
+            )
+
         for error in assembly_result.errors:
             await _emit_event("video-assembler", "warning", error)
 
@@ -279,30 +287,6 @@ Return ONLY valid JSON:
             "titles": [f"{topic.title()} - Must Watch"],
             "hashtags": ["#viral", "#trending"],
         }
-
-        # Build result summary
-        elapsed = time.time() - started
-
-        result_summary = {
-            "stages": {
-                "stage3_assets": {
-                    "ok": asset_result.ok,
-                    "assets_count": len(asset_result.assets),
-                    "errors": asset_result.errors,
-                },
-                "stage4_assembly": {
-                    "ok": assembly_result.ok,
-                    "clips_created": assembly_result.clips_created,
-                    "duration_s": assembly_result.duration_s,
-                    "video_bytes": assembly_result.video_bytes,
-                    "errors": assembly_result.errors,
-                },
-            },
-            "asset_paths": asset_paths[:10],  # First 10 for reference
-            "elapsed_s": round(elapsed, 1),
-        }
-
-        return assembly_result.output_path, result_summary
 
 
 async def run(params: dict) -> dict:
