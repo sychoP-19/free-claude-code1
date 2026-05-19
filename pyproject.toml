@@ -24,6 +24,7 @@ dependencies = [
     "aiohttp>=3.13.4",
     "pillow>=12.2.0",
     "requests>=2.32.5",
+    "gtts>=2.5.4",
 ]
 
 [project.scripts]
@@ -102,6 +103,7 @@ skip-magic-trailing-comma = false
 [tool.pytest.ini_options]
 pythonpath = ["."]
 addopts = "-n auto"
+asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
     "live: opt-in local smoke tests that can touch real services",

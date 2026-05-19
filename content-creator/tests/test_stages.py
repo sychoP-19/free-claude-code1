@@ -1,5 +1,6 @@
 """Test Stage 1 (Topic Discovery) and Stage 2 (Script Generation) agents."""
 import asyncio
+import pytest
 import json
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from agents.trend_miner import run as trend_miner_run, generate_blueprint
 from agents.content_factory import run as content_factory_run
 
 
+@pytest.mark.asyncio
 async def test_stage1_topic_discovery():
     """Test Stage 1: Topic Discovery Extension."""
     print("\n" + "="*60)
@@ -68,6 +70,7 @@ async def test_stage1_topic_discovery():
     return result
 
 
+@pytest.mark.asyncio
 async def test_stage2_script_generation():
     """Test Stage 2: Script Generation Agent."""
     print("\n" + "="*60)
@@ -132,6 +135,7 @@ async def test_stage2_script_generation():
     return result
 
 
+@pytest.mark.asyncio
 async def test_multi_platform_support():
     """Test multi-platform support (YouTube, TikTok, Instagram)."""
     print("\n" + "="*60)
