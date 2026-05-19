@@ -1,0 +1,136 @@
+/* PHASE 1: Layout & Navigation Refinement */
+/* Collapsible sidebar with contextual nav filtering */
+
+/* ─── COLLAPSIBLE SIDEBAR ─── */
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 64px 1fr;
+}
+
+.app-shell.sidebar-collapsed .sidebar {
+  width: 64px;
+  overflow: hidden;
+}
+
+.app-shell.sidebar-collapsed .sidebar-section-label,
+.app-shell.sidebar-collapsed .nav-item span,
+.app-shell.sidebar-collapsed .nav-badge,
+.app-shell.sidebar-collapsed .sidebar-footer {
+  opacity: 0;
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.app-shell.sidebar-collapsed .nav-item {
+  padding: 11px 20px 11px 23px;
+  justify-content: center;
+}
+
+.app-shell.sidebar-collapsed .nav-icon {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+/* Collapse Toggle */
+.sidebar-toggle {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 1000;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(2, 11, 24, 0.95);
+  border: 1px solid var(--border);
+  color: var(--blue);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--glow-md);
+  transition: all 0.2s;
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.sidebar-toggle:hover {
+  border-color: var(--blue);
+  box-shadow: var(--glow-lg);
+}
+
+.app-shell.sidebar-collapsed .sidebar-toggle {
+  left: 0;
+  transform: translateX(0);
+  opacity: 1;
+}
+
+/* Show toggle only when generation active */
+.sidebar-toggle.visible {
+  animation: slide-in 0.3s forwards;
+}
+
+@keyframes slide-in {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ─── CONTEXTUAL Hiding ─── */
+/* Hide "God Mode" section when no active generation */
+.app-shell.no-generation .god-mode-section {
+  display: none;
+}
+
+/* Hide discovery items when not exploring */
+.app-shell.not-exploring .discovery-section {
+  display: none;
+}
+
+/* Hide operation items when idle */
+.app-shell.idle-mode .operation-section {
+  display: none;
+}
+
+/* Smooth collapse transition */
+.sidebar-section-label,
+.nav-item,
+.nav-badge,
+.sidebar-footer {
+  transition: opacity 0.25s, width 0.25s, padding 0.25s;
+}
+
+/* ─── RESPONSIVE BEHAVIOR ─── */
+@media (max-width: 768px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 64px;
+    bottom: 0;
+    width: 260px;
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+    z-index: 999;
+  }
+
+  .sidebar.visible {
+    transform: translateX(0);
+  }
+
+  .sidebar-toggle {
+    position: fixed;
+    bottom: auto;
+    top: 80px;
+    right: 20px;
+    left: auto;
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

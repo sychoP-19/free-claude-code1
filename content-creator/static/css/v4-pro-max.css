@@ -1,0 +1,369 @@
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   v4 — UI/UX PRO MAX
+   HUD/Sci-Fi FUI + Gradient Mesh + Glassmorphism depth + Micro-interactions
+   Design ref: ui-ux-pro-max — style #33 HUD/Sci-Fi FUI + #46 Gradient Mesh
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── v4 CSS CUSTOM PROPERTIES ─────────────────────────────────────────── */
+@property --mesh-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@property --mesh-angle2 {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 120deg;
+}
+
+:root {
+  /* depth palette */
+  --v4-navy:       #010b18;
+  --v4-midnight:   #020d1e;
+  --v4-abyss:      #000810;
+  --v4-cyan-trace: rgba(0, 212, 255, 0.06);
+  --v4-arc-trace:  rgba(59, 130, 246, 0.04);
+
+  /* glass tokens */
+  --v4-glass-bg:      rgba(0, 18, 44, 0.52);
+  --v4-glass-border1: rgba(0, 212, 255, 0.15);
+  --v4-glass-border2: rgba(0, 212, 255, 0.30);
+  --v4-glass-inset:   rgba(0, 212, 255, 0.05);
+
+  /* depth shadows — 3-layer stack */
+  --v4-shadow-a: 0 2px 6px rgba(0, 0, 0, 0.55);
+  --v4-shadow-b: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --v4-shadow-c: 0 0 0 1px rgba(0, 212, 255, 0.08);
+  --v4-shadow:   var(--v4-shadow-a), var(--v4-shadow-b), var(--v4-shadow-c);
+
+  /* pipeline status colours */
+  --status-running: #10b981;
+  --status-queued:  #f59e0b;
+  --status-error:   #ef4444;
+  --status-idle:    #00d4ff;
+}
+
+/* ── ANIMATED GRADIENT MESH BACKGROUND ────────────────────────────────── */
+@keyframes meshRotate {
+  0%   { --mesh-angle: 0deg;   --mesh-angle2: 120deg; }
+  33%  { --mesh-angle: 120deg; --mesh-angle2: 240deg; }
+  66%  { --mesh-angle: 240deg; --mesh-angle2: 360deg; }
+  100% { --mesh-angle: 360deg; --mesh-angle2: 480deg; }
+}
+
+.main-content {
+  background:
+    conic-gradient(from var(--mesh-angle, 0deg) at 20% 30%,
+      var(--v4-cyan-trace) 0%, transparent 30%, transparent 70%,
+      var(--v4-arc-trace) 100%),
+    conic-gradient(from var(--mesh-angle2, 120deg) at 80% 70%,
+      var(--v4-arc-trace) 0%, transparent 40%, var(--v4-cyan-trace) 80%, transparent 100%),
+    radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,212,255,0.03) 0%, transparent 70%),
+    var(--v4-midnight);
+  animation: meshRotate 20s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-content { animation: none; }
+}
+
+/* ── GLASSMORPHISM BENTO TILE UPGRADE ─────────────────────────────────── */
+.bento-tile {
+  background: var(--v4-glass-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--v4-glass-border1);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 212, 255, 0.08),
+    inset 0 0 0 1px rgba(0, 212, 255, 0.04),
+    var(--v4-shadow);
+  transform: translateY(0);
+  transition:
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-color 0.3s ease,
+    box-shadow 0.4s ease;
+}
+
+.bento-tile:hover {
+  transform: translateY(-4px);
+  border-color: var(--v4-glass-border2);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 212, 255, 0.14),
+    inset 0 0 0 1px rgba(0, 212, 255, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.6),
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(0, 212, 255, 0.08);
+}
+
+/* ── NEON PAGE-TITLE TEXT EFFECTS ─────────────────────────────────────── */
+.page-title {
+  text-shadow:
+    0 0  4px rgba(0, 212, 255, 0.9),
+    0 0 12px rgba(0, 212, 255, 0.55),
+    0 0 30px rgba(0, 212, 255, 0.25);
+  letter-spacing: 4px;
+  transition: letter-spacing 0.3s ease, text-shadow 0.3s ease;
+}
+
+.page-title:hover {
+  letter-spacing: 6px;
+  text-shadow:
+    0 0  6px rgba(0, 212, 255, 1),
+    0 0 18px rgba(0, 212, 255, 0.7),
+    0 0 45px rgba(0, 212, 255, 0.35),
+    0 0 80px rgba(0, 212, 255, 0.12);
+}
+
+/* ── DATA TICKER ──────────────────────────────────────────────────────── */
+.data-ticker {
+  overflow: hidden;
+  white-space: nowrap;
+  border-top: 1px solid rgba(0, 212, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(0, 212, 255, 0.06) 20%,
+    rgba(0, 212, 255, 0.10) 50%,
+    rgba(0, 212, 255, 0.06) 80%,
+    transparent 100%);
+  padding: 6px 0;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.data-ticker::before,
+.data-ticker::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.data-ticker::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--v4-midnight), transparent);
+}
+
+.data-ticker::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--v4-midnight), transparent);
+}
+
+.data-ticker__inner {
+  display: inline-block;
+  animation: tickerScroll 28s linear infinite;
+  font-family: var(--font-data, monospace);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: rgba(0, 212, 255, 0.7);
+  text-transform: uppercase;
+}
+
+@keyframes tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-ticker__inner { animation: none; }
+}
+
+/* ── PIPELINE CARD ────────────────────────────────────────────────────── */
+.pipeline-card {
+  position: relative;
+  padding-left: 6px;
+  margin-bottom: 16px;
+}
+
+.pipeline-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px 0 0 2px;
+  background: var(--status-color, var(--status-idle));
+  box-shadow: 0 0 8px var(--status-color, var(--status-idle));
+  animation: v4PipelinePulse 2.4s ease-in-out infinite;
+}
+
+@keyframes v4PipelinePulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.pipeline-card[data-status="running"] { --status-color: var(--status-running); }
+.pipeline-card[data-status="queued"]  { --status-color: var(--status-queued); }
+.pipeline-card[data-status="error"]   { --status-color: var(--status-error); }
+.pipeline-card[data-status="idle"]    { --status-color: var(--status-idle); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pipeline-card::before { animation: none; }
+}
+
+/* ── IMPROVED SCROLLBAR ───────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); }
+::-webkit-scrollbar-thumb {
+  background: #00d4ff;
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(0, 212, 255, 0.5);
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 212, 255, 0.9); }
+
+/* ── BUTTON PRIMARY — SHIMMER SWEEP ON HOVER ──────────────────────────── */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+/* shimmer overlay via z-index 2 pseudo-element */
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.14) 50%,
+    transparent 70%
+  );
+  transform: skewX(-15deg);
+  transition: left 0.55s ease;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.btn-primary:hover::before { left: 160%; }
+.btn-primary:active { transform: scale(0.97); filter: brightness(0.9); }
+
+/* ── SKELETON SHIMMER UPGRADE ─────────────────────────────────────────── */
+.skl {
+  background: linear-gradient(90deg,
+    rgba(0, 212, 255, 0.04) 0%,
+    rgba(0, 212, 255, 0.10) 30%,
+    rgba(59, 130, 246, 0.12) 50%,
+    rgba(0, 212, 255, 0.10) 70%,
+    rgba(0, 212, 255, 0.04) 100%);
+  background-size: 300% 100%;
+  animation: v4SkelShimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes v4SkelShimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skl { animation: none; background: rgba(0, 212, 255, 0.06); }
+}
+
+/* ── SYSTEM VITALS WIDGET ─────────────────────────────────────────────── */
+#sys-vitals {
+  position: fixed;
+  bottom: 80px;
+  left: 16px;
+  width: 196px;
+  z-index: 6000;
+  background: rgba(0, 14, 36, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 212, 255, 0.07),
+    0 8px 24px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(0, 212, 255, 0.05);
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#sys-vitals.hidden {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.sv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sv-title {
+  font-family: var(--font-hud, monospace);
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: rgba(0, 212, 255, 0.7);
+  text-transform: uppercase;
+}
+
+.sv-toggle {
+  background: none;
+  border: none;
+  color: rgba(0, 212, 255, 0.4);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.sv-toggle:hover { color: rgba(0, 212, 255, 0.9); }
+
+.sv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-family: var(--font-data, monospace);
+  font-size: 9px;
+  color: rgba(0, 212, 255, 0.5);
+}
+
+.sv-val {
+  color: rgba(0, 212, 255, 0.9);
+  min-width: 36px;
+  text-align: right;
+}
+
+.sv-bar-track {
+  flex: 1;
+  height: 2px;
+  background: rgba(0, 212, 255, 0.08);
+  border-radius: 1px;
+  margin: 0 6px;
+  overflow: hidden;
+}
+
+.sv-bar-fill {
+  height: 100%;
+  background: #00d4ff;
+  border-radius: 1px;
+  box-shadow: 0 0 4px rgba(0, 212, 255, 0.6);
+  transition: width 0.8s ease;
+}
+
+.sv-bar-fill.warn { background: #f59e0b; box-shadow: 0 0 4px rgba(245,158,11,0.6); }
+.sv-bar-fill.crit { background: #ef4444; box-shadow: 0 0 4px rgba(239,68,68,0.6); }
+
+.sv-last-run {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(0, 212, 255, 0.08);
+  font-family: var(--font-data, monospace);
+  font-size: 8px;
+  color: rgba(0, 212, 255, 0.35);
+  letter-spacing: 1px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   END v4 — UI/UX PRO MAX
+   ═══════════════════════════════════════════════════════════════════════════ */

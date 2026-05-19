@@ -1,0 +1,22 @@
+{
+  "youtube": {
+    "mrr": 0,
+    "views": 0,
+    "subs": 0,
+    "videos": 0,
+    "cpm": 0
+  },
+  "freelance": {
+    "total": 0,
+    "projects": []
+  },
+  "saas": {
+    "mrr": 0,
+    "subs": 0
+  },
+  "affiliate": {
+    "clicks": 0,
+    "conversions": 0,
+    "commissions": 0
+  }
+}

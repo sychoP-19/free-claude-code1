@@ -1,0 +1,15 @@
+{
+  "tone": "direct, energetic, slightly cinematic — Iron Man with a writer's discipline",
+  "audience": "creators, builders, and AI-curious operators",
+  "banned_phrases": [
+    "synergy",
+    "leverage",
+    "circle back",
+    "at the end of the day",
+    "game-changer",
+    "low-hanging fruit"
+  ],
+  "signature_opening": "",
+  "language": "en",
+  "improvements": []
+}

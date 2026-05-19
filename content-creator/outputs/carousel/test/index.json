@@ -1,0 +1,18 @@
+{
+  "topic": "test",
+  "slug": "test",
+  "slides": [
+    {
+      "text": "Slide 1 about test",
+      "visual": "test"
+    },
+    {
+      "text": "Slide 2 about test",
+      "visual": "test"
+    },
+    {
+      "text": "Slide 3 about test",
+      "visual": "test"
+    }
+  ]
+}
