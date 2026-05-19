@@ -1,0 +1,806 @@
+{% extends "base.html" %}
+{% set active = "cinegen" %}
+{% block title %}CineGen AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">CINEGEN AI</div>
+    <div class="page-subtitle">TEXT-TO-VIDEO · IMAGE-TO-VIDEO · COGVIDEOX-5B · NEURAL VIDEO SYNTHESIS</div>
+  </div>
+  <div class="page-actions">
+    <span id="cg-model-badge" class="badge" style="background:rgba(124,58,237,0.2);border-color:#7c3aed;color:#7c3aed;">COGVIDEOX READY</span>
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);">
+      <div id="cg-status-dot" style="width:8px;height:8px;border-radius:50%;background:#7c3aed;box-shadow:0 0 8px #7c3aed;animation:pulse-glow 2s ease-in-out infinite;"></div>
+      <span id="cg-status-text">MODEL LOADED</span>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="hub-tabs mb-16">
+  <button class="hub-tab active" onclick="cgTab('t2v', this)">TEXT-TO-VIDEO</button>
+  <button class="hub-tab" onclick="cgTab('i2v', this)">IMAGE-TO-VIDEO</button>
+  <button class="hub-tab" onclick="cgTab('gallery', this)">VIDEO GALLERY</button>
+</div>
+
+<!-- TEXT-TO-VIDEO TAB -->
+<div id="cg-tab-t2v" class="tab-panel">
+  <div class="grid-2-1 mb-16">
+
+    <!-- Config Panel -->
+    <div class="hud-panel">
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">Video Prompt</span>
+        <span class="badge" style="background:rgba(124,58,237,0.2);border-color:#7c3aed;color:#7c3aed;">T2V</span>
+      </div>
+      <div class="hud-panel-body">
+
+        <div class="form-group mb-16">
+          <label class="form-label">Video Description</label>
+          <textarea id="t2v-prompt" class="form-control" rows="6"
+            placeholder="A cinematic shot of a futuristic city at night, neon lights reflecting on rain-soaked streets, flying cars in the distance, dramatic camera pan..."></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:4px;">
+            <span id="t2v-char-count" style="font-size:10px;color:var(--muted);">0 / 500</span>
+          </div>
+        </div>
+
+        <!-- Style Selector -->
+        <div class="form-group mb-16">
+          <label class="form-label">Visual Style</label>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+            <button id="style-cinematic" onclick="setCgStyle(this,'cinematic')"
+              style="padding:8px 4px;font-size:10px;font-family:var(--font-data);text-transform:uppercase;letter-spacing:0.5px;border-radius:6px;cursor:pointer;border:1px solid rgba(124,58,237,0.4);background:rgba(124,58,237,0.15);color:#a78bfa;transition:all 0.2s;">
+              Cinematic
+            </button>
+            <button id="style-anime" onclick="setCgStyle(this,'anime')"
+              style="padding:8px 4px;font-size:10px;font-family:var(--font-data);text-transform:uppercase;letter-spacing:0.5px;border-radius:6px;cursor:pointer;border:1px solid rgba(0,212,255,0.2);background:transparent;color:var(--muted);transition:all 0.2s;">
+              Anime
+            </button>
+            <button id="style-realistic" onclick="setCgStyle(this,'realistic')"
+              style="padding:8px 4px;font-size:10px;font-family:var(--font-data);text-transform:uppercase;letter-spacing:0.5px;border-radius:6px;cursor:pointer;border:1px solid rgba(0,212,255,0.2);background:transparent;color:var(--muted);transition:all 0.2s;">
+              Realistic
+            </button>
+            <button id="style-scifi" onclick="setCgStyle(this,'sci-fi')"
+              style="padding:8px 4px;font-size:10px;font-family:var(--font-data);text-transform:uppercase;letter-spacing:0.5px;border-radius:6px;cursor:pointer;border:1px solid rgba(0,212,255,0.2);background:transparent;color:var(--muted);transition:all 0.2s;">
+              Sci-Fi
+            </button>
+          </div>
+          <input type="hidden" id="t2v-style" value="cinematic"/>
+        </div>
+
+        <!-- Duration + Resolution -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div class="form-group">
+            <label class="form-label">Duration</label>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <input type="range" id="t2v-duration-slider" min="1" max="3" step="1" value="1"
+                oninput="updateDurationLabel(this.value)"
+                style="flex:1;accent-color:#7c3aed;cursor:pointer;"/>
+              <span id="t2v-duration-label"
+                style="font-size:13px;font-family:var(--font-data);color:#a78bfa;min-width:28px;text-align:right;">3s</span>
+            </div>
+            <input type="hidden" id="t2v-duration" value="3"/>
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:4px;">
+              <span>3s</span><span>5s</span><span>10s</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Resolution</label>
+            <select id="t2v-resolution" class="form-control">
+              <option value="720p">720p HD</option>
+              <option value="1080p" selected>1080p FHD</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn btn-primary"
+          style="width:100%;background:linear-gradient(135deg,#7c3aed,#5b21b6);border:none;"
+          onclick="generateT2V()">
+          <span id="t2v-btn-text">GENERATE VIDEO</span>
+        </button>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center;">
+          CogVideoX-5B · Generation takes 2–5 minutes
+        </div>
+      </div>
+    </div>
+
+    <!-- Output Panel -->
+    <div class="hud-panel">
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">Output</span>
+        <span id="t2v-status-badge" class="badge">IDLE</span>
+      </div>
+      <div class="hud-panel-body" style="min-height:320px;">
+        <div id="t2v-progress-wrap" style="margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span id="t2v-progress-label" style="font-size:10px;color:var(--muted);">WAITING</span>
+            <span id="t2v-progress-pct" style="font-size:10px;font-family:var(--font-data);color:#a78bfa;">0%</span>
+          </div>
+          <div class="orch-arc">
+            <div class="orch-arc-fill" id="t2v-bar"
+              style="width:0%;transition:width 1.5s ease;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div>
+          </div>
+        </div>
+
+        <div id="t2v-output" style="display:none;">
+          <video id="t2v-video" controls
+            style="width:100%;border-radius:8px;border:1px solid rgba(124,58,237,0.4);background:#000;"></video>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn"
+              style="flex:1;font-size:11px;border-color:rgba(124,58,237,0.4);color:#a78bfa;"
+              onclick="downloadCgVideo('t2v')">DOWNLOAD MP4</button>
+            <button class="btn" style="flex:1;font-size:11px;" onclick="sendToPending('t2v')">SEND TO QUEUE</button>
+          </div>
+        </div>
+
+        <div id="t2v-idle"
+          style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;color:var(--muted);text-align:center;">
+          <svg viewBox="0 0 64 64" width="48" height="48" fill="none" style="opacity:0.3;margin-bottom:12px;">
+            <circle cx="32" cy="32" r="28" stroke="#7c3aed" stroke-width="2"/>
+            <polygon points="26,22 26,42 46,32" fill="#7c3aed"/>
+          </svg>
+          <div style="font-size:12px;">Enter a prompt and click Generate</div>
+        </div>
+
+        <div id="t2v-error"
+          style="display:none;color:var(--red);font-size:12px;margin-top:8px;padding:8px;background:rgba(239,68,68,0.1);border-radius:6px;border:1px solid rgba(239,68,68,0.2);"></div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+
+  <!-- Generation Log -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Generation Log</span>
+      <button class="btn" style="font-size:10px;padding:3px 8px;" onclick="clearCgLog()">CLEAR</button>
+    </div>
+    <div class="hud-panel-body" style="padding:0;">
+      <div id="cg-console"
+        style="border-radius:0 0 8px 8px;padding:12px;font-family:var(--font-data,monospace);font-size:11px;line-height:1.8;color:var(--muted);max-height:140px;overflow-y:auto;background:rgba(2,12,27,0.8);">
+      </div>
+    </div>
+  </div>
+</div><!-- /t2v tab -->
+
+<!-- IMAGE-TO-VIDEO TAB -->
+<div id="cg-tab-i2v" class="tab-panel" style="display:none;">
+  <div class="grid-2-1 mb-16">
+
+    <!-- Config Panel -->
+    <div class="hud-panel">
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">Image Input</span>
+        <span class="badge" style="background:rgba(124,58,237,0.2);border-color:#7c3aed;color:#7c3aed;">I2V</span>
+      </div>
+      <div class="hud-panel-body">
+
+        <div class="form-group mb-16">
+          <label class="form-label">Source Image</label>
+          <div id="i2v-dropzone"
+            onclick="document.getElementById('i2v-file-input').click()"
+            ondragover="event.preventDefault();this.style.borderColor='#7c3aed';this.style.background='rgba(124,58,237,0.1)'"
+            ondragleave="this.style.borderColor='rgba(124,58,237,0.4)';this.style.background='rgba(124,58,237,0.05)'"
+            ondrop="handleI2VDrop(event)"
+            style="border:2px dashed rgba(124,58,237,0.4);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all 0.2s;background:rgba(124,58,237,0.05);min-height:140px;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+            <div id="i2v-drop-content">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.5" width="36" height="36"
+                style="margin:0 auto 10px;display:block;opacity:0.7;">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9l4-4 4 4M21 15l-4 4-4-4"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+              </svg>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Drop image here or click to browse</div>
+              <div style="font-size:10px;color:var(--muted);">PNG · JPG · WEBP — max 10MB</div>
+            </div>
+            <img id="i2v-preview"
+              style="display:none;max-width:100%;max-height:180px;object-fit:contain;border-radius:6px;"
+              alt="image preview"/>
+          </div>
+          <input type="file" id="i2v-file-input" accept="image/*"
+            style="display:none;" onchange="handleI2VFile(this)"/>
+        </div>
+
+        <div class="form-group mb-16">
+          <label class="form-label">Motion Strength</label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="range" id="i2v-motion" min="1" max="10" step="1" value="5"
+              oninput="document.getElementById('i2v-motion-val').textContent=this.value"
+              style="flex:1;accent-color:#7c3aed;cursor:pointer;"/>
+            <span id="i2v-motion-val"
+              style="font-size:13px;font-family:var(--font-data);color:#a78bfa;min-width:20px;text-align:right;">5</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:4px;">
+            <span>Subtle</span><span>Moderate</span><span>Intense</span>
+          </div>
+        </div>
+
+        <div class="form-group mb-16">
+          <label class="form-label">Motion Prompt (optional)</label>
+          <input type="text" id="i2v-prompt" class="form-control"
+            placeholder="Camera slowly zooms in, subtle particle effects..."/>
+        </div>
+
+        <button class="btn btn-primary"
+          style="width:100%;background:linear-gradient(135deg,#7c3aed,#5b21b6);border:none;"
+          onclick="generateI2V()">
+          <span id="i2v-btn-text">ANIMATE IMAGE</span>
+        </button>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center;">
+          Image-to-Video · CogVideoX-5B · ~3 minutes
+        </div>
+      </div>
+    </div>
+
+    <!-- Output Panel -->
+    <div class="hud-panel">
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">Animated Output</span>
+        <span id="i2v-status-badge" class="badge">IDLE</span>
+      </div>
+      <div class="hud-panel-body" style="min-height:320px;">
+        <div style="margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span id="i2v-progress-label" style="font-size:10px;color:var(--muted);">WAITING</span>
+            <span id="i2v-progress-pct" style="font-size:10px;font-family:var(--font-data);color:#a78bfa;">0%</span>
+          </div>
+          <div class="orch-arc">
+            <div class="orch-arc-fill" id="i2v-bar"
+              style="width:0%;transition:width 1.5s ease;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div>
+          </div>
+        </div>
+
+        <div id="i2v-output" style="display:none;">
+          <video id="i2v-video" controls
+            style="width:100%;border-radius:8px;border:1px solid rgba(124,58,237,0.4);background:#000;"></video>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn"
+              style="flex:1;font-size:11px;border-color:rgba(124,58,237,0.4);color:#a78bfa;"
+              onclick="downloadCgVideo('i2v')">DOWNLOAD</button>
+            <button class="btn" style="flex:1;font-size:11px;" onclick="sendToPending('i2v')">SEND TO QUEUE</button>
+          </div>
+        </div>
+
+        <div id="i2v-idle"
+          style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;color:var(--muted);text-align:center;">
+          <svg viewBox="0 0 64 64" width="48" height="48" fill="none" style="opacity:0.3;margin-bottom:12px;">
+            <rect x="4" y="12" width="56" height="40" rx="4" stroke="#7c3aed" stroke-width="2"/>
+            <circle cx="20" cy="26" r="5" stroke="#7c3aed" stroke-width="1.5"/>
+            <path d="M4 44l14-14 10 10 10-12 14 16" stroke="#7c3aed" stroke-width="1.5"/>
+          </svg>
+          <div style="font-size:12px;">Upload an image to animate</div>
+        </div>
+
+        <div id="i2v-error"
+          style="display:none;color:var(--red);font-size:12px;margin-top:8px;padding:8px;background:rgba(239,68,68,0.1);border-radius:6px;border:1px solid rgba(239,68,68,0.2);"></div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+</div><!-- /i2v tab -->
+
+<!-- VIDEO GALLERY TAB -->
+<div id="cg-tab-gallery" class="tab-panel" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div style="font-size:11px;color:var(--muted);">
+      Generated videos this session —
+      <span id="cg-gallery-count" style="color:#a78bfa;font-family:var(--font-data);">0 videos</span>
+    </div>
+    <button class="btn"
+      style="font-size:11px;border-color:rgba(124,58,237,0.4);color:#a78bfa;"
+      onclick="cgRenderGallery()">REFRESH</button>
+  </div>
+
+  <!-- Live generated grid (populated by JS) -->
+  <div id="cg-gallery-grid"
+    style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;"></div>
+
+  <!-- Empty state -->
+  <div id="cg-gallery-empty"
+    style="flex-direction:column;align-items:center;padding:60px;color:var(--muted);text-align:center;display:flex;">
+    <svg viewBox="0 0 64 64" width="56" height="56" fill="none" style="opacity:0.25;margin-bottom:14px;">
+      <circle cx="32" cy="32" r="28" stroke="#7c3aed" stroke-width="2"/>
+      <polygon points="26,22 26,42 46,32" fill="#7c3aed" opacity="0.5"/>
+    </svg>
+    <div style="font-size:13px;margin-bottom:6px;">No videos generated yet</div>
+    <div style="font-size:11px;">Use Text-to-Video or Image-to-Video to create content</div>
+  </div>
+
+  <!-- Static placeholder cards (hidden once real content exists) -->
+  <div id="cg-gallery-placeholders"
+    style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:8px;">
+
+    <div class="hud-panel cg-thumb-card" style="overflow:hidden;">
+      <div style="position:relative;aspect-ratio:16/9;background:linear-gradient(135deg,rgba(124,58,237,0.15),rgba(0,212,255,0.08));display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 64 64" width="40" height="40" fill="none" style="opacity:0.35;">
+          <circle cx="32" cy="32" r="28" stroke="#7c3aed" stroke-width="2"/>
+          <polygon points="26,22 26,42 46,32" fill="#7c3aed"/>
+        </svg>
+        <div style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.7);border-radius:4px;padding:2px 6px;font-size:10px;font-family:var(--font-data);color:#a78bfa;">0:05</div>
+      </div>
+      <div class="hud-panel-body" style="padding:10px;">
+        <div style="font-size:11px;color:var(--text,#e2e8f0);font-family:var(--font-hud);margin-bottom:4px;">
+          Sample · Cinematic City
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:10px;color:var(--muted);">T2V · 720p</span>
+          <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(124,58,237,0.2);color:#a78bfa;font-family:var(--font-data);">DEMO</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-panel cg-thumb-card" style="overflow:hidden;">
+      <div style="position:relative;aspect-ratio:16/9;background:linear-gradient(135deg,rgba(0,212,255,0.1),rgba(124,58,237,0.12));display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 64 64" width="40" height="40" fill="none" style="opacity:0.35;">
+          <circle cx="32" cy="32" r="28" stroke="#00d4ff" stroke-width="2"/>
+          <polygon points="26,22 26,42 46,32" fill="#00d4ff"/>
+        </svg>
+        <div style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.7);border-radius:4px;padding:2px 6px;font-size:10px;font-family:var(--font-data);color:#00d4ff;">0:10</div>
+      </div>
+      <div class="hud-panel-body" style="padding:10px;">
+        <div style="font-size:11px;color:var(--text,#e2e8f0);font-family:var(--font-hud);margin-bottom:4px;">
+          Sample · Nebula Sci-Fi
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:10px;color:var(--muted);">T2V · 1080p</span>
+          <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(0,212,255,0.15);color:#00d4ff;font-family:var(--font-data);">DEMO</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-panel cg-thumb-card" style="overflow:hidden;">
+      <div style="position:relative;aspect-ratio:16/9;background:linear-gradient(135deg,rgba(255,107,53,0.1),rgba(124,58,237,0.1));display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 64 64" width="40" height="40" fill="none" style="opacity:0.35;">
+          <circle cx="32" cy="32" r="28" stroke="#ff6b35" stroke-width="2"/>
+          <polygon points="26,22 26,42 46,32" fill="#ff6b35"/>
+        </svg>
+        <div style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.7);border-radius:4px;padding:2px 6px;font-size:10px;font-family:var(--font-data);color:#ff6b35;">0:03</div>
+      </div>
+      <div class="hud-panel-body" style="padding:10px;">
+        <div style="font-size:11px;color:var(--text,#e2e8f0);font-family:var(--font-hud);margin-bottom:4px;">
+          Sample · Anime Landscape
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:10px;color:var(--muted);">I2V · 720p</span>
+          <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(255,107,53,0.15);color:#ff6b35;font-family:var(--font-data);">DEMO</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /gallery tab -->
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.tab-panel { animation: fadeIn 0.2s ease; }
+.cg-thumb-card { transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+.cg-thumb-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(124,58,237,0.25); }
+</style>
+<script>
+(function () {
+  'use strict';
+
+  /* ── Duration slider ─────────────────────────────────────────────── */
+  var DUR_LABEL = {1: '3s', 2: '5s', 3: '10s'};
+  var DUR_VAL   = {1:  3,  2:  5,  3:  10};
+
+  window.updateDurationLabel = function (val) {
+    document.getElementById('t2v-duration-label').textContent = DUR_LABEL[val] || '3s';
+    document.getElementById('t2v-duration').value = DUR_VAL[val] || 3;
+  };
+
+  /* ── Style selector ──────────────────────────────────────────────── */
+  window.setCgStyle = function (btn, style) {
+    ['style-cinematic','style-anime','style-realistic','style-scifi'].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (!b) return;
+      b.style.background   = 'transparent';
+      b.style.color        = 'var(--muted)';
+      b.style.borderColor  = 'rgba(0,212,255,0.2)';
+    });
+    btn.style.background  = 'rgba(124,58,237,0.15)';
+    btn.style.color       = '#a78bfa';
+    btn.style.borderColor = 'rgba(124,58,237,0.4)';
+    document.getElementById('t2v-style').value = style;
+  };
+
+  /* ── Tab switcher ────────────────────────────────────────────────── */
+  window.cgTab = function (name, btn) {
+    document.querySelectorAll('.hub-tab').forEach(function (b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(function (p) { p.style.display = 'none'; });
+    btn.classList.add('active');
+    document.getElementById('cg-tab-' + name).style.display = 'block';
+    if (name === 'gallery') cgRenderGallery();
+  };
+
+  /* ── Char counter ────────────────────────────────────────────────── */
+  var promptEl = document.getElementById('t2v-prompt');
+  if (promptEl) {
+    promptEl.addEventListener('input', function () {
+      document.getElementById('t2v-char-count').textContent = this.value.length + ' / 500';
+    });
+  }
+
+  /* ── Console logger ──────────────────────────────────────────────── */
+  var LEVEL_COLORS = {
+    INFO:    '#00d4ff',
+    SUCCESS: '#10b981',
+    WARN:    '#f59e0b',
+    ERROR:   '#ef4444',
+    CINEGEN: '#7c3aed'
+  };
+
+  function cgLog(level, msg) {
+    var con = document.getElementById('cg-console');
+    if (!con) return;
+    var now = new Date().toLocaleTimeString('en-US', {hour12: false});
+
+    var line = document.createElement('div');
+    line.className = 'cg-log-line';
+
+    var t = document.createElement('span');
+    t.style.color = 'var(--muted)';
+    t.textContent = '[' + now + ']';
+
+    var lv = document.createElement('span');
+    lv.style.marginLeft = '8px';
+    lv.style.color = LEVEL_COLORS[level] || '#a78bfa';
+    lv.textContent = level;
+
+    var m = document.createElement('span');
+    m.style.marginLeft = '8px';
+    m.textContent = msg;
+
+    line.appendChild(t);
+    line.appendChild(lv);
+    line.appendChild(m);
+    con.appendChild(line);
+    con.scrollTop = con.scrollHeight;
+  }
+
+  // Seed initial log line
+  cgLog('CINEGEN', 'CogVideoX-5B model ready. Awaiting prompt.');
+
+  window.clearCgLog = function () {
+    var con = document.getElementById('cg-console');
+    if (con) { con.textContent = ''; }
+  };
+
+  /* ── Progress helper ─────────────────────────────────────────────── */
+  function setProgress(barId, labelId, pctId, pct, label) {
+    document.getElementById(barId).style.width = pct + '%';
+    document.getElementById(labelId).textContent = label || 'PROCESSING';
+    document.getElementById(pctId).textContent   = pct + '%';
+  }
+
+  /* ── Text-to-Video ───────────────────────────────────────────────── */
+  window.generateT2V = async function () {
+    var prompt = document.getElementById('t2v-prompt').value.trim();
+    if (!prompt) { cgLog('WARN', 'Prompt is empty. Enter a description first.'); return; }
+
+    var style      = document.getElementById('t2v-style').value;
+    var duration   = parseInt(document.getElementById('t2v-duration').value, 10);
+    var resolution = document.getElementById('t2v-resolution').value;
+
+    var badge = document.getElementById('t2v-status-badge');
+    badge.textContent = 'GENERATING';
+    badge.className   = 'badge badge-blue';
+
+    document.getElementById('t2v-btn-text').textContent    = 'GENERATING...';
+    document.getElementById('t2v-idle').style.display      = 'none';
+    document.getElementById('t2v-output').style.display    = 'none';
+    document.getElementById('t2v-error').style.display     = 'none';
+
+    cgLog('INFO', 'T2V start — style=' + style + ' dur=' + duration + 's res=' + resolution);
+    setProgress('t2v-bar', 't2v-progress-label', 't2v-progress-pct', 10, 'QUEUING');
+
+    var pct  = 10;
+    var tick = setInterval(function () {
+      if (pct < 85) { pct += 3; setProgress('t2v-bar', 't2v-progress-label', 't2v-progress-pct', pct, 'SYNTHESIZING'); }
+    }, 4000);
+
+    try {
+      var resp = await fetch('/api/cinegen/t2v', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({prompt: prompt, style: style, duration: duration, resolution: resolution})
+      });
+      clearInterval(tick);
+      var data = await resp.json();
+
+      if (data.status === 'ok' || data.url) {
+        var url = data.url || (data.data && data.data.url) || '';
+        setProgress('t2v-bar', 't2v-progress-label', 't2v-progress-pct', 100, 'COMPLETE');
+        badge.textContent = 'DONE';
+        badge.className   = 'badge badge-green';
+        cgLog('SUCCESS', 'Video ready: ' + (url.split('/').pop() || 'output.mp4'));
+        if (url) {
+          document.getElementById('t2v-video').src       = url;
+          document.getElementById('t2v-output').style.display = 'block';
+          addToGallery({type: 't2v', url: url, label: prompt.slice(0, 40), res: resolution});
+        }
+      } else {
+        throw new Error(data.message || data.detail || 'Generation failed');
+      }
+    } catch (e) {
+      clearInterval(tick);
+      setProgress('t2v-bar', 't2v-progress-label', 't2v-progress-pct', 0, 'ERROR');
+      badge.textContent = 'ERROR';
+      badge.className   = 'badge badge-red';
+      var errEl = document.getElementById('t2v-error');
+      errEl.textContent = e.message;
+      errEl.style.display = 'block';
+      document.getElementById('t2v-idle').style.display = 'flex';
+      cgLog('ERROR', e.message);
+    } finally {
+      document.getElementById('t2v-btn-text').textContent = 'GENERATE VIDEO';
+    }
+  };
+
+  /* ── Image-to-Video helpers ──────────────────────────────────────── */
+  window.handleI2VDrop = function (event) {
+    event.preventDefault();
+    var dz = document.getElementById('i2v-dropzone');
+    dz.style.borderColor = 'rgba(124,58,237,0.4)';
+    dz.style.background  = 'rgba(124,58,237,0.05)';
+    var file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) { previewI2V(file); }
+  };
+
+  window.handleI2VFile = function (input) {
+    if (input.files && input.files[0]) { previewI2V(input.files[0]); }
+  };
+
+  function previewI2V(file) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var preview = document.getElementById('i2v-preview');
+      var content = document.getElementById('i2v-drop-content');
+      preview.src          = e.target.result;
+      preview.style.display = 'block';
+      content.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /* ── Image-to-Video generate ─────────────────────────────────────── */
+  window.generateI2V = async function () {
+    var fileInput = document.getElementById('i2v-file-input');
+    if (!fileInput.files || !fileInput.files[0]) {
+      cgLog('WARN', 'No image selected. Upload an image first.');
+      return;
+    }
+
+    var motion       = document.getElementById('i2v-motion').value;
+    var motionPrompt = document.getElementById('i2v-prompt').value.trim();
+
+    var badge = document.getElementById('i2v-status-badge');
+    badge.textContent = 'ANIMATING';
+    badge.className   = 'badge badge-blue';
+
+    document.getElementById('i2v-btn-text').textContent   = 'ANIMATING...';
+    document.getElementById('i2v-idle').style.display     = 'none';
+    document.getElementById('i2v-output').style.display   = 'none';
+    document.getElementById('i2v-error').style.display    = 'none';
+
+    cgLog('INFO', 'I2V start — motion=' + motion + (motionPrompt ? ' prompt="' + motionPrompt + '"' : ''));
+    document.getElementById('i2v-bar').style.width              = '5%';
+    document.getElementById('i2v-progress-label').textContent   = 'UPLOADING';
+    document.getElementById('i2v-progress-pct').textContent     = '5%';
+
+    var pct  = 5;
+    var tick = setInterval(function () {
+      if (pct < 80) {
+        pct += 3;
+        document.getElementById('i2v-bar').style.width            = pct + '%';
+        document.getElementById('i2v-progress-pct').textContent   = pct + '%';
+      }
+    }, 3500);
+
+    try {
+      var form = new FormData();
+      form.append('image', fileInput.files[0]);
+      form.append('motion_strength', motion);
+      if (motionPrompt) { form.append('prompt', motionPrompt); }
+
+      var resp = await fetch('/api/cinegen/i2v', {method: 'POST', body: form});
+      clearInterval(tick);
+      var data = await resp.json();
+
+      if (data.status === 'ok' || data.url) {
+        var url = data.url || (data.data && data.data.url) || '';
+        document.getElementById('i2v-bar').style.width            = '100%';
+        document.getElementById('i2v-progress-label').textContent = 'COMPLETE';
+        document.getElementById('i2v-progress-pct').textContent   = '100%';
+        badge.textContent = 'DONE';
+        badge.className   = 'badge badge-green';
+        cgLog('SUCCESS', 'Animation done: ' + (url.split('/').pop() || 'animated.mp4'));
+        if (url) {
+          document.getElementById('i2v-video').src       = url;
+          document.getElementById('i2v-output').style.display = 'block';
+          addToGallery({type: 'i2v', url: url, label: 'Animated Image', res: '720p'});
+        }
+      } else {
+        throw new Error(data.message || data.detail || 'Animation failed');
+      }
+    } catch (e) {
+      clearInterval(tick);
+      document.getElementById('i2v-bar').style.width = '0%';
+      badge.textContent = 'ERROR';
+      badge.className   = 'badge badge-red';
+      var errEl = document.getElementById('i2v-error');
+      errEl.textContent = e.message;
+      errEl.style.display = 'block';
+      document.getElementById('i2v-idle').style.display = 'flex';
+      cgLog('ERROR', e.message);
+    } finally {
+      document.getElementById('i2v-btn-text').textContent = 'ANIMATE IMAGE';
+    }
+  };
+
+  /* ── Gallery ─────────────────────────────────────────────────────── */
+  var _gallery = [];
+
+  function addToGallery(item) {
+    _gallery.unshift(item);
+    var countEl = document.getElementById('cg-gallery-count');
+    if (countEl) {
+      countEl.textContent = _gallery.length + ' video' + (_gallery.length !== 1 ? 's' : '');
+    }
+  }
+
+  window.cgRenderGallery = function () {
+    var grid         = document.getElementById('cg-gallery-grid');
+    var emptyEl      = document.getElementById('cg-gallery-empty');
+    var placeholders = document.getElementById('cg-gallery-placeholders');
+
+    grid.textContent = '';
+
+    if (_gallery.length === 0) {
+      emptyEl.style.display      = 'flex';
+      placeholders.style.display = 'grid';
+      return;
+    }
+
+    emptyEl.style.display      = 'none';
+    placeholders.style.display = 'none';
+
+    _gallery.forEach(function (item) {
+      var card = document.createElement('div');
+      card.className = 'hud-panel cg-thumb-card';
+      card.style.overflow = 'hidden';
+
+      // Thumbnail wrapper
+      var thumbWrap = document.createElement('div');
+      thumbWrap.style.cssText = 'position:relative;aspect-ratio:16/9;background:#000;overflow:hidden;';
+
+      var vid = document.createElement('video');
+      vid.src            = item.url;
+      vid.style.cssText  = 'width:100%;height:100%;object-fit:cover;';
+      vid.muted          = true;
+      vid.preload        = 'metadata';
+      vid.style.display  = 'block';
+
+      // Play overlay (pure DOM, no innerHTML with variables)
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);opacity:0;transition:opacity 0.2s;cursor:pointer;';
+
+      var svgNS    = 'http://www.w3.org/2000/svg';
+      var playSvg  = document.createElementNS(svgNS, 'svg');
+      playSvg.setAttribute('viewBox', '0 0 64 64');
+      playSvg.setAttribute('width',  '40');
+      playSvg.setAttribute('height', '40');
+      playSvg.setAttribute('fill',   'none');
+
+      var circle = document.createElementNS(svgNS, 'circle');
+      circle.setAttribute('cx', '32');
+      circle.setAttribute('cy', '32');
+      circle.setAttribute('r',  '28');
+      circle.setAttribute('stroke', '#7c3aed');
+      circle.setAttribute('stroke-width', '2');
+      circle.setAttribute('fill', 'rgba(124,58,237,0.3)');
+
+      var poly = document.createElementNS(svgNS, 'polygon');
+      poly.setAttribute('points', '26,22 26,42 46,32');
+      poly.setAttribute('fill', '#a78bfa');
+
+      playSvg.appendChild(circle);
+      playSvg.appendChild(poly);
+      overlay.appendChild(playSvg);
+
+      overlay.addEventListener('click', function () {
+        vid.play();
+        overlay.style.opacity = '0';
+      });
+
+      card.addEventListener('mouseenter', function () { overlay.style.opacity = '1'; });
+      card.addEventListener('mouseleave', function () { if (vid.paused) overlay.style.opacity = '0'; });
+
+      thumbWrap.appendChild(vid);
+      thumbWrap.appendChild(overlay);
+      card.appendChild(thumbWrap);
+
+      // Card body
+      var body = document.createElement('div');
+      body.className  = 'hud-panel-body';
+      body.style.cssText = 'padding:10px;';
+
+      var titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-size:11px;color:var(--text,#e2e8f0);font-family:var(--font-hud);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+      titleEl.textContent = item.label || 'Generated Video';
+
+      var metaRow = document.createElement('div');
+      metaRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
+
+      var metaLeft = document.createElement('span');
+      metaLeft.style.cssText = 'font-size:10px;color:var(--muted);';
+      metaLeft.textContent = item.type.toUpperCase() + ' · ' + (item.res || '720p');
+
+      var metaRight = document.createElement('span');
+      metaRight.style.cssText = 'font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(124,58,237,0.2);color:#a78bfa;font-family:var(--font-data);';
+      metaRight.textContent = 'NEW';
+
+      metaRow.appendChild(metaLeft);
+      metaRow.appendChild(metaRight);
+      body.appendChild(titleEl);
+      body.appendChild(metaRow);
+      card.appendChild(body);
+
+      grid.appendChild(card);
+    });
+  };
+
+  /* ── Download / Send helpers ─────────────────────────────────────── */
+  window.downloadCgVideo = function (source) {
+    var vid = document.getElementById(source + '-video');
+    if (!vid || !vid.src) { return; }
+    var a = document.createElement('a');
+    a.href     = vid.src;
+    a.download = 'cinegen_' + source + '_' + Date.now() + '.mp4';
+    a.click();
+  };
+
+  window.sendToPending = function (source) {
+    var vid = document.getElementById(source + '-video');
+    if (!vid || !vid.src) { return; }
+    fetch('/api/publish/pending', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url: vid.src, source: 'cinegen_' + source, type: 'video'})
+    }).then(function (r) { return r.json(); }).then(function () {
+      cgLog('SUCCESS', 'Sent to Publish Hub pending queue.');
+    }).catch(function (e) {
+      cgLog('WARN', 'Queue endpoint error: ' + e.message);
+    });
+  };
+
+  /* ── Model status poll ───────────────────────────────────────────── */
+  fetch('/api/cinegen/status').then(function (r) { return r.json(); }).then(function (d) {
+    var badge = document.getElementById('cg-model-badge');
+    var dot   = document.getElementById('cg-status-dot');
+    var txt   = document.getElementById('cg-status-text');
+    if (d.status === 'loading') {
+      badge.textContent      = 'MODEL LOADING';
+      badge.style.background = 'rgba(245,158,11,0.2)';
+      badge.style.borderColor = '#f59e0b';
+      badge.style.color      = '#f59e0b';
+      dot.style.background   = '#f59e0b';
+      dot.style.boxShadow    = '0 0 8px #f59e0b';
+      txt.textContent        = 'LOADING MODEL';
+    } else if (d.status === 'error' || d.available === false) {
+      badge.textContent      = 'COGVIDEOX OFFLINE';
+      badge.style.background = 'rgba(239,68,68,0.2)';
+      badge.style.borderColor = '#ef4444';
+      badge.style.color      = '#ef4444';
+      dot.style.background   = '#ef4444';
+      dot.style.boxShadow    = '0 0 8px #ef4444';
+      txt.textContent        = 'MODEL UNAVAILABLE';
+    }
+  }).catch(function () {});
+
+}());
+</script>
+{% endblock %}

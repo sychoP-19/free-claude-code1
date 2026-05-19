@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+{% set active = "media_lab" %}
+{% block title %}Media Lab{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">MEDIA LAB</div>
+    <div class="page-subtitle">YT-DLP DOWNLOAD · WHISPER TRANSCRIPTION · AI ANALYSIS · CLIP EXTRACTION</div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="hub-tabs mb-16">
+  <button class="hub-tab active" onclick="mlTab('download', this)">DOWNLOAD</button>
+  <button class="hub-tab" onclick="mlTab('transcribe', this)">TRANSCRIBE</button>
+  <button class="hub-tab" onclick="mlTab('analyze', this)">AI ANALYSIS</button>
+  <button class="hub-tab" onclick="mlTab('clips', this)">CLIPS</button>
+</div>
+
+<!-- DOWNLOAD TAB -->
+<div id="ml-tab-download" class="tab-panel">
+  <div class="grid-2-1 mb-16">
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Download Config</span><span class="badge badge-red">YT-DLP</span></div>
+      <div class="hud-panel-body">
+        <div class="form-group mb-16">
+          <label class="form-label">Video URL (YouTube, Twitter, TikTok, Instagram...)</label>
+          <input id="dl-url" class="form-control" type="url" placeholder="https://www.youtube.com/watch?v=..."/>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+          <div class="form-group">
+            <label class="form-label">Quality</label>
+            <select id="dl-quality" class="form-control">
+              <option value="360">360p (Fast)</option>
+              <option value="480">480p</option>
+              <option value="720" selected>720p (Recommended)</option>
+              <option value="1080">1080p (HQ)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Format</label>
+            <select id="dl-mode" class="form-control">
+              <option value="video">Video + Audio</option>
+              <option value="audio">Audio Only (MP3)</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="downloadMedia()">
+          <span id="dl-btn">DOWNLOAD</span>
+        </button>
+      </div>
+    </div>
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Download Status</span><span id="dl-badge" class="badge">IDLE</span></div>
+      <div class="hud-panel-body">
+        <div class="orch-arc mb-16"><div class="orch-arc-fill" id="dl-bar" style="width:0%;transition:width 1s ease;"></div></div>
+        <div id="dl-result" style="display:none;">
+          <div class="hud-panel" style="border-color:var(--green)33;">
+            <div class="hud-panel-body" style="padding:12px;">
+              <div id="dl-title" style="font-size:13px;font-family:var(--font-hud);color:var(--text);margin-bottom:8px;"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <div class="revenue-sub"><div id="dl-duration">—</div><div>Duration</div></div>
+                <div class="revenue-sub"><div id="dl-size">—</div><div>Size</div></div>
+                <div class="revenue-sub"><div id="dl-views">—</div><div>Views</div></div>
+                <div class="revenue-sub"><div id="dl-channel">—</div><div>Channel</div></div>
+              </div>
+              <button class="btn" style="width:100%;margin-top:10px;font-size:11px;" onclick="sendToTranscribe()">SEND TO TRANSCRIBE</button>
+            </div>
+          </div>
+        </div>
+        <div id="dl-error" style="display:none;color:var(--red);font-size:12px;margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSCRIBE TAB -->
+<div id="ml-tab-transcribe" class="tab-panel" style="display:none;">
+  <div class="grid-2-1 mb-16">
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Transcription Config</span><span class="badge badge-blue">WHISPER</span></div>
+      <div class="hud-panel-body">
+        <div class="form-group mb-16">
+          <label class="form-label">File Path (from Download or local)</label>
+          <input id="tr-path" class="form-control" type="text" placeholder="/path/to/video.mp4 or audio.mp3"/>
+        </div>
+        <div class="form-group mb-16">
+          <label class="form-label">Language</label>
+          <select id="tr-lang" class="form-control">
+            <option value="auto">Auto-detect</option>
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="ar">Arabic</option>
+            <option value="pt">Portuguese</option>
+            <option value="zh">Chinese</option>
+            <option value="ja">Japanese</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="transcribeFile()">
+          <span id="tr-btn">TRANSCRIBE</span>
+        </button>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center;">Whisper server → OpenAI API → local Whisper CLI (auto fallback)</div>
+      </div>
+    </div>
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Status</span><span id="tr-badge" class="badge">IDLE</span></div>
+      <div class="hud-panel-body">
+        <div class="orch-arc mb-16"><div class="orch-arc-fill" id="tr-bar" style="width:0%;transition:width 1s ease;"></div></div>
+        <div id="tr-stats" style="display:none;margin-bottom:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+            <div class="revenue-sub"><div id="tr-words">0</div><div>Words</div></div>
+            <div class="revenue-sub"><div id="tr-segs">0</div><div>Segments</div></div>
+            <div class="revenue-sub"><div id="tr-lang-det">—</div><div>Language</div></div>
+          </div>
+        </div>
+        <div id="tr-error" style="display:none;color:var(--red);font-size:12px;"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Transcript viewer -->
+  <div class="hud-panel" id="transcript-panel" style="display:none;">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Transcript</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" style="font-size:10px;padding:3px 10px;" onclick="copyTranscript()">COPY</button>
+        <button class="btn" style="font-size:10px;padding:3px 10px;" onclick="sendToAnalysis()">ANALYZE WITH AI</button>
+        <button class="btn" style="font-size:10px;padding:3px 10px;" onclick="sendToClips()">EXTRACT CLIPS</button>
+      </div>
+    </div>
+    <div class="hud-panel-body">
+      <div id="transcript-segments" style="font-family:var(--font-data);font-size:12px;max-height:400px;overflow-y:auto;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- AI ANALYSIS TAB -->
+<div id="ml-tab-analyze" class="tab-panel" style="display:none;">
+  <div class="grid-2-1 mb-16">
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">AI Analysis Config</span><span class="badge badge-green">OLLAMA / PROXY</span></div>
+      <div class="hud-panel-body">
+        <div class="form-group mb-16">
+          <label class="form-label">Content to Analyze</label>
+          <textarea id="an-text" class="form-control" rows="6" placeholder="Paste transcript text or topic description..."></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+          <div class="form-group">
+            <label class="form-label">Analysis Type</label>
+            <select id="an-type" class="form-control">
+              <option value="virality">Virality Score</option>
+              <option value="hooks">Extract Hooks</option>
+              <option value="script">Write Short Script</option>
+              <option value="seo">SEO Titles + Keywords</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Model</label>
+            <select id="an-model" class="form-control" id="an-model">
+              <option value="llama3.1:latest">Llama 3.1 (Local)</option>
+              <option value="gemma3:latest">Gemma 3 (Local)</option>
+              <option value="mistral:latest">Mistral (Local)</option>
+              <option value="proxy">JARVIS Proxy (Claude)</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="analyzeContent()">
+          <span id="an-btn">ANALYZE</span>
+        </button>
+      </div>
+    </div>
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Analysis Result</span><span id="an-badge" class="badge">IDLE</span></div>
+      <div class="hud-panel-body">
+        <div class="orch-arc mb-16"><div class="orch-arc-fill" id="an-bar" style="width:0%;transition:width 0.8s ease;"></div></div>
+        <div id="an-result" style="font-family:var(--font-data);font-size:12px;color:var(--text);white-space:pre-wrap;max-height:300px;overflow-y:auto;"></div>
+        <div id="an-error" style="display:none;color:var(--red);font-size:12px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CLIPS TAB -->
+<div id="ml-tab-clips" class="tab-panel" style="display:none;">
+  <div class="hud-panel mb-16">
+    <div class="hud-panel-header"><span class="hud-panel-title">AI Clip Extractor</span><span class="badge badge-blue">HIGHLIGHT DETECTION</span></div>
+    <div class="hud-panel-body">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Uses the AI-Youtube-Shorts-Generator highlight detection engine on your transcribed content.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+        <div class="form-group">
+          <label class="form-label">Source File Path</label>
+          <input id="cl-path" class="form-control" type="text" placeholder="/downloads/video.mp4"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Num Clips</label>
+          <select id="cl-num" class="form-control">
+            <option value="1">1</option>
+            <option value="3" selected>3</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Aspect Ratio</label>
+          <select id="cl-ratio" class="form-control">
+            <option value="9:16" selected>9:16 Shorts</option>
+            <option value="1:1">1:1 Square</option>
+            <option value="16:9">16:9 Landscape</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="extractClips()"><span id="cl-btn">EXTRACT CLIPS</span></button>
+    </div>
+  </div>
+  <div id="cl-results" style="display:none;" class="hud-panel">
+    <div class="hud-panel-header"><span class="hud-panel-title">Extracted Clips</span><span id="cl-count" class="badge badge-green">0 CLIPS</span></div>
+    <div class="hud-panel-body" id="cl-list"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.seg-row { display:flex;gap:10px;padding:4px 0;border-bottom:1px solid rgba(0,212,255,0.05); }
+.seg-ts { color:var(--blue);font-size:10px;min-width:80px;padding-top:2px; }
+.seg-text { font-size:12px;color:var(--muted); }
+</style>
+<script>
+let _lastDownload = null;
+let _lastTranscript = null;
+
+function mlTab(name, btn) {
+  document.querySelectorAll('.hub-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+  btn.classList.add('active');
+  document.getElementById('ml-tab-' + name).style.display = 'block';
+}
+
+function fmtSeconds(s) {
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return m + ':' + String(sec).padStart(2, '0');
+}
+
+async function downloadMedia() {
+  const url = document.getElementById('dl-url').value.trim();
+  if (!url) { alert('Enter a URL.'); return; }
+  const badge = document.getElementById('dl-badge');
+  badge.textContent = 'DOWNLOADING'; badge.className = 'badge badge-blue';
+  const bar = document.getElementById('dl-bar');
+  bar.style.width = '10%';
+  let pct = 10;
+  const poll = setInterval(() => { if (pct < 85) { pct += 5; bar.style.width = pct + '%'; } }, 2000);
+  document.getElementById('dl-btn').textContent = 'DOWNLOADING...';
+  document.getElementById('dl-result').style.display = 'none';
+  document.getElementById('dl-error').style.display = 'none';
+  try {
+    const r = await fetch('/api/media/download', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({url, quality: document.getElementById('dl-quality').value, audio_only: document.getElementById('dl-mode').value === 'audio'}),
+    });
+    clearInterval(poll);
+    const d = await r.json();
+    if (d.status === 'ok') {
+      bar.style.width = '100%';
+      badge.textContent = 'DONE'; badge.className = 'badge badge-green';
+      _lastDownload = d.data;
+      document.getElementById('dl-title').textContent    = d.data.title || 'Unknown title';
+      document.getElementById('dl-duration').textContent = fmtSeconds(d.data.duration || 0);
+      document.getElementById('dl-size').textContent     = (d.data.size_mb || 0) + ' MB';
+      document.getElementById('dl-views').textContent    = (d.data.views || 0).toLocaleString();
+      document.getElementById('dl-channel').textContent  = d.data.channel || '—';
+      document.getElementById('dl-result').style.display = 'block';
+    } else {
+      badge.textContent = 'ERROR'; badge.className = 'badge badge-red';
+      const err = document.getElementById('dl-error');
+      err.textContent = d.message || 'Download failed'; err.style.display = 'block';
+    }
+  } catch(e) {
+    clearInterval(poll); bar.style.width = '0%';
+    badge.textContent = 'ERROR'; badge.className = 'badge badge-red';
+    const err = document.getElementById('dl-error');
+    err.textContent = e.message; err.style.display = 'block';
+  }
+  finally { document.getElementById('dl-btn').textContent = 'DOWNLOAD'; }
+}
+
+function sendToTranscribe() {
+  if (!_lastDownload) return;
+  document.getElementById('tr-path').value = _lastDownload.path || '';
+  mlTab('transcribe', document.querySelectorAll('.hub-tab')[1]);
+}
+
+async function transcribeFile() {
+  const path = document.getElementById('tr-path').value.trim();
+  if (!path) { alert('Enter a file path.'); return; }
+  const badge = document.getElementById('tr-badge');
+  badge.textContent = 'TRANSCRIBING'; badge.className = 'badge badge-blue';
+  const bar = document.getElementById('tr-bar');
+  bar.style.width = '5%';
+  let pct = 5;
+  const poll = setInterval(() => { if (pct < 90) { pct += 3; bar.style.width = pct + '%'; } }, 3000);
+  document.getElementById('tr-btn').textContent = 'TRANSCRIBING...';
+  document.getElementById('transcript-panel').style.display = 'none';
+  document.getElementById('tr-error').style.display = 'none';
+  try {
+    const r = await fetch('/api/media/transcribe', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({path, language: document.getElementById('tr-lang').value}),
+    });
+    clearInterval(poll);
+    const d = await r.json();
+    if (d.status === 'ok') {
+      bar.style.width = '100%';
+      badge.textContent = 'DONE'; badge.className = 'badge badge-green';
+      _lastTranscript = d.data;
+      document.getElementById('tr-words').textContent   = (d.data.word_count || 0).toLocaleString();
+      document.getElementById('tr-segs').textContent    = (d.data.segments || []).length;
+      document.getElementById('tr-lang-det').textContent = (d.data.language || '—').toUpperCase();
+      document.getElementById('tr-stats').style.display = 'block';
+      _renderTranscript(d.data.segments || [], d.data.text || '');
+    } else {
+      badge.textContent = 'ERROR'; badge.className = 'badge badge-red';
+      const err = document.getElementById('tr-error');
+      err.textContent = d.message || 'Transcription failed'; err.style.display = 'block';
+    }
+  } catch(e) {
+    clearInterval(poll);
+    badge.textContent = 'ERROR'; badge.className = 'badge badge-red';
+    const err = document.getElementById('tr-error');
+    err.textContent = e.message; err.style.display = 'block';
+  }
+  finally { document.getElementById('tr-btn').textContent = 'TRANSCRIBE'; }
+}
+
+function _renderTranscript(segments, fullText) {
+  const container = document.getElementById('transcript-segments');
+  container.textContent = '';
+  if (segments.length) {
+    segments.forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'seg-row';
+      const ts = document.createElement('span');
+      ts.className = 'seg-ts';
+      ts.textContent = fmtSeconds(s.start) + ' → ' + fmtSeconds(s.end);
+      const txt = document.createElement('span');
+      txt.className = 'seg-text';
+      txt.textContent = s.text;
+      row.appendChild(ts); row.appendChild(txt);
+      container.appendChild(row);
+    });
+  } else {
+    const p = document.createElement('p');
+    p.style.color = 'var(--muted)'; p.textContent = fullText || 'No segments detected.';
+    container.appendChild(p);
+  }
+  document.getElementById('transcript-panel').style.display = 'block';
+}
+
+function copyTranscript() {
+  if (_lastTranscript) {
+    navigator.clipboard.writeText(_lastTranscript.text || '');
+    alert('Transcript copied to clipboard!');
+  }
+}
+
+function sendToAnalysis() {
+  if (!_lastTranscript) return;
+  document.getElementById('an-text').value = _lastTranscript.text || '';
+  mlTab('analyze', document.querySelectorAll('.hub-tab')[2]);
+}
+
+function sendToClips() {
+  if (!_lastDownload) return;
+  document.getElementById('cl-path').value = _lastDownload.path || '';
+  mlTab('clips', document.querySelectorAll('.hub-tab')[3]);
+}
+
+async function analyzeContent() {
+  const text = document.getElementById('an-text').value.trim();
+  if (!text) { alert('Enter text to analyze.'); return; }
+  const model = document.getElementById('an-model').value;
+  const type  = document.getElementById('an-type').value;
+  const badge = document.getElementById('an-badge');
+  badge.textContent = 'ANALYZING'; badge.className = 'badge badge-blue';
+  const bar = document.getElementById('an-bar');
+  bar.style.width = '20%';
+  let pct = 20;
+  const poll = setInterval(() => { if (pct < 88) { pct += 6; bar.style.width = pct + '%'; } }, 1200);
+  document.getElementById('an-btn').textContent = 'ANALYZING...';
+  document.getElementById('an-result').textContent = '';
+  document.getElementById('an-error').style.display = 'none';
+  try {
+    const r = await fetch('/api/media/analyze', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text, model, task: type}),
+    });
+    clearInterval(poll);
+    const d = await r.json();
+    if (d.status === 'ok') {
+      bar.style.width = '100%';
+      badge.textContent = 'DONE'; badge.className = 'badge badge-green';
+      document.getElementById('an-result').textContent = d.data.reply || d.data;
+    } else {
+      badge.textContent = 'ERROR'; badge.className = 'badge badge-red';
+      const err = document.getElementById('an-error');
+      err.textContent = d.message || 'Analysis failed'; err.style.display = 'block';
+    }
+  } catch(e) {
+    clearInterval(poll);
+    const err = document.getElementById('an-error');
+    err.textContent = e.message; err.style.display = 'block';
+  }
+  finally { document.getElementById('an-btn').textContent = 'ANALYZE'; }
+}
+
+async function extractClips() {
+  const path = document.getElementById('cl-path').value.trim();
+  if (!path) { alert('Enter source file path.'); return; }
+  document.getElementById('cl-btn').textContent = 'EXTRACTING...';
+  try {
+    const r = await fetch('/api/agents/shorts/run', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({url: path, num_clips: +document.getElementById('cl-num').value, aspect_ratio: document.getElementById('cl-ratio').value, mode: 'local'}),
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      const shorts = (d.data || {}).shorts || [];
+      const list = document.getElementById('cl-list');
+      list.textContent = '';
+      document.getElementById('cl-count').textContent = shorts.length + ' CLIPS';
+      shorts.forEach((clip, i) => {
+        const card = document.createElement('div');
+        card.style.cssText = 'padding:10px;border-bottom:1px solid rgba(0,212,255,0.07);';
+        const title = document.createElement('div');
+        title.style.cssText = 'font-family:var(--font-hud);font-size:11px;color:var(--blue);margin-bottom:4px;';
+        title.textContent = 'CLIP ' + String(i+1).padStart(2,'0') + (clip.score ? ' — SCORE: ' + clip.score : '');
+        const meta = document.createElement('div');
+        meta.style.cssText = 'font-size:11px;color:var(--muted);';
+        meta.textContent = 'Start: ' + clip.start + 's  |  End: ' + clip.end + 's' + (clip.path ? '  |  ' + clip.path : '');
+        card.appendChild(title); card.appendChild(meta);
+        if (clip.reason) {
+          const r = document.createElement('div');
+          r.style.cssText = 'font-size:10px;color:var(--muted);margin-top:2px;';
+          r.textContent = clip.reason;
+          card.appendChild(r);
+        }
+        list.appendChild(card);
+      });
+      document.getElementById('cl-results').style.display = 'block';
+    } else {
+      alert('Error: ' + (d.message || 'Failed'));
+    }
+  } catch(e) { alert('Error: ' + e.message); }
+  finally { document.getElementById('cl-btn').textContent = 'EXTRACT CLIPS'; }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% set active = "ollama_studio" %}
+{% block title %}Ollama Studio{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">OLLAMA STUDIO</div>
+    <div class="page-subtitle">LOCAL AI MODELS · MAJD SYSTEM PROMPT · STREAMING CHAT</div>
+  </div>
+  <div class="page-actions">
+    <span id="ollama-live-badge" class="badge">CHECKING...</span>
+    <button class="btn" onclick="loadModels()">REFRESH MODELS</button>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:280px 1fr;gap:12px;height:calc(100vh - 180px);">
+
+  <!-- SIDEBAR: Model + Settings -->
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Model</span></div>
+      <div class="hud-panel-body">
+        <select id="ol-model" class="form-control mb-16">
+          <option value="llama3.1:latest">llama3.1:latest</option>
+        </select>
+        <div id="ol-models-list" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;"></div>
+      </div>
+    </div>
+
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">System Prompt</span></div>
+      <div class="hud-panel-body">
+        <select id="ol-persona" class="form-control mb-8" onchange="setPersona(this.value)">
+          <option value="jarvis">MAJD (Default)</option>
+          <option value="virality">Virality Expert</option>
+          <option value="copywriter">Copywriter</option>
+          <option value="analyst">Data Analyst</option>
+          <option value="custom">Custom</option>
+        </select>
+        <textarea id="ol-system" class="form-control" rows="6" style="font-size:11px;resize:vertical;"></textarea>
+      </div>
+    </div>
+
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Quick Prompts</span></div>
+      <div class="hud-panel-body" id="quick-prompts" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Stats</span></div>
+      <div class="hud-panel-body" style="font-size:11px;color:var(--muted);">
+        <div style="display:flex;justify-content:space-between;"><span>Messages</span><span id="stat-msgs">0</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Tokens</span><span id="stat-tokens">0</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Model</span><span id="stat-model">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT AREA -->
+  <div class="hud-panel" style="display:flex;flex-direction:column;overflow:hidden;">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Chat</span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn" style="font-size:10px;padding:3px 10px;" onclick="clearChat()">CLEAR</button>
+        <button class="btn" style="font-size:10px;padding:3px 10px;" onclick="exportChat()">EXPORT</button>
+      </div>
+    </div>
+    <div id="ol-chat" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;"></div>
+    <div style="padding:12px;border-top:1px solid var(--border);display:flex;gap:8px;">
+      <textarea id="ol-input" class="form-control" rows="2" placeholder="Ask MAJD anything..." style="flex:1;resize:none;" onkeydown="if(event.ctrlKey&&event.key==='Enter')sendMessage()"></textarea>
+      <button class="btn btn-primary" style="padding:8px 20px;" onclick="sendMessage()" id="ol-send">SEND</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.ol-msg { display:flex;gap:10px;animation:fadeIn 0.2s ease; }
+.ol-msg.user { flex-direction:row-reverse; }
+.ol-bubble { max-width:80%;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.5; }
+.ol-msg.user .ol-bubble { background:rgba(0,212,255,0.15);border:1px solid rgba(0,212,255,0.3);color:var(--text); }
+.ol-msg.assistant .ol-bubble { background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text); }
+.ol-avatar { width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0; }
+.ol-msg.user .ol-avatar { background:rgba(0,212,255,0.2); }
+.ol-msg.assistant .ol-avatar { background:rgba(59,130,246,0.2); }
+.typing-dot { display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--blue);animation:pulse-dot 1s ease-in-out infinite; }
+.typing-dot:nth-child(2) { animation-delay:0.2s; }
+.typing-dot:nth-child(3) { animation-delay:0.4s; }
+</style>
+<script>
+const PERSONAS = {
+  jarvis: 'You are MAJD — an AI assistant integrated into a Neural Content OS dashboard. You help creators grow YouTube channels, generate viral content, analyze trends, and build monetization systems. You have access to agents that can analyze channels, mine trends, generate scripts, detect highlights, create shorts, generate images with FAL.ai, and track revenue. Be concise, tactical, and always suggest actionable next steps.',
+  virality: 'You are a viral content strategist with deep expertise in YouTube, TikTok, and Instagram growth. You know exactly what makes content explode: hooks, pacing, emotional triggers, trending audio, thumbnail psychology. Give specific, actionable advice. Use data and examples. Be direct.',
+  copywriter: 'You are an elite copywriter specializing in high-converting YouTube titles, descriptions, and scripts. You understand AIDA, PAS, and viral copywriting frameworks. Every word must earn its place. Write punchy, curiosity-driven copy that compels clicks and watch time.',
+  analyst: 'You are a YouTube analytics expert who can interpret channel data, identify growth patterns, diagnose performance issues, and prescribe specific improvement strategies. Be data-driven, specific, and actionable.',
+  custom: '',
+};
+
+const QUICK_PROMPTS = [
+  'What are the best viral hook formulas for YouTube Shorts?',
+  'Analyze: what makes a thumbnail go viral?',
+  'Give me 10 video ideas for the AI niche',
+  'How do I hit 1000 subscribers fast?',
+  'Write a viral script for a 60-second short',
+  'What niches are most profitable on YouTube?',
+];
+
+let _history = [];
+let _totalTokens = 0;
+let _msgCount = 0;
+
+function setPersona(name) {
+  const sys = PERSONAS[name];
+  const el = document.getElementById('ol-system');
+  if (name === 'custom') { el.focus(); return; }
+  el.value = sys || '';
+}
+
+function buildQuickPrompts() {
+  const el = document.getElementById('quick-prompts');
+  QUICK_PROMPTS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.style.cssText = 'font-size:10px;padding:4px 8px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    btn.textContent = p;
+    btn.onclick = () => { document.getElementById('ol-input').value = p; document.getElementById('ol-input').focus(); };
+    el.appendChild(btn);
+  });
+}
+
+async function loadModels() {
+  const badge = document.getElementById('ollama-live-badge');
+  try {
+    const r = await fetch('/api/ollama/models');
+    const d = await r.json();
+    const models = d.models || [];
+    badge.textContent = models.length + ' MODELS';
+    badge.className = models.length ? 'badge badge-green' : 'badge badge-yellow';
+    const select = document.getElementById('ol-model');
+    select.textContent = '';
+    if (!models.length) {
+      const opt = document.createElement('option');
+      opt.value = 'llama3.1:latest';
+      opt.textContent = 'llama3.1:latest (default)';
+      select.appendChild(opt);
+    }
+    models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.name || m.model;
+      opt.textContent = m.name || m.model;
+      select.appendChild(opt);
+    });
+    const list = document.getElementById('ol-models-list');
+    list.textContent = '';
+    models.forEach(m => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(0,212,255,0.05);';
+      const n = document.createElement('span'); n.style.color = 'var(--muted)'; n.textContent = m.name || m.model;
+      const s = document.createElement('span'); s.style.color = 'var(--blue)';
+      const sz = m.size ? (m.size / 1_073_741_824).toFixed(1) + ' GB' : '—';
+      s.textContent = sz;
+      row.appendChild(n); row.appendChild(s);
+      list.appendChild(row);
+    });
+  } catch(e) {
+    badge.textContent = 'OFFLINE';
+    badge.className = 'badge badge-red';
+  }
+}
+
+function _addMsg(role, text) {
+  const chat = document.getElementById('ol-chat');
+  const msg = document.createElement('div');
+  msg.className = 'ol-msg ' + role;
+  const avatar = document.createElement('div');
+  avatar.className = 'ol-avatar';
+  avatar.textContent = role === 'user' ? '👤' : '🤖';
+  const bubble = document.createElement('div');
+  bubble.className = 'ol-bubble';
+  bubble.textContent = text;
+  msg.appendChild(avatar); msg.appendChild(bubble);
+  chat.appendChild(msg);
+  chat.scrollTop = chat.scrollHeight;
+  return bubble;
+}
+
+function _addTyping() {
+  const chat = document.getElementById('ol-chat');
+  const msg = document.createElement('div');
+  msg.className = 'ol-msg assistant';
+  msg.id = 'typing-indicator';
+  const avatar = document.createElement('div');
+  avatar.className = 'ol-avatar';
+  avatar.textContent = '🤖';
+  const bubble = document.createElement('div');
+  bubble.className = 'ol-bubble';
+  bubble.style.display = 'flex'; bubble.style.gap = '4px'; bubble.style.alignItems = 'center';
+  [0,1,2].forEach(() => { const d = document.createElement('span'); d.className = 'typing-dot'; bubble.appendChild(d); });
+  msg.appendChild(avatar); msg.appendChild(bubble);
+  chat.appendChild(msg);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('ol-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  const model = document.getElementById('ol-model').value;
+  const system = document.getElementById('ol-system').value.trim() || PERSONAS.jarvis;
+
+  _addMsg('user', text);
+  _msgCount++;
+  _addTyping();
+
+  document.getElementById('ol-send').disabled = true;
+
+  try {
+    const r = await fetch('/api/ollama/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({message: text, model, history: _history, system}),
+    });
+    const d = await r.json();
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) indicator.remove();
+
+    if (d.status === 'ok') {
+      const reply = d.data.reply || '';
+      _addMsg('assistant', reply);
+      _history = d.data.history || [..._history, {role:'user',content:text}, {role:'assistant',content:reply}];
+      _totalTokens += d.data.tokens || 0;
+      _msgCount++;
+      document.getElementById('stat-msgs').textContent   = _msgCount;
+      document.getElementById('stat-tokens').textContent = _totalTokens.toLocaleString();
+      document.getElementById('stat-model').textContent  = model.split(':')[0];
+    } else {
+      _addMsg('assistant', 'Error: ' + (d.message || 'Failed'));
+    }
+  } catch(e) {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) indicator.remove();
+    _addMsg('assistant', 'Connection error: ' + e.message + '. Is Ollama running?');
+  }
+  finally { document.getElementById('ol-send').disabled = false; }
+}
+
+function clearChat() {
+  document.getElementById('ol-chat').textContent = '';
+  _history = []; _msgCount = 0; _totalTokens = 0;
+  document.getElementById('stat-msgs').textContent   = '0';
+  document.getElementById('stat-tokens').textContent = '0';
+}
+
+function exportChat() {
+  const msgs = [];
+  document.querySelectorAll('.ol-bubble').forEach((b, i) => {
+    const role = b.closest('.ol-msg').classList.contains('user') ? 'User' : 'MAJD';
+    msgs.push(role + ': ' + b.textContent);
+  });
+  const blob = new Blob([msgs.join('\n\n')], {type:'text/plain'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'majd-chat-' + Date.now() + '.txt'; a.click();
+}
+
+// Init
+setPersona('jarvis');
+buildQuickPrompts();
+loadModels();
+</script>
+{% endblock %}

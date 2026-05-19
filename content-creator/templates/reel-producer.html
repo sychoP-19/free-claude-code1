@@ -1,0 +1,843 @@
+{% extends "base.html" %}
+{% set active = "reel_producer" %}
+{% block title %}Reel Machine{% endblock %}
+
+{% block head %}
+<style>
+/* ── Reel Machine Page ─────────────────────────────────────────────────────── */
+.reel-page {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.reel-header {
+  padding: 18px 24px 14px;
+  border-bottom: 1px solid rgba(0,212,255,0.1);
+  background: linear-gradient(180deg,rgba(0,20,40,0.85) 0%,transparent 100%);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.reel-title-block { display:flex; align-items:center; gap:14px; }
+.reel-icon-ring {
+  width:48px; height:48px; border-radius:50%;
+  border:2px solid #ef4444;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(239,68,68,0.1);
+  box-shadow:0 0 24px rgba(239,68,68,0.35);
+  animation:redpulse 2.2s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes redpulse {
+  0%,100%{ box-shadow:0 0 20px rgba(239,68,68,.3); }
+  50%    { box-shadow:0 0 40px rgba(239,68,68,.6),0 0 70px rgba(239,68,68,.18); }
+}
+.reel-main-title {
+  font-family:'Orbitron',monospace; font-size:22px; font-weight:900;
+  color:#fff; letter-spacing:5px; line-height:1;
+  text-shadow:0 0 24px rgba(239,68,68,.5);
+}
+.reel-subtitle {
+  font-family:'JetBrains Mono',monospace; font-size:9px;
+  color:#ef4444; letter-spacing:3px; margin-top:4px;
+  animation:subtblink 3.5s ease-in-out infinite;
+}
+@keyframes subtblink { 0%,88%,100%{opacity:1} 94%{opacity:.35} }
+.reel-header-stats { display:flex; gap:12px; align-items:center; }
+.stat-pill {
+  padding:3px 11px; border-radius:20px;
+  font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1px;
+}
+.stat-pill.red  { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.4); color:#ef4444; }
+.stat-pill.cyan { background:rgba(0,212,255,.08);  border:1px solid rgba(0,212,255,.3);  color:#00d4ff; }
+.stat-pill.grn  { background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.3); color:#10b981; }
+
+/* 3-col grid */
+.reel-grid {
+  display:grid; grid-template-columns:292px 1fr 276px;
+  gap:1px; background:rgba(0,212,255,.06);
+  min-height:0; height:100%; overflow:hidden;
+}
+.reel-col {
+  background:#020c1b; display:flex; flex-direction:column;
+  min-height:0; overflow:hidden;
+}
+.col-hd {
+  padding:10px 14px; border-bottom:1px solid rgba(0,212,255,.1);
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0; background:rgba(0,212,255,.025);
+}
+.col-hd-title {
+  font-family:'JetBrains Mono',monospace; font-size:10px;
+  color:#00d4ff; letter-spacing:2px;
+  display:flex; align-items:center; gap:6px;
+}
+.col-body {
+  flex:1; overflow-y:auto; padding:12px;
+  scrollbar-width:thin; scrollbar-color:rgba(0,212,255,.18) transparent;
+}
+.col-body::-webkit-scrollbar{ width:4px; }
+.col-body::-webkit-scrollbar-thumb{ background:rgba(0,212,255,.18); border-radius:2px; }
+
+/* ── LEFT ── */
+.discover-btn {
+  width:100%; padding:10px 14px; margin-bottom:12px;
+  background:linear-gradient(135deg,rgba(239,68,68,.22),rgba(239,68,68,.04));
+  border:1px solid rgba(239,68,68,.4); border-radius:6px;
+  color:#ef4444; font-family:'JetBrains Mono',monospace;
+  font-size:11px; letter-spacing:2px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  transition:all .2s;
+}
+.discover-btn:hover:not(:disabled) {
+  background:linear-gradient(135deg,rgba(239,68,68,.38),rgba(239,68,68,.1));
+  box-shadow:0 0 22px rgba(239,68,68,.3); transform:translateY(-1px);
+}
+.discover-btn:disabled { opacity:.45; cursor:not-allowed; }
+.spin-ring {
+  width:12px; height:12px; border-radius:50%;
+  border:2px solid rgba(239,68,68,.3); border-top-color:#ef4444;
+  animation:spin .6s linear infinite; display:none;
+}
+.htmx-request .spin-ring { display:block; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+
+.start-btn {
+  width:100%; padding:11px 14px; border-radius:6px; margin-top:12px;
+  font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:2px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+  border:1px solid; transition:all .2s;
+}
+.start-btn:disabled {
+  background:rgba(255,255,255,.025); border-color:rgba(255,255,255,.08);
+  color:rgba(255,255,255,.2); cursor:not-allowed;
+}
+.start-btn.active-btn {
+  background:linear-gradient(135deg,rgba(239,68,68,.28),rgba(239,68,68,.08));
+  border-color:#ef4444; color:#ef4444;
+  animation:btnpulse 2s ease-in-out infinite;
+}
+@keyframes btnpulse {
+  0%,100%{ box-shadow:0 0 18px rgba(239,68,68,.2); }
+  50%    { box-shadow:0 0 32px rgba(239,68,68,.45); }
+}
+.start-btn.active-btn:hover { transform:translateY(-1px); }
+
+/* Topic cards */
+.topic-card {
+  border:1px solid rgba(0,212,255,.1); border-radius:8px;
+  padding:11px; margin-bottom:8px;
+  background:rgba(0,212,255,.02); cursor:pointer; transition:all .2s;
+}
+.topic-card:hover { border-color:rgba(0,212,255,.28); background:rgba(0,212,255,.05); }
+.topic-card.selected { border-color:#ef4444; background:rgba(239,68,68,.05); box-shadow:0 0 14px rgba(239,68,68,.14); }
+.tc-header { display:flex; align-items:flex-start; gap:8px; margin-bottom:8px; }
+.tc-cb { width:15px; height:15px; margin-top:2px; flex-shrink:0; accent-color:#ef4444; cursor:pointer; }
+.tc-title {
+  font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:600;
+  color:#e2e8f0; line-height:1.3; flex:1;
+}
+.tc-platforms { display:flex; gap:3px; flex-shrink:0; }
+.ptag {
+  font-family:'JetBrains Mono',monospace; font-size:8px;
+  padding:1px 5px; border-radius:3px; font-weight:700;
+}
+.ptag.yt  { background:rgba(255,0,0,.18);     border:1px solid rgba(255,0,0,.35);     color:#ff4444; }
+.ptag.tt  { background:rgba(0,0,0,.5);        border:1px solid rgba(255,255,255,.2);   color:#fff; }
+.ptag.ig  { background:rgba(195,70,196,.18);  border:1px solid rgba(195,70,196,.35);  color:#c346c4; }
+.tc-meta { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.comp-badge {
+  font-family:'JetBrains Mono',monospace; font-size:9px; padding:1px 6px; border-radius:3px;
+}
+.comp-badge.low  { background:rgba(16,185,129,.18); border:1px solid rgba(16,185,129,.35); color:#10b981; }
+.comp-badge.med  { background:rgba(245,158,11,.18);  border:1px solid rgba(245,158,11,.35); color:#f59e0b; }
+.comp-badge.high { background:rgba(239,68,68,.18);   border:1px solid rgba(239,68,68,.35);  color:#ef4444; }
+.hash-ct { font-family:'JetBrains Mono',monospace; font-size:9px; color:rgba(0,212,255,.55); }
+.trend-wrap { display:flex; align-items:center; gap:8px; }
+.trend-lbl { font-family:'JetBrains Mono',monospace; font-size:9px; color:rgba(255,255,255,.35); width:34px; }
+.trend-track { flex:1; height:4px; background:rgba(255,255,255,.06); border-radius:2px; overflow:hidden; }
+.trend-fill { height:100%; border-radius:2px; transition:width .7s ease; }
+.trend-fill.hot  { background:linear-gradient(90deg,#ef4444,#ff8c00); box-shadow:0 0 6px rgba(239,68,68,.5); }
+.trend-fill.warm { background:linear-gradient(90deg,#f59e0b,#10b981); }
+.trend-fill.cool { background:linear-gradient(90deg,#00d4ff,#6366f1); }
+.trend-val { font-family:'JetBrains Mono',monospace; font-size:10px; width:22px; text-align:right; }
+.trend-val.hot  { color:#ef4444; }
+.trend-val.warm { color:#f59e0b; }
+.trend-val.cool { color:#00d4ff; }
+.topics-placeholder {
+  text-align:center; padding:24px 12px;
+  color:rgba(255,255,255,.18); font-family:'JetBrains Mono',monospace;
+  font-size:10px; letter-spacing:1px;
+  border:1px dashed rgba(0,212,255,.1); border-radius:8px;
+}
+.topics-placeholder svg { margin:0 auto 8px; display:block; opacity:.25; }
+.sel-counter {
+  font-family:'JetBrains Mono',monospace; font-size:9px;
+  color:rgba(255,255,255,.35); text-align:center; margin-top:4px;
+}
+.sel-counter strong { color:#ef4444; }
+.max-warn {
+  font-family:'JetBrains Mono',monospace; font-size:9px; color:#f59e0b;
+  text-align:center; padding:3px 8px;
+  background:rgba(245,158,11,.07); border:1px solid rgba(245,158,11,.2);
+  border-radius:4px; margin-top:6px;
+}
+
+/* ── CENTER Pipeline ── */
+.pipeline-wrap { display:flex; flex-direction:column; height:100%; min-height:0; }
+.pipeline-stages { flex-shrink:0; padding:14px 18px; border-bottom:1px solid rgba(0,212,255,.07); }
+.pl-stage {
+  display:grid; grid-template-columns:42px 1fr auto;
+  align-items:center; gap:11px;
+  padding:9px 10px; border-radius:8px;
+  border:1px solid rgba(0,212,255,.07); background:rgba(0,212,255,.018);
+  margin-bottom:3px; transition:all .3s; position:relative;
+}
+.pl-stage + .pl-stage::before {
+  content:''; position:absolute; top:-4px; left:21px;
+  width:1px; height:4px; background:rgba(0,212,255,.12);
+}
+.pl-stage.running {
+  border-color:rgba(0,212,255,.35); background:rgba(0,212,255,.06);
+  box-shadow:0 0 16px rgba(0,212,255,.1);
+}
+.pl-stage.done  { border-color:rgba(16,185,129,.28); background:rgba(16,185,129,.035); }
+.pl-stage.error { border-color:rgba(239,68,68,.4);   background:rgba(239,68,68,.045); }
+.pl-stage.done + .pl-stage::before,
+.pl-stage.done + .pl-stage.running::before { background:linear-gradient(180deg,#10b981,#00d4ff); }
+.stage-ico {
+  width:40px; height:40px; border-radius:7px;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid rgba(0,212,255,.12); background:rgba(0,212,255,.03);
+  flex-shrink:0; transition:all .3s;
+}
+.pl-stage.running .stage-ico {
+  border-color:#00d4ff; background:rgba(0,212,255,.1);
+  animation:icopulse 1.6s ease-in-out infinite;
+}
+@keyframes icopulse {
+  0%,100%{ box-shadow:0 0 10px rgba(0,212,255,.25); }
+  50%    { box-shadow:0 0 22px rgba(0,212,255,.5); }
+}
+.pl-stage.done  .stage-ico { border-color:#10b981; background:rgba(16,185,129,.1); }
+.pl-stage.error .stage-ico { border-color:#ef4444; background:rgba(239,68,68,.1); }
+.pl-stage.idle    .stage-ico svg { color:rgba(255,255,255,.18); }
+.pl-stage.running .stage-ico svg { color:#00d4ff; }
+.pl-stage.done    .stage-ico svg { color:#10b981; }
+.pl-stage.error   .stage-ico svg { color:#ef4444; }
+.stage-info { min-width:0; }
+.stage-nm {
+  font-family:'JetBrains Mono',monospace; font-size:10px;
+  font-weight:700; letter-spacing:1px; color:rgba(255,255,255,.4); transition:color .3s;
+}
+.pl-stage.running .stage-nm { color:#00d4ff; }
+.pl-stage.done    .stage-nm { color:#10b981; }
+.pl-stage.error   .stage-nm { color:#ef4444; }
+.stage-ds {
+  font-family:'JetBrains Mono',monospace; font-size:9px;
+  color:rgba(255,255,255,.22); margin-top:2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:color .3s;
+}
+.pl-stage.running .stage-ds { color:rgba(0,212,255,.6); }
+.pl-stage.done    .stage-ds { color:rgba(16,185,129,.6); }
+.stage-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+.stage-dot {
+  width:8px; height:8px; border-radius:50%;
+  background:rgba(255,255,255,.08); transition:all .3s;
+}
+.pl-stage.running .stage-dot {
+  background:#00d4ff; box-shadow:0 0 8px #00d4ff;
+  animation:dotblink .85s ease-in-out infinite;
+}
+@keyframes dotblink{ 0%,100%{opacity:1} 50%{opacity:.35} }
+.pl-stage.done  .stage-dot { background:#10b981; box-shadow:0 0 8px rgba(16,185,129,.5); }
+.pl-stage.error .stage-dot { background:#ef4444; box-shadow:0 0 8px rgba(239,68,68,.5); }
+.stage-el {
+  font-family:'JetBrains Mono',monospace; font-size:9px;
+  color:rgba(255,255,255,.22); min-width:36px; text-align:right; transition:color .3s;
+}
+.pl-stage.running .stage-el { color:rgba(0,212,255,.75); }
+.pl-stage.done    .stage-el { color:rgba(16,185,129,.75); }
+.log-wrap { flex:1; display:flex; flex-direction:column; min-height:0; padding:0 18px 12px; }
+.log-hd {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 0; border-bottom:1px solid rgba(0,212,255,.07); margin-bottom:6px; flex-shrink:0;
+}
+.log-live-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:#10b981; box-shadow:0 0 6px #10b981;
+  animation:dotblink 1.3s ease-in-out infinite;
+}
+.log-title { font-family:'JetBrains Mono',monospace; font-size:9px; color:rgba(0,212,255,.45); letter-spacing:2px; }
+#log-stream {
+  flex:1; overflow-y:auto; min-height:0;
+  font-family:'JetBrains Mono',monospace; font-size:10px; color:rgba(255,255,255,.4);
+  scrollbar-width:thin; scrollbar-color:rgba(0,212,255,.12) transparent;
+}
+#log-stream::-webkit-scrollbar{ width:3px; }
+#log-stream::-webkit-scrollbar-thumb{ background:rgba(0,212,255,.12); }
+.log-ln {
+  padding:2px 0; display:flex; gap:8px; align-items:baseline;
+  border-bottom:1px solid rgba(255,255,255,.018); line-height:1.5;
+}
+.log-t  { color:rgba(0,212,255,.3); flex-shrink:0; font-size:9px; }
+.log-tx { flex:1; word-break:break-word; }
+.log-ln.info    .log-tx { color:rgba(255,255,255,.45); }
+.log-ln.success .log-tx { color:#10b981; }
+.log-ln.warn    .log-tx { color:#f59e0b; }
+.log-ln.error   .log-tx { color:#ef4444; }
+.log-ln.stage   .log-tx { color:#00d4ff; font-weight:700; }
+.log-empty {
+  text-align:center; padding:28px; color:rgba(255,255,255,.14);
+  font-size:10px; letter-spacing:1px;
+}
+.idle-hint {
+  text-align:center; padding:20px; color:rgba(255,255,255,.18);
+  font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1px;
+}
+.idle-hint svg { margin:0 auto 12px; display:block; opacity:.12; }
+
+/* ── RIGHT Queue ── */
+.q-empty {
+  text-align:center; padding:32px 14px;
+  color:rgba(255,255,255,.18); font-family:'JetBrains Mono',monospace;
+  font-size:10px; letter-spacing:1px;
+  border:1px dashed rgba(0,212,255,.08); border-radius:8px;
+}
+.q-empty svg { margin:0 auto 10px; display:block; opacity:.22; }
+.q-item {
+  border:1px solid rgba(0,212,255,.1); border-radius:8px;
+  padding:10px; margin-bottom:8px; background:rgba(0,212,255,.02); transition:border-color .2s;
+}
+.q-item:hover { border-color:rgba(0,212,255,.22); }
+.q-title {
+  font-family:'JetBrains Mono',monospace; font-size:10px;
+  color:#e2e8f0; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.q-platforms { display:flex; gap:4px; margin-bottom:7px; }
+.q-status {
+  font-family:'JetBrains Mono',monospace; font-size:9px;
+  padding:2px 6px; border-radius:3px; margin-bottom:7px; display:inline-block;
+}
+.q-status.ready      { background:rgba(16,185,129,.14); border:1px solid rgba(16,185,129,.3); color:#10b981; }
+.q-status.processing { background:rgba(0,212,255,.1);   border:1px solid rgba(0,212,255,.3);  color:#00d4ff; }
+.q-status.pending    { background:rgba(245,158,11,.1);  border:1px solid rgba(245,158,11,.3); color:#f59e0b; }
+.q-actions { display:flex; gap:5px; flex-wrap:wrap; }
+.q-btn {
+  flex:1; min-width:56px; padding:4px 7px; border-radius:4px;
+  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.4px;
+  cursor:pointer; text-align:center; border:1px solid; transition:all .15s;
+  background:transparent; display:flex; align-items:center; justify-content:center; gap:3px;
+}
+.q-btn.dl   { border-color:rgba(0,212,255,.3); color:#00d4ff; }
+.q-btn.dl:hover { background:rgba(0,212,255,.1); box-shadow:0 0 8px rgba(0,212,255,.2); }
+.q-btn.pub  { border-color:rgba(16,185,129,.3); color:#10b981; }
+.q-btn.pub:hover { background:rgba(16,185,129,.1); }
+.q-btn.done { border-color:rgba(255,255,255,.08); color:rgba(255,255,255,.22); cursor:default; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reel-page" x-data="reelMachine()" x-init="init()">
+
+  <!-- HEADER -->
+  <div class="reel-header">
+    <div class="reel-title-block">
+      <div class="reel-icon-ring">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#ef4444" stroke-width="1.8">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="10,8 16,12 10,16" fill="#ef4444" stroke="none"/>
+        </svg>
+      </div>
+      <div>
+        <div class="reel-main-title">REEL MACHINE</div>
+        <div class="reel-subtitle">AUTO-PILOT CONTENT PRODUCTION</div>
+      </div>
+    </div>
+    <div class="reel-header-stats">
+      <div class="stat-pill cyan"><span x-text="stats.discovered"></span> TOPICS</div>
+      <div class="stat-pill red"><span x-text="stats.produced"></span> PRODUCED</div>
+      <div class="stat-pill grn"><span x-text="stats.published"></span> LIVE</div>
+    </div>
+  </div>
+
+  <!-- 3-COL GRID -->
+  <div class="reel-grid">
+
+    <!-- LEFT: Topic Browser -->
+    <div class="reel-col">
+      <div class="col-hd">
+        <div class="col-hd-title">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          TOPIC BROWSER
+        </div>
+        <div class="stat-pill red" style="font-size:9px;padding:2px 8px">
+          <span x-text="selectedTopics.length"></span>/2
+        </div>
+      </div>
+      <div class="col-body">
+        <button id="discover-btn" class="discover-btn" :disabled="isRunning"
+                hx-post="/api/reel/topics"
+                hx-target="#topics-container"
+                hx-swap="innerHTML"
+                hx-indicator="#discover-btn .spin-ring">
+          <span class="spin-ring"></span>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83"/>
+          </svg>
+          DISCOVER TRENDS
+        </button>
+
+        <div id="topics-container">
+          <div class="topics-placeholder">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M2 12h20M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+            </svg>
+            Hit DISCOVER TRENDS to find viral topics
+          </div>
+        </div>
+
+        <div class="max-warn" x-show="selectedTopics.length >= 2" style="display:none">
+          MAX 2 TOPICS — DESELECT TO CHANGE
+        </div>
+        <div class="sel-counter" x-show="selectedTopics.length > 0" style="display:none">
+          <strong x-text="selectedTopics.length"></strong>
+          <span x-text="selectedTopics.length === 1 ? ' topic selected' : ' topics selected'"></span>
+        </div>
+
+        <button class="start-btn"
+                :class="selectedTopics.length > 0 && !isRunning ? 'active-btn' : ''"
+                :disabled="selectedTopics.length === 0 || isRunning"
+                @click="startProduction()">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5,3 19,12 5,21"/>
+          </svg>
+          <span x-text="isRunning ? 'PRODUCING...' : 'START PRODUCTION'"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- CENTER: Pipeline Monitor -->
+    <div class="reel-col">
+      <div class="col-hd">
+        <div class="col-hd-title">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3h18v4H3zM3 10h12v4H3zM3 17h8v4H3z"/>
+          </svg>
+          PIPELINE MONITOR
+        </div>
+        <div class="stat-pill red" style="font-size:9px;padding:2px 8px" x-show="isRunning" style="display:none">
+          <span style="color:#ef4444">&#9679;</span> LIVE
+        </div>
+      </div>
+
+      <div class="pipeline-wrap">
+        <div class="pipeline-stages">
+          <!-- Idle hint -->
+          <div class="idle-hint" x-show="!hasRun">
+            <svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width=".8">
+              <circle cx="24" cy="24" r="22"/>
+              <path d="M24 4v8M24 36v8M4 24h8M36 24h8"/>
+              <circle cx="24" cy="24" r="8"/>
+            </svg>
+            Select topics and press START PRODUCTION
+          </div>
+
+          <!-- Stage rows (rendered by Alpine when production starts) -->
+          <template x-if="hasRun">
+            <div>
+              <template x-for="stage in stages" :key="stage.id">
+                <div class="pl-stage" :class="stage.status">
+                  <div class="stage-ico">
+                    <svg x-show="stage.id==='topic'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+                    <svg x-show="stage.id==='script'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    <svg x-show="stage.id==='asset'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+                    <svg x-show="stage.id==='video'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+                    <svg x-show="stage.id==='export'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  </div>
+                  <div class="stage-info">
+                    <div class="stage-nm" x-text="stage.name"></div>
+                    <div class="stage-ds" x-text="stage.desc"></div>
+                  </div>
+                  <div class="stage-right">
+                    <div class="stage-dot"></div>
+                    <div class="stage-el" x-text="stage.elapsed || '--'"></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Log Stream -->
+        <div class="log-wrap">
+          <div class="log-hd">
+            <div class="log-live-dot" x-show="isRunning" style="display:none"></div>
+            <div class="log-title">PIPELINE LOG</div>
+          </div>
+          <div id="log-stream">
+            <div class="log-empty" x-show="logLines.length === 0">
+              Awaiting pipeline activation...
+            </div>
+            <template x-for="(ln, i) in logLines" :key="i">
+              <div class="log-ln" :class="ln.level">
+                <span class="log-t" x-text="ln.time"></span>
+                <span class="log-tx" x-text="ln.text"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Pending Queue -->
+    <div class="reel-col">
+      <div class="col-hd">
+        <div class="col-hd-title">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 11l3 3L22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          PENDING QUEUE
+        </div>
+        <div class="stat-pill cyan" style="font-size:9px;padding:2px 8px">
+          <span x-text="pendingItems.length"></span> ITEMS
+        </div>
+      </div>
+      <div class="col-body">
+        <div class="q-empty" x-show="pendingItems.length === 0">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          No completed packages yet
+        </div>
+
+        <template x-for="(item, idx) in pendingItems" :key="item.id">
+          <div class="q-item">
+            <div class="q-title" x-text="item.topic"></div>
+            <div class="q-platforms">
+              <template x-for="p in item.platforms" :key="p">
+                <span class="ptag" :class="p.toLowerCase()" x-text="p"></span>
+              </template>
+            </div>
+            <div class="q-status" :class="item.status" x-text="item.status.toUpperCase()"></div>
+            <div class="q-actions">
+              <template x-for="p in item.platforms" :key="p">
+                <button class="q-btn dl" @click="downloadPlatform(item.id, p)">
+                  <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  <span x-text="p"></span>
+                </button>
+              </template>
+              <button class="q-btn" :class="item.published ? 'done' : 'pub'"
+                      @click="togglePublished(idx)" :disabled="item.published">
+                <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2">
+                  <path x-show="!item.published" d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                  <polyline x-show="!item.published" points="16,6 12,2 8,6"/>
+                  <line x-show="!item.published" x1="12" y1="2" x2="12" y2="15"/>
+                  <polyline x-show="item.published" points="20,6 9,17 4,12"/>
+                </svg>
+                <span x-text="item.published ? 'PUBLISHED' : 'MARK PUBLISHED'"></span>
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+  </div><!-- /reel-grid -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+
+  function reelMachine() {
+    return {
+      selectedTopics: [],
+      isRunning: false,
+      hasRun: false,
+      logLines: [],
+      pendingItems: [],
+      stats: { discovered: 0, produced: 0, published: 0 },
+
+      stages: [
+        { id: 'topic',  name: 'TOPIC DISCOVERY',   desc: 'Scanning viral trends and opportunities', status: 'idle', elapsed: null },
+        { id: 'script', name: 'SCRIPT GENERATION',  desc: 'AI hook + narrative writing',             status: 'idle', elapsed: null },
+        { id: 'asset',  name: 'ASSET GENERATION',   desc: 'Thumbnail, b-roll and overlay creation',  status: 'idle', elapsed: null },
+        { id: 'video',  name: 'VIDEO ASSEMBLY',     desc: 'FFmpeg multi-track render pipeline',       status: 'idle', elapsed: null },
+        { id: 'export', name: 'PLATFORM EXPORT',    desc: 'Format and compress per platform spec',   status: 'idle', elapsed: null },
+      ],
+
+      init() {
+        this._setupWs();
+        this._setupHtmx();
+      },
+
+      _setupWs() {
+        document.addEventListener('ws:pipeline_update', (e) => {
+          const d = e && e.detail;
+          if (!d) return;
+          if (d.type === 'stage_update') {
+            const s = this.stages.find(x => x.id === d.stage_id);
+            if (s) {
+              s.status = d.status;
+              if (d.elapsed) s.elapsed = d.elapsed;
+              if (d.desc) s.desc = d.desc;
+            }
+          }
+          if (d.type === 'log') { this._log(d.text, d.level || 'info'); }
+          if (d.type === 'pipeline_started') {
+            this.isRunning = true;
+            this.hasRun = true;
+            this._log('Pipeline activated — ' + (d.topic_count || 1) + ' topic(s)', 'stage');
+          }
+          if (d.type === 'pipeline_complete') {
+            this.isRunning = false;
+            this.stats.produced += d.video_count || 1;
+            this._log('Pipeline complete — packages ready', 'success');
+            if (Array.isArray(d.packages)) {
+              d.packages.forEach(pkg => {
+                this.pendingItems.push({
+                  id: Date.now() + Math.random(),
+                  topic: pkg.topic || 'Untitled',
+                  platforms: pkg.platforms || ['YT'],
+                  status: 'ready',
+                  published: false
+                });
+              });
+            }
+          }
+          if (d.type === 'pipeline_error') {
+            this.isRunning = false;
+            this._log('Error: ' + (d.message || 'Unknown'), 'error');
+            const running = this.stages.find(x => x.status === 'running');
+            if (running) running.status = 'error';
+          }
+        });
+      },
+
+      _setupHtmx() {
+        document.addEventListener('htmx:afterSwap', (e) => {
+          if (e.detail && e.detail.target && e.detail.target.id === 'topics-container') {
+            this._bindCheckboxes();
+            this.stats.discovered = document.querySelectorAll('.topic-card').length;
+          }
+        });
+        document.addEventListener('htmx:afterRequest', (e) => {
+          if (e.detail && e.detail.target && e.detail.target.id === 'topics-container') {
+            const c = document.getElementById('topics-container');
+            if (c && c.querySelectorAll('.topic-card').length === 0) { this._renderDemo(); }
+          }
+        });
+        document.addEventListener('htmx:responseError', (e) => {
+          if (e.detail && e.detail.target && e.detail.target.id === 'topics-container') {
+            this._renderDemo();
+          }
+        });
+      },
+
+      _bindCheckboxes() {
+        document.querySelectorAll('.tc-cb').forEach(cb => {
+          cb.addEventListener('change', (e) => {
+            const card = e.target.closest('.topic-card');
+            const tid = e.target.dataset.topicId;
+            const title = e.target.dataset.topicTitle;
+            if (e.target.checked) {
+              if (this.selectedTopics.length >= 2) { e.target.checked = false; return; }
+              this.selectedTopics.push({ id: tid, title: title });
+              if (card) card.classList.add('selected');
+            } else {
+              this.selectedTopics = this.selectedTopics.filter(t => t.id !== tid);
+              if (card) card.classList.remove('selected');
+            }
+          });
+        });
+      },
+
+      _renderDemo() {
+        const TOPICS = [
+          { id: 't1', title: 'AI Tools Replacing Entire Teams in 2025',   score: 94, comp: 'low',  hashes: 2300, platforms: ['YT','TT','IG'] },
+          { id: 't2', title: 'I Made $10k Passive Income With One Video', score: 87, comp: 'med',  hashes: 1800, platforms: ['YT','IG'] },
+          { id: 't3', title: 'Free AI Image Gen Beats Midjourney',         score: 82, comp: 'med',  hashes: 1500, platforms: ['TT','IG'] },
+          { id: 't4', title: 'The Viral Reel Formula Nobody Talks About',  score: 76, comp: 'high', hashes: 900,  platforms: ['TT','IG'] },
+          { id: 't5', title: 'ChatGPT Hidden Features Power Users Use',    score: 71, comp: 'high', hashes: 3200, platforms: ['YT','TT'] },
+        ];
+        const sc = s => s >= 85 ? 'hot' : s >= 70 ? 'warm' : 'cool';
+        const hfmt = h => h >= 1000 ? (h / 1000).toFixed(1) + 'K' : String(h);
+        const container = document.getElementById('topics-container');
+        if (!container) return;
+
+        // Clear container safely
+        while (container.firstChild) { container.removeChild(container.firstChild); }
+        const frag = document.createDocumentFragment();
+
+        TOPICS.forEach((t, i) => {
+          const card = document.createElement('div');
+          card.className = 'topic-card';
+
+          // header row
+          const hdr = document.createElement('div');
+          hdr.className = 'tc-header';
+
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.className = 'tc-cb';
+          cb.dataset.topicId = t.id;
+          cb.dataset.topicTitle = t.title;
+
+          const ttl = document.createElement('div');
+          ttl.className = 'tc-title';
+          ttl.textContent = t.title;
+
+          const pts = document.createElement('div');
+          pts.className = 'tc-platforms';
+          t.platforms.forEach(p => {
+            const tag = document.createElement('span');
+            tag.className = 'ptag ' + p.toLowerCase();
+            tag.textContent = p;
+            pts.appendChild(tag);
+          });
+          hdr.appendChild(cb);
+          hdr.appendChild(ttl);
+          hdr.appendChild(pts);
+
+          // meta row
+          const meta = document.createElement('div');
+          meta.className = 'tc-meta';
+
+          const comp = document.createElement('span');
+          comp.className = 'comp-badge ' + t.comp;
+          comp.textContent = t.comp.toUpperCase() + ' COMP';
+
+          const hash = document.createElement('span');
+          hash.className = 'hash-ct';
+          hash.textContent = '#' + hfmt(t.hashes) + ' posts';
+
+          meta.appendChild(comp);
+          meta.appendChild(hash);
+
+          // trend bar
+          const bw = document.createElement('div');
+          bw.className = 'trend-wrap';
+
+          const lbl = document.createElement('div');
+          lbl.className = 'trend-lbl';
+          lbl.textContent = 'TREND';
+
+          const track = document.createElement('div');
+          track.className = 'trend-track';
+
+          const fill = document.createElement('div');
+          fill.className = 'trend-fill ' + sc(t.score);
+          fill.style.width = '0%';
+          track.appendChild(fill);
+
+          const val = document.createElement('div');
+          val.className = 'trend-val ' + sc(t.score);
+          val.textContent = String(t.score);
+
+          bw.appendChild(lbl);
+          bw.appendChild(track);
+          bw.appendChild(val);
+
+          card.appendChild(hdr);
+          card.appendChild(meta);
+          card.appendChild(bw);
+          frag.appendChild(card);
+
+          setTimeout(() => { fill.style.width = t.score + '%'; }, 80 + i * 55);
+        });
+
+        container.appendChild(frag);
+        this.stats.discovered = TOPICS.length;
+        document.dispatchEvent(new CustomEvent('htmx:afterSwap', { detail: { target: container } }));
+      },
+
+      startProduction() {
+        if (this.selectedTopics.length === 0 || this.isRunning) return;
+        this.isRunning = true;
+        this.hasRun = true;
+        this.stages.forEach(s => { s.status = 'idle'; s.elapsed = null; });
+        this.logLines = [];
+        this._log('Initiating production pipeline...', 'info');
+        this._log('Topics: ' + this.selectedTopics.map(t => t.title).join(', '), 'info');
+
+        fetch('/api/reel/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topics: this.selectedTopics.map(t => t.id) })
+        })
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) {
+            this._log('Job queued: ' + (d.job_id || 'pending'), 'success');
+          } else {
+            this._log('Failed: ' + (d.error || 'Server error'), 'error');
+            this.isRunning = false;
+          }
+        })
+        .catch(err => {
+          this._log('Network error: ' + err.message, 'error');
+          this.isRunning = false;
+        });
+      },
+
+      _log(text, level) {
+        const now = new Date();
+        this.logLines.push({ time: now.toTimeString().slice(0, 8), text: text, level: level || 'info' });
+        if (this.logLines.length > 200) this.logLines.shift();
+        this.$nextTick(() => {
+          const el = document.getElementById('log-stream');
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      },
+
+      downloadPlatform(itemId, platform) {
+        this._log('Downloading ' + platform + ' package...', 'info');
+        fetch('/api/reel/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_id: itemId, platform: platform })
+        })
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok && d.url) {
+            const a = document.createElement('a');
+            a.href = d.url;
+            a.download = d.filename || ('reel_' + platform + '.mp4');
+            a.click();
+            this._log('Download started: ' + (d.filename || platform), 'success');
+          } else {
+            this._log('Download unavailable: ' + (d.error || 'not ready'), 'warn');
+          }
+        })
+        .catch(() => { this._log('Download failed — check server', 'warn'); });
+      },
+
+      togglePublished(idx) {
+        const item = this.pendingItems[idx];
+        if (!item || item.published) return;
+        item.published = true;
+        this.stats.published++;
+        this._log('Marked published: ' + item.topic, 'success');
+      }
+    };
+  }
+
+  window.reelMachine = reelMachine;
+}());
+</script>
+{% endblock %}

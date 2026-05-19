@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% set active = "github_hub" %}
+{% block title %}GitHub Hub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">GITHUB TRENDING HUB</div>
+    <div class="page-subtitle">DISCOVER, CLONE &amp; INSTALL TOP AI REPOSITORIES</div>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="hud-panel mb-16">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Search Filters</span>
+    <span class="badge badge-blue">GITHUB API</span>
+  </div>
+  <div class="hud-panel-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;">
+      <div class="form-group">
+        <label class="form-label">Query</label>
+        <input id="gh-query" class="form-control" value="stars:>500 topic:ai" placeholder="stars:>500 topic:machine-learning"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Language</label>
+        <select id="gh-lang" class="form-control">
+          <option value="">Any</option>
+          <option value="Python">Python</option>
+          <option value="JavaScript">JavaScript</option>
+          <option value="TypeScript">TypeScript</option>
+          <option value="Go">Go</option>
+          <option value="Rust">Rust</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="loadRepos()">DISCOVER</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS -->
+<div id="gh-status" style="display:none;margin-bottom:16px;padding:10px 14px;border-radius:6px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);font-size:12px;color:var(--blue);"></div>
+
+<!-- REPO GRID -->
+<div id="gh-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;"></div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.repo-card { background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.15);border-radius:8px;padding:16px;transition:border-color 0.2s; }
+.repo-card:hover { border-color:rgba(0,212,255,0.4); }
+.repo-name { font-size:13px;font-weight:600;color:var(--blue);margin-bottom:6px; }
+.repo-desc { font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5;min-height:32px; }
+.repo-meta { display:flex;gap:12px;font-size:11px;color:var(--muted);margin-bottom:12px; }
+.repo-star { color:#f59e0b; }
+.repo-actions { display:flex;gap:8px; }
+.repo-actions button { flex:1;font-size:11px;padding:6px;border-radius:4px;cursor:pointer;border:1px solid rgba(0,212,255,0.3);background:rgba(0,212,255,0.08);color:var(--blue);transition:all 0.2s; }
+.repo-actions button:hover { background:rgba(0,212,255,0.2); }
+.repo-actions button.installed { border-color:rgba(16,185,129,0.4);background:rgba(16,185,129,0.1);color:#10b981; }
+.tag { display:inline-block;font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(139,92,246,0.15);color:#a78bfa;margin:2px; }
+</style>
+<script>
+async function loadRepos() {
+  const query = document.getElementById('gh-query').value.trim();
+  const lang  = document.getElementById('gh-lang').value;
+  const status = document.getElementById('gh-status');
+  status.textContent = 'Fetching trending repositories...';
+  status.style.display = 'block';
+
+  try {
+    const params = new URLSearchParams({ query, limit: 30 });
+    if (lang) params.set('language', lang);
+    const r = await fetch('/api/github/trending?' + params);
+    const data = await r.json();
+    if (data.status === 'ok') {
+      status.textContent = `Found ${data.total} repositories.`;
+      _renderRepos(data.repos);
+    } else {
+      status.textContent = 'Error: ' + (data.message || 'Unknown');
+    }
+  } catch (e) {
+    status.textContent = 'Request failed: ' + e.message;
+  }
+}
+
+function _renderRepos(repos) {
+  const grid = document.getElementById('gh-grid');
+  grid.textContent = '';
+  if (!repos || !repos.length) {
+    const p = document.createElement('p');
+    p.style.color = 'var(--muted)';
+    p.textContent = 'No repositories found.';
+    grid.appendChild(p);
+    return;
+  }
+  repos.forEach(repo => {
+    if (repo.error) return;
+    const card = document.createElement('div');
+    card.className = 'repo-card';
+
+    const name = document.createElement('div');
+    name.className = 'repo-name';
+    name.textContent = repo.name;
+    card.appendChild(name);
+
+    const desc = document.createElement('div');
+    desc.className = 'repo-desc';
+    desc.textContent = repo.description || 'No description provided.';
+    card.appendChild(desc);
+
+    const meta = document.createElement('div');
+    meta.className = 'repo-meta';
+    const stars = document.createElement('span');
+    stars.className = 'repo-star';
+    stars.textContent = '★ ' + (repo.stars || 0).toLocaleString();
+    const lang = document.createElement('span');
+    lang.textContent = repo.language || 'Unknown';
+    meta.appendChild(stars);
+    meta.appendChild(lang);
+    card.appendChild(meta);
+
+    if (repo.topics && repo.topics.length) {
+      const tags = document.createElement('div');
+      tags.style.marginBottom = '12px';
+      repo.topics.slice(0, 4).forEach(t => {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = t;
+        tags.appendChild(tag);
+      });
+      card.appendChild(tags);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'repo-actions';
+
+    const ghBtn = document.createElement('button');
+    ghBtn.textContent = '↗ GitHub';
+    ghBtn.onclick = () => window.open(repo.url, '_blank');
+    actions.appendChild(ghBtn);
+
+    const cloneBtn = document.createElement('button');
+    cloneBtn.textContent = repo.installed ? '✓ Cloned' : '⬇ Clone';
+    cloneBtn.className = repo.installed ? 'installed' : '';
+    if (!repo.installed) {
+      cloneBtn.onclick = async () => {
+        cloneBtn.textContent = 'Cloning...';
+        cloneBtn.disabled = true;
+        try {
+          const r = await fetch('/api/github/clone', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clone_url: repo.clone_url }),
+          });
+          const d = await r.json();
+          cloneBtn.textContent = d.ok ? '✓ Cloned' : '✗ Failed';
+          cloneBtn.className = d.ok ? 'installed' : '';
+          if (!d.ok) alert('Clone error: ' + (d.error || d.message));
+        } catch (e) {
+          cloneBtn.textContent = '✗ Error';
+        }
+        cloneBtn.disabled = false;
+      };
+    }
+    actions.appendChild(cloneBtn);
+
+    const installBtn = document.createElement('button');
+    installBtn.textContent = '⚙ Install';
+    installBtn.onclick = async () => {
+      const repoName = repo.name.split('/').pop();
+      installBtn.textContent = 'Installing...';
+      installBtn.disabled = true;
+      try {
+        const r = await fetch('/api/github/install', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo_name: repoName }),
+        });
+        const d = await r.json();
+        installBtn.textContent = d.ok ? '✓ Done' : '✗ Failed';
+        if (!d.ok) alert('Install error: ' + (d.error || d.message));
+      } catch (e) {
+        installBtn.textContent = '✗ Error';
+      }
+      installBtn.disabled = false;
+    };
+    actions.appendChild(installBtn);
+
+    card.appendChild(actions);
+    grid.appendChild(card);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', loadRepos);
+</script>
+{% endblock %}

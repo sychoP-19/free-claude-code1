@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% set active = "orchestration" %}
+{% block title %}Orchestration Panel{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">MULTI-AGENT ORCHESTRATION</div>
+    <div class="page-subtitle">REAL-TIME AGENT COORDINATION &amp; STATUS MATRIX</div>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-primary" onclick="runAllAgents()"><span>ACTIVATE ALL</span></button>
+    <button class="btn" onclick="resetAll()"><span>RESET</span></button>
+  </div>
+</div>
+
+<!-- PIPELINE FLOW -->
+<div class="hud-panel mb-16">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Pipeline Flow</span>
+    <span class="badge" id="orch-active-count">0 ACTIVE</span>
+  </div>
+  <div class="hud-panel-body">
+    <div style="display:flex;align-items:center;gap:8px;overflow-x:auto;padding:8px 0;flex-wrap:wrap;">
+      {% for id, label in [('spy','CHANNEL SPY'),('trends','TREND MINER'),('factory','CONTENT FACTORY'),('money','MONEY INTEL'),('director','CINEMA DIR'),('shorts','SHORTS GEN')] %}
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="pipeline-node" id="pipe-{{ id }}">
+          <div class="pipeline-node-id">0{{ loop.index }}</div>
+          <div class="pipeline-node-name">{{ label }}</div>
+          <div class="pipeline-node-dot"></div>
+        </div>
+        {% if not loop.last %}
+        <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
+          <path d="M0 6h20M16 2l6 4-6 4" stroke="rgba(0,212,255,0.3)" stroke-width="1.5"/>
+        </svg>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- AGENT CARDS -->
+<div class="orch-grid" id="orch-agent-grid">
+
+  {% set agent_meta = [
+    ('spy',      'CHANNEL SPY',       'Scrapes and analyzes YouTube channels for content patterns'),
+    ('trends',   'TREND MINER',       'Detects viral trends across platforms in real time'),
+    ('factory',  'CONTENT FACTORY',   'Generates scripts, titles, thumbnails, and hashtags'),
+    ('money',    'MONEY INTEL',       'Scans monetization opportunities and revenue estimates'),
+    ('director', 'CINEMA DIRECTOR',   'Orchestrates video production and editing pipeline'),
+    ('shorts',   'SHORTS GENERATOR',  'Converts long-form YouTube videos into viral shorts'),
+  ] %}
+
+  {% for id, name, desc in agent_meta %}
+  <div class="orch-card" id="orch-{{ id }}" data-agent="{{ id }}">
+    <div class="orch-card-id">AGENT {{ '%02d'|format(loop.index) }}</div>
+    <div class="orch-card-name">{{ name }}</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">{{ desc }}</div>
+    <div class="orch-arc">
+      <div class="orch-arc-fill" id="arc-{{ id }}" style="width:0%"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span class="orch-status-badge" id="status-{{ id }}">STANDBY</span>
+      <button class="btn" style="padding:4px 12px;font-size:10px;" onclick="runAgent('{{ id }}')">RUN</button>
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+
+<!-- LIVE LOG -->
+<div class="hud-panel">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Live Event Stream</span>
+    <button class="btn" style="padding:3px 10px;font-size:10px;" onclick="clearLog()">CLEAR</button>
+  </div>
+  <div class="hud-panel-body" id="orch-log" style="height:200px;overflow-y:auto;font-family:var(--font-data);font-size:11px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.pipeline-node {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; text-align: center; min-width: 100px;
+  position: relative; transition: all 0.3s;
+}
+.pipeline-node.active { border-color: var(--blue); box-shadow: var(--glow-sm); }
+.pipeline-node.complete { border-color: var(--green); }
+.pipeline-node-id { font-size: 9px; font-family: var(--font-hud); color: var(--muted); }
+.pipeline-node-name { font-size: 10px; font-family: var(--font-hud); color: var(--blue); margin: 2px 0; }
+.pipeline-node-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+  margin: 4px auto 0; transition: all 0.3s;
+}
+.pipeline-node.active .pipeline-node-dot { background: var(--blue); box-shadow: 0 0 6px var(--blue); }
+.pipeline-node.complete .pipeline-node-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+</style>
+<script>
+const AGENT_IDS = ['spy','trends','factory','money','director','shorts'];
+
+function updateCard(id, status, progress) {
+  const card = document.getElementById('orch-' + id);
+  const arc  = document.getElementById('arc-' + id);
+  const badge = document.getElementById('status-' + id);
+  const pipe = document.getElementById('pipe-' + id);
+  if (!card) return;
+
+  card.className = 'orch-card';
+  pipe.className = 'pipeline-node';
+
+  if (status === 'running') {
+    card.classList.add('active');
+    pipe.classList.add('active');
+  } else if (status === 'complete') {
+    card.classList.add('complete');
+    pipe.classList.add('complete');
+  } else if (status === 'error') {
+    card.classList.add('error');
+  }
+
+  if (arc) arc.style.width = (progress || 0) + '%';
+  if (badge) badge.textContent = (status || 'STANDBY').toUpperCase();
+
+  const active = AGENT_IDS.filter(a => {
+    const b = document.getElementById('status-' + a);
+    return b && b.textContent === 'RUNNING';
+  }).length;
+  const el = document.getElementById('orch-active-count');
+  if (el) el.textContent = active + ' ACTIVE';
+}
+
+function logEvent(msg, type) {
+  const log = document.getElementById('orch-log');
+  if (!log) return;
+  const line = document.createElement('div');
+  line.style.cssText = 'padding:2px 0;border-bottom:1px solid rgba(0,212,255,0.05);';
+  const ts = new Date().toLocaleTimeString('en-US',{hour12:false});
+  const colors = {success:'var(--green)',error:'var(--red)',warn:'var(--yellow)'};
+  line.style.color = colors[type] || 'var(--muted)';
+  line.textContent = '[' + ts + '] ' + msg;
+  log.prepend(line);
+}
+
+function clearLog() { document.getElementById('orch-log').textContent = ''; }
+
+function runAgent(id) {
+  const routes = {
+    spy: '/api/agents/spy/run',
+    trends: '/api/agents/trends/run',
+    factory: '/api/agents/factory/run',
+    money: '/api/agents/money/run',
+    director: '/api/agents/director/run',
+    shorts: '/api/agents/shorts/run',
+  };
+  const bodies = {
+    spy: {url:'https://youtube.com/@MrBeast', platform:'youtube'},
+    trends: {query:'ai content', platform:'youtube', window:'7d'},
+    factory: {topic:'AI productivity', style:'shorts', tone:'viral'},
+    money: {niche:'tech'},
+    director: {script:'Demo script for testing'},
+    shorts: {url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', num_clips:3},
+  };
+  updateCard(id, 'running', 10);
+  logEvent('Starting ' + id.toUpperCase() + ' agent...', 'info');
+  fetch(routes[id] || '/api/agents/' + id + '/run', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(bodies[id] || {})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.status === 'ok') {
+      updateCard(id, 'complete', 100);
+      logEvent(id.toUpperCase() + ' completed successfully', 'success');
+    } else {
+      updateCard(id, 'error', 0);
+      logEvent(id.toUpperCase() + ' error: ' + (d.message||'unknown'), 'error');
+    }
+  })
+  .catch(e => { updateCard(id,'error',0); logEvent(id.toUpperCase()+' failed: '+e,'error'); });
+}
+
+function runAllAgents() {
+  AGENT_IDS.forEach((id, i) => setTimeout(() => runAgent(id), i * 800));
+}
+
+function resetAll() {
+  AGENT_IDS.forEach(id => updateCard(id, 'standby', 0));
+  clearLog();
+}
+
+// Wire into JARVIS WebSocket events
+if (window._wsCallbacks) {
+  window._wsCallbacks.push(function(msg) {
+    if (msg.type === 'agent_update') {
+      updateCard(msg.agent, msg.status, msg.progress);
+      logEvent('WS: ' + msg.agent.toUpperCase() + ' → ' + msg.status, msg.status);
+    }
+  });
+}
+</script>
+{% endblock %}

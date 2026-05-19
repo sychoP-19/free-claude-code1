@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% set active = "podcast" %}
+{% block title %}Podcast Studio{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">PODCAST STUDIO</div>
+    <div class="page-subtitle">2-SPEAKER DIALOGUE → DUAL VOICE TTS → MP3 EPISODE</div>
+  </div>
+</div>
+
+<div class="bento-grid">
+  <div class="bento-tile bento-tile--half holo-border">
+    <div class="bento-tile-label">Input</div>
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:12px;">
+      <input id="pc-topic" class="hud-input" placeholder="Episode topic"/>
+      <input id="pc-min" class="hud-input" type="number" value="5" min="2" max="30"/>
+      <button class="btn btn-primary" onclick="pcRun()"><span id="pc-btn">RECORD</span></button>
+    </div>
+  </div>
+  <div class="bento-tile bento-tile--half scanline">
+    <div class="bento-tile-label">Pipeline</div>
+    <div class="stage-strip" id="pc-stages">
+      {% for s in ['research','script','visuals','audio','assembly'] %}
+      <div class="stage-cell" data-stage="{{ s }}"><div class="stage-cell__label">{{ s }}</div><div class="stage-cell__dot"></div></div>
+      {% endfor %}
+    </div>
+    <div id="pc-status" style="font-size:12px;color:var(--muted);margin-top:8px;">idle</div>
+  </div>
+  <div class="bento-tile bento-tile--strip" id="pc-result-tile" style="display:none;">
+    <div class="bento-tile-label">Output</div>
+    <div id="pc-result" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function pcRun() {
+  const topic = document.getElementById('pc-topic').value.trim();
+  const minutes = parseInt(document.getElementById('pc-min').value) || 5;
+  if (!topic) { toast({text:'Topic required', level:'warn'}); return; }
+  document.getElementById('pc-btn').textContent = 'RECORDING…';
+  document.getElementById('pc-status').textContent = 'starting…';
+  try {
+    const r = await fetch('/api/pipelines/podcast/run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({topic, minutes}),
+    });
+    const j = await r.json();
+    document.getElementById('pc-btn').textContent = 'RECORD';
+    if (j.ok) {
+      toast({text:'Episode ready', level:'ok'});
+      document.getElementById('pc-result-tile').style.display = 'block';
+      const out = document.getElementById('pc-result');
+      out.textContent = '';
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.src = '/' + j.output_path.replace(/.*outputs/, 'outputs').replace(/\\\\/g,'/');
+      out.appendChild(audio);
+      document.getElementById('pc-status').textContent = `complete in ${j.elapsed_s}s`;
+    } else {
+      toast({text:'Failed: '+j.error, level:'err'});
+      document.getElementById('pc-status').textContent = 'error: '+(j.error||'');
+    }
+  } catch(e) { toast({text:e.message, level:'err'}); document.getElementById('pc-btn').textContent='RECORD'; }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% set active = "factory" %}
+{% block title %}Content Factory{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">CONTENT FACTORY</div>
+    <div class="page-subtitle">AUTO-GENERATE SCRIPTS · THUMBNAILS · VIDEO CUTS</div>
+  </div>
+  <div class="page-actions">
+    <span class="badge badge-blue">AGENT 03</span>
+  </div>
+</div>
+
+<!-- GENERATOR CONTROLS -->
+<div class="hud-panel mb-16">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Production Config</span>
+  </div>
+  <div class="hud-panel-body">
+    <form id="factory-form" onsubmit="submitFactory(event)">
+      <div style="display:grid;grid-template-columns:1fr 1fr 140px 140px;gap:12px;margin-bottom:12px;align-items:end">
+        <div>
+          <div class="metric-label mb-8">Topic / Hook</div>
+          <input class="hud-input" name="topic" placeholder="e.g. 5 AI tools that print money" required/>
+        </div>
+        <div>
+          <div class="metric-label mb-8">Style</div>
+          <select class="hud-input" name="style">
+            <option value="shorts">YouTube Shorts (60s)</option>
+            <option value="tiktok">TikTok (15-30s)</option>
+            <option value="reel">Instagram Reel</option>
+            <option value="longform">Long Form (5-10min)</option>
+          </select>
+        </div>
+        <div>
+          <div class="metric-label mb-8">Tone</div>
+          <select class="hud-input" name="tone">
+            <option value="viral">Viral / Hooks</option>
+            <option value="edu">Educational</option>
+            <option value="story">Storytelling</option>
+            <option value="listicle">Listicle</option>
+          </select>
+        </div>
+        <div>
+          <div class="metric-label mb-8">&nbsp;</div>
+          <button type="submit" class="btn btn-primary w-full" id="btn-factory"><span>GENERATE</span></button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" name="gen_script" checked style="accent-color:var(--blue)"/>
+          <span class="text-mono text-xs">GENERATE SCRIPT</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" name="gen_thumbnail" checked style="accent-color:var(--blue)"/>
+          <span class="text-mono text-xs">THUMBNAIL IDEAS</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" name="gen_hashtags" checked style="accent-color:var(--blue)"/>
+          <span class="text-mono text-xs">HASHTAGS + TITLE</span>
+        </label>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- OUTPUT GRID -->
+<div class="grid-2 mb-16">
+
+  <!-- SCRIPT OUTPUT -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Generated Script</span>
+      <div class="flex gap-8">
+        <span class="badge badge-yellow" id="script-duration-badge">—</span>
+        <button class="btn" style="font-size:9px;padding:4px 12px" onclick="copyScript()"><span>COPY</span></button>
+      </div>
+    </div>
+    <div class="hud-panel-body" style="padding:0">
+      <div id="script-empty" class="text-muted text-mono" style="padding:40px;text-align:center;font-size:11px;letter-spacing:2px">
+        CONFIGURE AND HIT GENERATE
+      </div>
+      <div id="script-output" class="hidden" style="padding:16px">
+        <div id="script-text" class="text-mono" style="font-size:12px;line-height:2;color:var(--white);white-space:pre-wrap;max-height:400px;overflow-y:auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TITLE + THUMBNAIL + HASHTAGS -->
+  <div class="flex flex-col gap-16">
+
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Optimized Titles</span></div>
+      <div class="hud-panel-body flex flex-col gap-8" id="titles-output">
+        <div class="text-muted text-mono text-xs" style="letter-spacing:2px">AWAITING GENERATION</div>
+      </div>
+    </div>
+
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Thumbnail Concepts</span></div>
+      <div class="hud-panel-body" id="thumbnail-output">
+        <div class="text-muted text-mono text-xs" style="letter-spacing:2px">AWAITING GENERATION</div>
+      </div>
+    </div>
+
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Hashtags + SEO</span></div>
+      <div class="hud-panel-body">
+        <div id="factory-hashtags" class="flex" style="flex-wrap:wrap;gap:6px">
+          <span class="text-muted text-mono text-xs">Awaiting generation</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- STORYBOARD -->
+<div class="hud-panel mb-16">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Storyboard</span>
+    <span class="badge badge-blue" id="shot-count-badge">0 SHOTS</span>
+  </div>
+  <div class="hud-panel-body" style="padding:0">
+    <div id="storyboard-empty" class="text-muted text-mono" style="padding:24px;text-align:center;font-size:11px;letter-spacing:2px">
+      GENERATE CONTENT TO BUILD STORYBOARD
+    </div>
+    <div id="storyboard-grid" class="storyboard-grid hidden"></div>
+  </div>
+</div>
+
+<!-- RECENT OUTPUTS TABLE -->
+<div class="hud-panel mb-16">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Production Queue</span>
+    <button class="btn" style="font-size:9px;padding:4px 12px" onclick="refreshOutputs()"><span>REFRESH</span></button>
+  </div>
+  <div class="hud-panel-body" style="padding:0">
+    <table class="data-table">
+      <thead><tr><th>File</th><th>Type</th><th>Size</th><th>Created</th><th>Action</th></tr></thead>
+      <tbody id="outputs-tbody">
+        <tr><td colspan="5" class="text-muted text-mono text-xs" style="text-align:center;padding:16px">NO OUTPUTS YET</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- LIVE FEED -->
+<div class="hud-panel">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Agent Log</span>
+    <span class="badge badge-green" style="animation:badge-pulse 2s infinite">LIVE</span>
+  </div>
+  <div style="padding:0"><div class="live-feed" id="live-feed"></div></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentScript = '';
+
+async function submitFactory(e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = {
+    topic:         form.topic.value,
+    style:         form.style.value,
+    tone:          form.tone.value,
+    gen_script:    form.gen_script.checked,
+    gen_thumbnail: form.gen_thumbnail.checked,
+    gen_hashtags:  form.gen_hashtags.checked,
+  };
+
+  const btn = document.getElementById('btn-factory');
+  btn.disabled = true; btn.textContent = 'GENERATING...';
+  appendFeed('info', 'Generating content for: ' + data.topic);
+
+  const result = await api('/api/agents/factory/run', 'POST', data);
+  btn.disabled = false; btn.textContent = 'GENERATE';
+
+  if (!result || result.status === 'error') {
+    appendFeed('error', result ? result.message : 'Generation failed');
+    return;
+  }
+  renderFactory(result.data);
+}
+
+function renderFactory(d) {
+  // Script
+  if (d.script) {
+    currentScript = d.script;
+    document.getElementById('script-empty').classList.add('hidden');
+    document.getElementById('script-output').classList.remove('hidden');
+    document.getElementById('script-text').textContent = d.script;
+    document.getElementById('script-duration-badge').textContent = (d.duration || '—') + ' SEC';
+  }
+
+  // Titles
+  const titlesEl = document.getElementById('titles-output');
+  titlesEl.textContent = '';
+  (d.titles || []).forEach((title, i) => {
+    const item = document.createElement('div');
+    item.className = 'hud-panel';
+    item.style.cssText = 'background:rgba(0,212,255,0.03);cursor:pointer';
+    item.onclick = () => copyText(title);
+    const body = document.createElement('div');
+    body.className = 'hud-panel-body flex justify-between items-center';
+    body.style.padding = '8px 12px';
+    const num = document.createElement('span');
+    num.className = 'text-muted text-mono text-xs';
+    num.textContent = '0' + (i + 1);
+    const text = document.createElement('span');
+    text.className = 'text-hud';
+    text.style.fontSize = '11px';
+    text.textContent = title;
+    const copyBtn = document.createElement('span');
+    copyBtn.className = 'text-blue text-mono text-xs';
+    copyBtn.textContent = 'COPY';
+    body.appendChild(num); body.appendChild(text); body.appendChild(copyBtn);
+    item.appendChild(body);
+    titlesEl.appendChild(item);
+  });
+
+  // Thumbnail concepts
+  const thumbEl = document.getElementById('thumbnail-output');
+  thumbEl.textContent = '';
+  (d.thumbnails || []).forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'text-mono';
+    item.style.cssText = 'font-size:12px;padding:6px 0;border-bottom:1px solid var(--border);color:var(--white);line-height:1.6';
+    item.textContent = '▶ ' + t;
+    thumbEl.appendChild(item);
+  });
+
+  // Hashtags
+  const htEl = document.getElementById('factory-hashtags');
+  htEl.textContent = '';
+  (d.hashtags || []).forEach(tag => {
+    const pill = document.createElement('span');
+    pill.className = 'trend-pill';
+    pill.textContent = tag;
+    htEl.appendChild(pill);
+  });
+
+  // Storyboard
+  const shots = d.shots || [];
+  document.getElementById('shot-count-badge').textContent = shots.length + ' SHOTS';
+  document.getElementById('storyboard-empty').classList.add('hidden');
+  const grid = document.getElementById('storyboard-grid');
+  grid.classList.remove('hidden');
+  grid.textContent = '';
+  shots.forEach((shot, i) => {
+    const card = document.createElement('div');
+    card.className = 'storyboard-shot';
+    card.onclick = () => selectShot(i);
+    const num = document.createElement('div');
+    num.className = 'storyboard-num';
+    num.textContent = 'SHOT ' + String(i + 1).padStart(2, '0');
+    const desc = document.createElement('div');
+    desc.className = 'storyboard-desc';
+    desc.textContent = shot.description || shot;
+    const time = document.createElement('div');
+    time.className = 'storyboard-time';
+    time.textContent = shot.timing || '';
+    card.appendChild(num); card.appendChild(desc); card.appendChild(time);
+    grid.appendChild(card);
+  });
+
+  refreshOutputs();
+  appendFeed('success', 'Content package generated for: ' + (d.topic || 'topic'));
+}
+
+async function refreshOutputs() {
+  const data = await api('/api/outputs/list');
+  if (!data) return;
+  const tbody = document.getElementById('outputs-tbody');
+  tbody.textContent = '';
+  if (!data.files || data.files.length === 0) {
+    const row = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 5;
+    td.className = 'text-muted text-mono text-xs';
+    td.style.cssText = 'text-align:center;padding:16px';
+    td.textContent = 'NO OUTPUTS YET';
+    row.appendChild(td);
+    tbody.appendChild(row);
+    return;
+  }
+  data.files.forEach(f => {
+    const row = document.createElement('tr');
+    ['name','type','size','created'].forEach(k => {
+      const td = document.createElement('td');
+      td.className = k === 'name' ? 'text-mono text-xs' : 'text-muted text-mono text-xs';
+      td.textContent = f[k] || '—';
+      row.appendChild(td);
+    });
+    const tdA = document.createElement('td');
+    const a = document.createElement('a');
+    a.className = 'text-blue text-mono text-xs';
+    a.href = '/outputs/' + f.name;
+    a.download = f.name;
+    a.textContent = 'DOWNLOAD';
+    tdA.appendChild(a);
+    row.appendChild(tdA);
+    tbody.appendChild(row);
+  });
+}
+
+function copyScript() {
+  if (!currentScript) return;
+  navigator.clipboard.writeText(currentScript).then(() => notify('Script copied!', 'success'));
+}
+
+function copyText(t) {
+  navigator.clipboard.writeText(t).then(() => notify('Copied!', 'success'));
+}
+
+document.addEventListener('DOMContentLoaded', refreshOutputs);
+</script>
+{% endblock %}

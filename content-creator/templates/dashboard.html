@@ -1,0 +1,781 @@
+{% extends "base.html" %}
+{% set active = "dashboard" %}
+{% block title %}MAJD Command Hub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">MAJD COMMAND HUB</div>
+    <div class="page-subtitle">NEURAL CONTENT OS v3.0 — REAL-TIME REVENUE INTELLIGENCE</div>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-primary" onclick="runAllAgents()"><span>ACTIVATE ALL AGENTS</span></button>
+    <button class="btn" onclick="saveSession()"><span>SAVE SESSION</span></button>
+  </div>
+</div>
+
+<!-- BENTO v4 GRID -->
+<div class="bento-v4-grid">
+
+  <!-- HERO TILE: Today's Mission -->
+  <div class="bento-v4-hero bento-tile">
+    <div class="bento-hero-arc"></div>
+    <div class="bento-hero-date" id="hero-date">LOADING DATE...</div>
+    <div class="bento-hero-title">TODAY'S MISSION</div>
+    <div class="bento-hero-sub">PIPELINE STATUS &mdash; LIVE INTELLIGENCE</div>
+    <div class="bento-hero-stats">
+      <div class="bento-hero-stat">
+        <div class="bento-hero-val" id="hero-requests">--</div>
+        <div class="bento-hero-key">API Requests</div>
+      </div>
+      <div class="bento-hero-stat">
+        <div class="bento-hero-val plasma" id="hero-cost">$--</div>
+        <div class="bento-hero-key">Est. Cost Today</div>
+      </div>
+      <div class="bento-hero-stat">
+        <div class="bento-hero-val green" id="hero-tokens">--</div>
+        <div class="bento-hero-key">Tokens Used</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS TILE -->
+  <div class="bento-v4-status bento-tile">
+    <div class="bento-section-header">
+      <span class="bento-section-title">System Status</span>
+      <span class="bento-section-badge live">LIVE</span>
+    </div>
+    <div class="bento-status-row">
+      <div class="bento-status-dot ok"></div>
+      <span class="bento-status-name">MAJD Core</span>
+      <span class="bento-status-val">ONLINE</span>
+    </div>
+    <div class="bento-status-row">
+      <div class="bento-status-dot" id="sdot-ollama"></div>
+      <span class="bento-status-name">Ollama</span>
+      <span class="bento-status-val" id="sval-ollama">{{ ollama_models }} Models</span>
+    </div>
+    <div class="bento-status-row">
+      <div class="bento-status-dot warn" id="sdot-ws"></div>
+      <span class="bento-status-name">WebSocket</span>
+      <span class="bento-status-val" id="sval-ws">CONNECTING</span>
+    </div>
+    <div class="bento-status-row">
+      <div class="bento-status-dot ok"></div>
+      <span class="bento-status-name">Agents Ready</span>
+      <span class="bento-status-val">{{ agents_online }} / 5</span>
+    </div>
+    <div class="bento-status-row">
+      <div class="bento-status-dot ok"></div>
+      <span class="bento-status-name">Outputs</span>
+      <span class="bento-status-val">{{ outputs_count }} files</span>
+    </div>
+  </div>
+
+  <!-- MED TILE 1: Videos Generated -->
+  <div class="bento-v4-med bento-tile">
+    <div class="bento-tile-label">Videos</div>
+    <div class="bento-tile-icon">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <rect x="2" y="4" width="15" height="16" rx="2"/>
+        <path d="M17 8l4 2-4 2"/>
+      </svg>
+    </div>
+    <div class="bento-tile-val" id="med-videos">{{ metrics.videos_generated }}</div>
+    <div class="bento-tile-change up">+{{ metrics.videos_today }} today</div>
+  </div>
+
+  <!-- MED TILE 2: Channels Analyzed -->
+  <div class="bento-v4-med bento-tile">
+    <div class="bento-tile-label">Channels</div>
+    <div class="bento-tile-icon">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
+        <path d="M11 8v6M8 11h6"/>
+      </svg>
+    </div>
+    <div class="bento-tile-val green" id="med-channels">{{ metrics.channels_analyzed }}</div>
+    <div class="bento-tile-change up">{{ metrics.channels_today }} new</div>
+  </div>
+
+  <!-- MED TILE 3: Trends -->
+  <div class="bento-v4-med bento-tile">
+    <div class="bento-tile-label">Trends</div>
+    <div class="bento-tile-icon">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+      </svg>
+    </div>
+    <div class="bento-tile-val amber" id="med-trends">{{ metrics.trends_found }}</div>
+    <div class="bento-tile-change">{{ metrics.trending_now }} hot now</div>
+  </div>
+
+  <!-- MED TILE 4: Revenue -->
+  <div class="bento-v4-med bento-tile">
+    <div class="bento-tile-label">Revenue Est.</div>
+    <div class="bento-tile-icon">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <line x1="12" y1="1" x2="12" y2="23"/>
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      </svg>
+    </div>
+    <div class="bento-tile-val plasma" id="med-revenue">${{ metrics.revenue_potential }}</div>
+    <div class="bento-tile-change">Est. monthly</div>
+  </div>
+
+  <!-- WIDE TILE: Recent Activity -->
+  <div class="bento-v4-wide bento-tile">
+    <div class="bento-section-header">
+      <span class="bento-section-title">Recent Activity</span>
+      <span class="bento-section-badge live">LIVE FEED</span>
+    </div>
+    <div class="bento-activity-list" id="bento-activity-list">
+      <div class="bento-activity-item">
+        <div class="bento-activity-dot"></div>
+        <span class="bento-activity-text">MAJD Neural OS v3.0 initialized. Awaiting commands.</span>
+        <span class="bento-activity-time" id="activity-init-time">--:--</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK LAUNCH STRIP -->
+  <div class="bento-v4-launch bento-tile">
+    <div class="bento-section-header">
+      <span class="bento-section-title">Quick Launch</span>
+    </div>
+    <div class="bento-launch-grid">
+      <a href="/reel-producer" class="bento-launch-btn" style="color:#ef4444;border-color:rgba(239,68,68,0.3)">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/>
+        </svg>
+        Auto Reels
+      </a>
+      <a href="/voice-lab" class="bento-launch-btn" style="color:#a78bfa;border-color:rgba(167,139,250,0.3)">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        </svg>
+        Voice Lab
+      </a>
+      <a href="/trends" class="bento-launch-btn">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+        </svg>
+        Trend Miner
+      </a>
+      <a href="/publish-hub" class="bento-launch-btn" style="color:#10b981;border-color:rgba(16,185,129,0.3)">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+          <polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/>
+        </svg>
+        Publish Hub
+      </a>
+      <a href="/cinegen" class="bento-launch-btn" style="color:#7c3aed;border-color:rgba(124,58,237,0.3)">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path d="M2 8h4l3-3h6l3 3h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z"/>
+          <circle cx="12" cy="15" r="4"/>
+        </svg>
+        CineGen AI
+      </a>
+      <a href="/mission-control" class="bento-launch-btn plasma">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+        </svg>
+        Mission Control
+      </a>
+    </div>
+  </div>
+
+</div>
+<!-- END BENTO v4 GRID -->
+
+<!-- REVENUE HUNTER STRIP -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+
+  <a href="/money" style="text-decoration:none">
+    <div class="card" style="border-color:rgba(255,107,53,0.4);background:linear-gradient(135deg,rgba(255,107,53,0.08),rgba(2,12,27,0.9));padding:16px;transition:all 0.2s;cursor:pointer" onmouseenter="this.style.borderColor='rgba(255,107,53,0.8)'" onmouseleave="this.style.borderColor='rgba(255,107,53,0.4)'">
+      <div style="font-family:var(--font-data);font-size:10px;color:rgba(255,107,53,0.7);letter-spacing:2px;margin-bottom:8px">💰 REVENUE OPP</div>
+      <div style="font-family:var(--font-brand);font-size:22px;font-weight:700;color:#ff6b35" id="rev-opp-score">$--</div>
+      <div style="font-family:var(--font-data);font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px">Est. monthly potential</div>
+    </div>
+  </a>
+
+  <a href="/reel-producer" style="text-decoration:none">
+    <div class="card" style="border-color:rgba(239,68,68,0.4);background:linear-gradient(135deg,rgba(239,68,68,0.08),rgba(2,12,27,0.9));padding:16px;transition:all 0.2s;cursor:pointer" onmouseenter="this.style.borderColor='rgba(239,68,68,0.8)'" onmouseleave="this.style.borderColor='rgba(239,68,68,0.4)'">
+      <div style="font-family:var(--font-data);font-size:10px;color:rgba(239,68,68,0.7);letter-spacing:2px;margin-bottom:8px">🎬 REELS QUEUED</div>
+      <div style="font-family:var(--font-brand);font-size:22px;font-weight:700;color:#ef4444" id="reels-queued">--</div>
+      <div style="font-family:var(--font-data);font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px">Pending auto-production</div>
+    </div>
+  </a>
+
+  <a href="/publish-hub" style="text-decoration:none">
+    <div class="card" style="border-color:rgba(16,185,129,0.4);background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(2,12,27,0.9));padding:16px;transition:all 0.2s;cursor:pointer" onmouseenter="this.style.borderColor='rgba(16,185,129,0.8)'" onmouseleave="this.style.borderColor='rgba(16,185,129,0.4)'">
+      <div style="font-family:var(--font-data);font-size:10px;color:rgba(16,185,129,0.7);letter-spacing:2px;margin-bottom:8px">📡 READY TO PUBLISH</div>
+      <div style="font-family:var(--font-brand);font-size:22px;font-weight:700;color:#10b981" id="ready-publish">--</div>
+      <div style="font-family:var(--font-data);font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px">Packages awaiting upload</div>
+    </div>
+  </a>
+
+  <a href="/trends" style="text-decoration:none">
+    <div class="card" style="border-color:rgba(0,212,255,0.4);background:linear-gradient(135deg,rgba(0,212,255,0.08),rgba(2,12,27,0.9));padding:16px;transition:all 0.2s;cursor:pointer" onmouseenter="this.style.borderColor='rgba(0,212,255,0.8)'" onmouseleave="this.style.borderColor='rgba(0,212,255,0.4)'">
+      <div style="font-family:var(--font-data);font-size:10px;color:rgba(0,212,255,0.7);letter-spacing:2px;margin-bottom:8px">🔥 HOT TRENDS</div>
+      <div style="font-family:var(--font-brand);font-size:22px;font-weight:700;color:#00d4ff" id="hot-trends">--</div>
+      <div style="font-family:var(--font-data);font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px">Viral topics right now</div>
+    </div>
+  </a>
+
+</div>
+<!-- END REVENUE HUNTER STRIP -->
+
+<!-- TOP REVENUE OPPORTUNITIES PANEL -->
+<div class="hud-panel mb-16" id="top-opps-panel">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Top Revenue Opportunities</span>
+    <span class="badge badge-green" id="opps-badge">LOADING...</span>
+    <a href="/trends" class="btn" style="font-size:9px;padding:4px 12px;margin-left:auto"><span>ALL TRENDS →</span></a>
+  </div>
+  <div class="hud-panel-body" style="padding:0">
+    <table class="data-table" id="opps-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Topic</th>
+          <th>Category</th>
+          <th>CPM</th>
+          <th>Est. Rev / Video</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="opps-tbody">
+        <tr><td colspan="6" class="text-muted text-mono text-xs" style="text-align:center;padding:20px;letter-spacing:2px">LOADING REVENUE OPPORTUNITIES...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- AGENT STATUS + SYSTEM RINGS -->
+<div class="grid-2-1 mb-16">
+
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Agent Status</span>
+      <span class="badge badge-green">{{ agents_online }} / 9 ONLINE</span>
+    </div>
+    <div class="hud-panel-body">
+      <div class="agent-grid">
+
+        <div class="agent-card {% if agents.spy.active %}active{% endif %}" id="agent-spy">
+          <div class="agent-name">CHANNEL SPY</div>
+          <div class="agent-status">
+            <div class="status-dot {% if agents.spy.active %}{% else %}red{% endif %}"></div>
+            <span id="stat-spy">{{ agents.spy.status }}</span>
+          </div>
+          <div class="agent-progress-bar">
+            <div class="agent-progress-fill" id="prog-spy" style="width:{{ agents.spy.progress }}%"></div>
+          </div>
+          <a href="/spy" class="btn btn-primary" style="font-size:9px;padding:5px 12px;margin-top:4px"><span>OPEN</span></a>
+        </div>
+
+        <div class="agent-card {% if agents.trends.active %}active{% endif %}" id="agent-trends">
+          <div class="agent-name">TREND MINER</div>
+          <div class="agent-status">
+            <div class="status-dot {% if agents.trends.active %}{% else %}yellow{% endif %}"></div>
+            <span id="stat-trends">{{ agents.trends.status }}</span>
+          </div>
+          <div class="agent-progress-bar">
+            <div class="agent-progress-fill" id="prog-trends" style="width:{{ agents.trends.progress }}%"></div>
+          </div>
+          <a href="/trends" class="btn btn-primary" style="font-size:9px;padding:5px 12px;margin-top:4px"><span>OPEN</span></a>
+        </div>
+
+        <div class="agent-card {% if agents.factory.active %}active{% endif %}" id="agent-factory">
+          <div class="agent-name">CONTENT FACTORY</div>
+          <div class="agent-status">
+            <div class="status-dot {% if agents.factory.active %}{% else %}red{% endif %}"></div>
+            <span id="stat-factory">{{ agents.factory.status }}</span>
+          </div>
+          <div class="agent-progress-bar">
+            <div class="agent-progress-fill" id="prog-factory" style="width:{{ agents.factory.progress }}%"></div>
+          </div>
+          <a href="/factory" class="btn btn-primary" style="font-size:9px;padding:5px 12px;margin-top:4px"><span>OPEN</span></a>
+        </div>
+
+        <div class="agent-card {% if agents.money.active %}active{% endif %}" id="agent-money">
+          <div class="agent-name">MONEY INTEL</div>
+          <div class="agent-status">
+            <div class="status-dot {% if agents.money.active %}{% else %}red{% endif %}"></div>
+            <span id="stat-money">{{ agents.money.status }}</span>
+          </div>
+          <div class="agent-progress-bar">
+            <div class="agent-progress-fill" id="prog-money" style="width:{{ agents.money.progress }}%"></div>
+          </div>
+          <a href="/money" class="btn btn-primary" style="font-size:9px;padding:5px 12px;margin-top:4px"><span>OPEN</span></a>
+        </div>
+
+        <div class="agent-card {% if agents.director.active %}active{% endif %}" id="agent-director">
+          <div class="agent-name">CINEMA DIRECTOR</div>
+          <div class="agent-status">
+            <div class="status-dot {% if agents.director.active %}{% else %}red{% endif %}"></div>
+            <span id="stat-director">{{ agents.director.status }}</span>
+          </div>
+          <div class="agent-progress-bar">
+            <div class="agent-progress-fill" id="prog-director" style="width:{{ agents.director.progress }}%"></div>
+          </div>
+          <a href="/director" class="btn btn-primary" style="font-size:9px;padding:5px 12px;margin-top:4px"><span>OPEN</span></a>
+        </div>
+
+        <div class="agent-card" id="agent-voice" style="border-color:rgba(167,139,250,0.3)">
+          <div class="agent-name" style="color:#a78bfa">VOICE LAB</div>
+          <div class="agent-status">
+            <div class="status-dot" style="background:#a78bfa;box-shadow:0 0 6px #a78bfa"></div>
+            <span>GPT-SoVITS + F5-TTS</span>
+          </div>
+          <div class="agent-progress-bar">
+            <div class="agent-progress-fill" style="width:0%;background:linear-gradient(90deg,#a78bfa,#7c3aed)"></div>
+          </div>
+          <a href="/voice-lab" class="btn btn-primary" style="font-size:9px;padding:5px 12px;margin-top:4px;border-color:#a78bfa;color:#a78bfa"><span>OPEN</span></a>
+        </div>
+
+        <div class="agent-card" id="agent-reel" style="border-color:rgba(239,68,68,0.3)">
+          <div class="agent-name" style="color:#ef4444">REEL MACHINE</div>
+          <div class="agent-status">
+            <div class="status-dot" style="background:#ef4444;box-shadow:0 0 6px #ef4444"></div>
+            <span>MoneyPrinterTurbo</span>
+          </div>
+          <div class="agent-progress-bar">
+            <div class="agent-progress-fill" style="width:0%;background:linear-gradient(90deg,#ef4444,#f97316)"></div>
+          </div>
+          <a href="/reel-producer" class="btn btn-primary" style="font-size:9px;padding:5px 12px;margin-top:4px;border-color:#ef4444;color:#ef4444"><span>OPEN</span></a>
+        </div>
+
+        <div class="agent-card" id="agent-cinegen" style="border-color:rgba(124,58,237,0.3)">
+          <div class="agent-name" style="color:#7c3aed">CINEGEN AI</div>
+          <div class="agent-status">
+            <div class="status-dot" style="background:#7c3aed;box-shadow:0 0 6px #7c3aed"></div>
+            <span>CogVideoX</span>
+          </div>
+          <div class="agent-progress-bar">
+            <div class="agent-progress-fill" style="width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div>
+          </div>
+          <a href="/cinegen" class="btn btn-primary" style="font-size:9px;padding:5px 12px;margin-top:4px;border-color:#7c3aed;color:#a78bfa"><span>OPEN</span></a>
+        </div>
+
+        <div class="agent-card" id="agent-publish" style="border-color:rgba(16,185,129,0.3)">
+          <div class="agent-name" style="color:#10b981">PUBLISH HUB</div>
+          <div class="agent-status">
+            <div class="status-dot" style="background:#10b981;box-shadow:0 0 6px #10b981"></div>
+            <span>Postiz — All Platforms</span>
+          </div>
+          <div class="agent-progress-bar">
+            <div class="agent-progress-fill" style="width:0%;background:linear-gradient(90deg,#10b981,#06b6d4)"></div>
+          </div>
+          <a href="/publish-hub" class="btn btn-primary" style="font-size:9px;padding:5px 12px;margin-top:4px;border-color:#10b981;color:#10b981"><span>OPEN</span></a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SYSTEM RINGS -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">System</span>
+    </div>
+    <div class="hud-panel-body flex flex-col gap-16 items-center">
+
+      <div class="progress-ring-wrap">
+        <svg class="progress-ring" width="120" height="120">
+          <circle class="progress-ring-track" cx="60" cy="60" r="54"/>
+          <circle class="progress-ring-fill" id="ring-repos" cx="60" cy="60" r="54"
+            data-ring-pct="{{ repos_ok_pct }}"
+            style="stroke-dasharray:339.3;stroke-dashoffset:339.3"/>
+          <text x="60" y="55" text-anchor="middle" fill="#00d4ff"
+            font-family="Orbitron,monospace" font-size="20" font-weight="700">{{ repos_ok }}</text>
+          <text x="60" y="72" text-anchor="middle" fill="rgba(0,212,255,0.5)"
+            font-family="JetBrains Mono,monospace" font-size="9">/18 REPOS</text>
+        </svg>
+        <div class="progress-ring-label">AI REPOSITORIES</div>
+      </div>
+
+      <hr class="hud-divider w-full"/>
+
+      <div class="flex gap-24">
+        <div class="flex flex-col items-center gap-8">
+          <div class="text-hud text-blue stat-number" style="font-size:22px;font-weight:700">{{ ollama_models }}</div>
+          <div class="text-mono text-xs text-muted" style="letter-spacing:2px">OLLAMA MODELS</div>
+        </div>
+        <div class="flex flex-col items-center gap-8">
+          <div class="text-hud text-green stat-number" style="font-size:22px;font-weight:700">{{ outputs_count }}</div>
+          <div class="text-mono text-xs text-muted" style="letter-spacing:2px">OUTPUTS</div>
+        </div>
+      </div>
+
+      <div class="w-full">
+        <div class="profit-bar-wrap">
+          <div class="profit-bar-label">
+            <span>CAPACITY</span><span class="text-blue">{{ capacity_pct }}%</span>
+          </div>
+          <div class="profit-bar">
+            <div class="profit-bar-fill" data-pct="{{ capacity_pct }}" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- LIVE FEED + RECENT OUTPUTS -->
+<div class="grid-2">
+
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Live Feed</span>
+      <span class="badge badge-green" style="animation:badge-pulse 2s infinite">LIVE</span>
+    </div>
+    <div class="hud-panel-body" style="padding:0">
+      <div class="live-feed" id="live-feed">
+        <div class="feed-line">
+          <span class="feed-time">--:--:--</span>
+          <span class="feed-msg info">MAJD Neural OS v3.0 initialized. Awaiting commands.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Recent Outputs</span>
+      <a href="/factory" class="btn" style="font-size:9px;padding:4px 12px"><span>VIEW ALL</span></a>
+    </div>
+    <div class="hud-panel-body" style="padding:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        {% for item in recent_outputs %}
+        <div class="video-card">
+          <div class="video-thumb">
+            <div class="video-thumb-icon">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <polygon points="5,3 19,12 5,21"/>
+              </svg>
+            </div>
+          </div>
+          <div class="video-info">
+            <div class="video-title">{{ item.title }}</div>
+            <div class="video-meta">{{ item.duration }} &middot; {{ item.created }}</div>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-muted text-mono" style="grid-column:1/-1;padding:24px;text-align:center;font-size:11px">
+          NO OUTPUTS YET &mdash; RUN AN AGENT TO GENERATE CONTENT
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─── COUNT-UP ANIMATION ───────────────────────────────────────────────────
+function countUp(el, target, duration) {
+  duration = duration || 1500;
+  if (!el || isNaN(target) || target <= 0) return;
+  const start = performance.now();
+  function frame(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.floor(ease * target).toLocaleString();
+    if (progress < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+// Animate all bento tile values that have numeric text
+(function animateStats() {
+  const targets = [
+    ['med-videos',   {{ metrics.videos_generated }}],
+    ['med-channels', {{ metrics.channels_analyzed }}],
+    ['med-trends',   {{ metrics.trends_found }}],
+  ];
+  targets.forEach(function(pair) {
+    const el = document.getElementById(pair[0]);
+    if (el && pair[1] > 0) countUp(el, pair[1]);
+  });
+})();
+
+// ─── HERO DATE ────────────────────────────────────────────────────────────
+(function setHeroDate() {
+  const DAYS = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+  const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const now = new Date();
+  const dateEl = document.getElementById('hero-date');
+  if (dateEl) {
+    dateEl.textContent = DAYS[now.getDay()] + ' — ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+  }
+  const timeEl = document.getElementById('activity-init-time');
+  if (timeEl) {
+    timeEl.textContent = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  }
+})();
+
+// ─── FETCH /api/costs/summary → HERO TILE ─────────────────────────────────
+(async function loadCostsSummary() {
+  try {
+    const r = await fetch('/api/costs/summary');
+    if (!r.ok) return;
+    const data = await r.json();
+
+    const reqEl = document.getElementById('hero-requests');
+    const costEl = document.getElementById('hero-cost');
+    const tokEl = document.getElementById('hero-tokens');
+
+    if (reqEl && data.today_requests != null) {
+      countUp(reqEl, parseInt(data.today_requests, 10) || 0);
+    }
+    if (costEl && data.today_cost != null) {
+      const cost = parseFloat(data.today_cost) || 0;
+      costEl.textContent = '$' + cost.toFixed(2);
+    }
+    if (tokEl && data.today_tokens != null) {
+      countUp(tokEl, parseInt(data.today_tokens, 10) || 0);
+    }
+  } catch (_e) {
+    // degrade silently — hero shows dashes
+  }
+})();
+
+// ─── SYNC WS STATUS DOT INTO BENTO STATUS TILE ───────────────────────────
+function syncBentoWs() {
+  const wsDot = document.getElementById('sdot-ws');
+  const wsVal = document.getElementById('sval-ws');
+  const masterText = document.getElementById('ws-status');
+  if (!wsDot || !masterText) return;
+  const text = masterText.textContent || '';
+  if (text.includes('LIVE') || text.includes('CONNECTED')) {
+    wsDot.className = 'bento-status-dot ok';
+    if (wsVal) wsVal.textContent = 'CONNECTED';
+  } else if (text.includes('ERROR') || text.includes('FAIL') || text.includes('DISCONN')) {
+    wsDot.className = 'bento-status-dot err';
+    if (wsVal) wsVal.textContent = 'ERROR';
+  } else {
+    wsDot.className = 'bento-status-dot warn';
+    if (wsVal) wsVal.textContent = 'CONNECTING';
+  }
+}
+setInterval(syncBentoWs, 2000);
+
+// ─── PIPE LIVE FEED INTO BENTO ACTIVITY LIST (safe DOM only) ─────────────
+const bentoList = document.getElementById('bento-activity-list');
+const BENTO_MAX = 5;
+
+function addBentoActivity(msg, dotVariant) {
+  if (!bentoList) return;
+  const now = new Date();
+  const timeStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+
+  const item = document.createElement('div');
+  item.className = 'bento-activity-item';
+
+  const dot = document.createElement('div');
+  dot.className = 'bento-activity-dot' + (dotVariant ? ' ' + dotVariant : '');
+
+  const textEl = document.createElement('span');
+  textEl.className = 'bento-activity-text';
+  textEl.textContent = String(msg).substring(0, 80);
+
+  const timeEl = document.createElement('span');
+  timeEl.className = 'bento-activity-time';
+  timeEl.textContent = timeStr;
+
+  item.appendChild(dot);
+  item.appendChild(textEl);
+  item.appendChild(timeEl);
+
+  bentoList.insertBefore(item, bentoList.firstChild);
+  while (bentoList.children.length > BENTO_MAX) {
+    bentoList.removeChild(bentoList.lastChild);
+  }
+}
+
+// ─── AGENT ACTIONS ────────────────────────────────────────────────────────
+async function runAllAgents() {
+  addBentoActivity('Activating all agents...', 'plasma');
+  notify('Activating all agents...', 'info');
+  await api('/api/agents/all/run', 'POST', {});
+}
+
+async function saveSession() {
+  const r = await api('/api/session/save', 'POST', {});
+  if (r) {
+    addBentoActivity('Session saved: ' + r.filename, '');
+    notify('Session saved: ' + r.filename, 'success');
+  }
+}
+
+// ─── REVENUE HUNTER STRIP DATA ────────────────────────────────────────────
+const CPM_TIERS = {
+  finance: { cpm: 18, kw: ['crypto','bitcoin','invest','finance','stock','money','income','profit','revenue','trading','nft','defi','wallet','passive income','affiliate'] },
+  tech:    { cpm: 14, kw: ['ai','claude','chatgpt','gpt','llm','python','code','developer','programming','automation','saas','software','machine learning','ml','api'] },
+  health:  { cpm: 12, kw: ['health','fitness','weight','workout','diet','mindset','mental','anxiety','yoga','nutrition','sleep','habit'] },
+  biz:     { cpm: 11, kw: ['business','entrepreneurship','startup','freelanc','productivity','remote work','career','marketing','seo','brand','growth hack'] },
+  content: { cpm: 8,  kw: ['youtube','tiktok','instagram','viral','shorts','reel','content','creator','algorithm','thumbnail','hook','engagement'] },
+};
+function estimateCPM(title) {
+  const t = title.toLowerCase();
+  for (const [, tier] of Object.entries(CPM_TIERS)) {
+    if (tier.kw.some(k => t.includes(k))) return tier.cpm;
+  }
+  return 6;
+}
+
+(async function loadRevenueHunterData() {
+  // Load pending reel packages
+  try {
+    const r = await fetch('/api/reel/pending');
+    if (r.ok) {
+      const data = await r.json();
+      const reels = Array.isArray(data) ? data : (data.reels || []);
+      const pendingCount = reels.length;
+      const readyCount = reels.filter(r => r.status === 'ready').length;
+      const reelsEl = document.getElementById('reels-queued');
+      const publishEl = document.getElementById('ready-publish');
+      if (reelsEl) reelsEl.textContent = pendingCount || '0';
+      if (publishEl) publishEl.textContent = readyCount || '0';
+    }
+  } catch (_) {}
+
+  // Load trending topics + compute revenue opportunity score
+  try {
+    const r = await fetch('/api/trending/topics');
+    if (r.ok) {
+      const data = await r.json();
+      const topics = Array.isArray(data) ? data : (data.topics || []);
+      const el = document.getElementById('hot-trends');
+      if (el) el.textContent = topics.length || '20';
+
+      // Compute CPM-weighted monthly revenue potential
+      // Assumes each topic → 1 video → avg 45k views in first 30 days
+      const AVG_VIEWS = 45000;
+      const totalEst = topics.reduce((sum, t) => {
+        const cpm = estimateCPM(t.title || '');
+        return sum + (AVG_VIEWS / 1000) * cpm;
+      }, 0);
+      const revEl = document.getElementById('rev-opp-score');
+      if (revEl) {
+        const formatted = totalEst >= 1000
+          ? '$' + (totalEst / 1000).toFixed(1) + 'k'
+          : '$' + Math.round(totalEst);
+        revEl.textContent = formatted;
+      }
+    }
+  } catch (_) {
+    const el = document.getElementById('hot-trends');
+    if (el) el.textContent = '20';
+    const revEl = document.getElementById('rev-opp-score');
+    if (revEl) revEl.textContent = '$8.1k';
+  }
+})();
+
+// ─── TOP REVENUE OPPORTUNITIES TABLE ─────────────────────────────────────
+(async function loadTopOpportunities() {
+  const CATEGORY_MAP = {
+    finance: { label: 'Finance', color: '#ff6b35', cpm: 18 },
+    tech:    { label: 'Tech / AI', color: '#00d4ff', cpm: 14 },
+    health:  { label: 'Health', color: '#10b981', cpm: 12 },
+    biz:     { label: 'Business', color: '#f59e0b', cpm: 11 },
+    content: { label: 'Content', color: '#a78bfa', cpm: 8 },
+    other:   { label: 'General', color: '#6b7280', cpm: 6 },
+  };
+  function categorize(title) {
+    const t = title.toLowerCase();
+    if (['crypto','bitcoin','invest','finance','stock','money','income','profit','trading','passive income','affiliate'].some(k=>t.includes(k))) return 'finance';
+    if (['ai','claude','chatgpt','gpt','llm','python','code','developer','programming','automation','saas','machine learning','api','prompt'].some(k=>t.includes(k))) return 'tech';
+    if (['health','fitness','weight','workout','diet','mindset','mental','yoga'].some(k=>t.includes(k))) return 'health';
+    if (['business','entrepreneur','startup','freelanc','productivity','remote work','career','marketing','seo','growth'].some(k=>t.includes(k))) return 'biz';
+    if (['youtube','tiktok','instagram','viral','shorts','reel','content','creator','algorithm','thumbnail'].some(k=>t.includes(k))) return 'content';
+    return 'other';
+  }
+  try {
+    const r = await fetch('/api/trending/topics');
+    if (!r.ok) return;
+    const data = await r.json();
+    const topics = (Array.isArray(data) ? data : (data.topics || [])).slice(0, 10);
+    const scored = topics.map((t, i) => {
+      const cat = categorize(t.title || '');
+      const info = CATEGORY_MAP[cat];
+      const estRev = Math.round((45000 / 1000) * info.cpm);
+      return { rank: i + 1, title: t.title, cat, info, estRev };
+    }).sort((a, b) => b.estRev - a.estRev);
+
+    const badge = document.getElementById('opps-badge');
+    if (badge) { badge.textContent = scored.length + ' LIVE OPPS'; badge.className = 'badge badge-green'; }
+
+    const tbody = document.getElementById('opps-tbody');
+    if (!tbody) return;
+    tbody.textContent = '';
+    scored.forEach((row, idx) => {
+      const tr = document.createElement('tr');
+
+      const rankTd = document.createElement('td');
+      rankTd.className = 'text-mono text-xs';
+      rankTd.style.color = idx < 3 ? '#ff6b35' : 'var(--muted)';
+      rankTd.textContent = '#' + (idx + 1);
+
+      const titleTd = document.createElement('td');
+      titleTd.className = 'text-hud';
+      titleTd.style.maxWidth = '280px';
+      titleTd.textContent = row.title;
+
+      const catTd = document.createElement('td');
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.style.cssText = 'background:rgba(0,0,0,0.4);border:1px solid ' + row.info.color + '40;color:' + row.info.color + ';font-size:9px';
+      badge.textContent = row.info.label;
+      catTd.appendChild(badge);
+
+      const cpmTd = document.createElement('td');
+      cpmTd.className = 'text-green text-mono';
+      cpmTd.style.fontWeight = '700';
+      cpmTd.textContent = '$' + row.info.cpm;
+
+      const revTd = document.createElement('td');
+      revTd.className = 'text-hud';
+      revTd.style.color = '#ff6b35';
+      revTd.textContent = '$' + row.estRev.toLocaleString();
+
+      const actTd = document.createElement('td');
+      const btn = document.createElement('a');
+      btn.href = '/reel-producer';
+      btn.className = 'btn btn-primary';
+      btn.style.cssText = 'font-size:9px;padding:4px 10px;display:inline-block';
+      btn.textContent = '+ REEL';
+      actTd.appendChild(btn);
+
+      [rankTd, titleTd, catTd, cpmTd, revTd, actTd].forEach(td => tr.appendChild(td));
+      tbody.appendChild(tr);
+    });
+  } catch (_) {}
+})();
+
+// ─── WEBSOCKET: Revenue hunter updates ───────────────────────────────────
+document.addEventListener('ws:agent_update', function(e) {
+  const d = e.detail || {};
+  if (d.type === 'pipeline_complete') {
+    const el = document.getElementById('reels-queued');
+    if (el) {
+      const cur = parseInt(el.textContent, 10) || 0;
+      el.textContent = cur + 1;
+      el.style.animation = 'none';
+      requestAnimationFrame(() => { el.style.animation = 'pulse-glow 0.5s ease'; });
+    }
+    addBentoActivity('Reel production complete: ' + (d.topic_id || 'unknown'), 'plasma');
+  }
+});
+</script>
+{% endblock %}

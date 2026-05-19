@@ -1,0 +1,598 @@
+{% extends "base.html" %}
+{% block title %}Revenue Matrix{% endblock %}
+
+{% block head %}
+<style>
+/* ── Revenue Matrix ──────────────────────────────────────────── */
+.rev-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  grid-template-rows: auto 1fr 1fr;
+  gap: 16px;
+  height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.rev-kpis {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.rev-kpi {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.rev-kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+.rev-kpi.blue::before  { background: linear-gradient(90deg, transparent, var(--blue)); }
+.rev-kpi.green::before { background: linear-gradient(90deg, transparent, var(--green)); }
+.rev-kpi.red::before   { background: linear-gradient(90deg, transparent, var(--red)); }
+.rev-kpi.gold::before  { background: linear-gradient(90deg, transparent, var(--yellow)); }
+.rev-kpi.arc::before   { background: linear-gradient(90deg, transparent, var(--arc)); }
+
+.rev-kpi-label { font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+.rev-kpi-value { font-size: 28px; font-weight: 700; font-family: var(--font-mono); margin: 4px 0; }
+.rev-kpi-delta { font-size: 10px; }
+.delta-pos { color: var(--green); }
+.delta-neg { color: var(--red); }
+
+/* Timeline chart panel */
+.panel-timeline {
+  grid-column: 1 / 3;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+.panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.panel-title {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--blue);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.panel-body {
+  flex: 1;
+  position: relative;
+  padding: 8px;
+  min-height: 0;
+}
+
+/* Stream breakdown */
+.panel-streams {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+
+/* CPM table / world */
+.panel-world {
+  grid-column: 3 / 4;
+  grid-row: 2 / 3;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Affiliate panel */
+.panel-aff {
+  grid-column: 1 / 3;
+  grid-row: 3 / 4;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Strategy */
+.panel-strategy {
+  grid-column: 3 / 4;
+  grid-row: 3 / 4;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Stream bars */
+.stream-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.stream-item {}
+.stream-meta { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.stream-name { font-size: 10px; color: var(--text); }
+.stream-val  { font-size: 10px; font-family: var(--font-mono); }
+.stream-bar  { height: 3px; background: var(--bg); position: relative; overflow: hidden; }
+.stream-fill { height: 100%; transition: width 1.5s cubic-bezier(0.23, 1, 0.32, 1); width: 0; }
+
+/* CPM table */
+.cpm-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.cpm-table th { text-align: left; padding: 6px 12px; color: var(--muted); font-weight: 400; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+.cpm-table td { padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.cpm-bar-cell { width: 80px; }
+.cpm-bar-wrap { height: 3px; background: rgba(255,255,255,0.05); }
+.cpm-bar-fill { height: 100%; background: var(--blue); }
+.cpm-flag { font-size: 14px; margin-right: 4px; }
+.cpm-val { color: var(--green); font-family: var(--font-mono); }
+
+/* Affiliate table */
+.aff-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.aff-table th { text-align: left; padding: 7px 14px; color: var(--muted); font-weight: 400; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+.aff-table td { padding: 7px 14px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.aff-badge { display: inline-block; padding: 2px 8px; font-size: 9px; letter-spacing: 1px; }
+.badge-hot   { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid var(--red); }
+.badge-good  { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid var(--green); }
+.badge-new   { background: rgba(0,212,255,0.15); color: var(--blue); border: 1px solid var(--blue); }
+.badge-prime { background: rgba(59,130,246,0.15); color: var(--arc); border: 1px solid var(--arc); }
+
+.aff-score-bar { display: inline-block; height: 2px; background: var(--yellow); margin-left: 6px; vertical-align: middle; }
+
+/* Strategy bullets */
+.strategy-list { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow-y: auto; }
+.strategy-item { display: flex; gap: 10px; align-items: flex-start; }
+.strategy-num  { font-family: var(--font-mono); font-size: 10px; color: var(--blue); min-width: 18px; margin-top: 1px; }
+.strategy-text { font-size: 10px; line-height: 1.6; color: var(--text-muted, #a1a1aa); }
+.strategy-impact { font-size: 9px; color: var(--green); display: block; margin-top: 2px; }
+
+/* Niche selector */
+.niche-row { display: flex; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.niche-btn { padding: 4px 12px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 9px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; }
+.niche-btn:hover, .niche-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0,212,255,0.05); }
+
+/* Live ticker */
+.rev-ticker {
+  position: fixed;
+  bottom: 0;
+  left: var(--sidebar-width, 220px);
+  right: 0;
+  height: 28px;
+  background: rgba(9,9,11,0.95);
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+  z-index: 100;
+}
+.ticker-track {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  white-space: nowrap;
+  animation: ticker-scroll 40s linear infinite;
+}
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-item { font-size: 9px; font-family: var(--font-mono); padding: 0 32px; color: var(--muted); }
+.ticker-item .pos { color: var(--green); }
+.ticker-item .neg { color: var(--red); }
+.ticker-sep { color: var(--border); }
+
+canvas { width: 100% !important; height: 100% !important; display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rev-grid">
+
+  <!-- KPI ROW -->
+  <div class="rev-kpis">
+    <div class="rev-kpi blue">
+      <div class="rev-kpi-label">Monthly Revenue Potential</div>
+      <div class="rev-kpi-value text-blue" id="kpi-monthly">$0</div>
+      <div class="rev-kpi-delta delta-pos" id="kpi-monthly-d">Calculating...</div>
+    </div>
+    <div class="rev-kpi green">
+      <div class="rev-kpi-label">Affiliate Est. (30d)</div>
+      <div class="rev-kpi-value text-green" id="kpi-aff">$0</div>
+      <div class="rev-kpi-delta delta-pos" id="kpi-aff-d">Loading...</div>
+    </div>
+    <div class="rev-kpi gold">
+      <div class="rev-kpi-label">CPM Average (USD)</div>
+      <div class="rev-kpi-value" style="color:var(--yellow)" id="kpi-cpm">$0</div>
+      <div class="rev-kpi-delta" id="kpi-cpm-d" style="color:var(--muted)">Global Average</div>
+    </div>
+    <div class="rev-kpi red">
+      <div class="rev-kpi-label">Brand Deal Rate (100K)</div>
+      <div class="rev-kpi-value text-red" id="kpi-brand">$0</div>
+      <div class="rev-kpi-delta delta-neg" id="kpi-brand-d">Per Integration</div>
+    </div>
+    <div class="rev-kpi arc">
+      <div class="rev-kpi-label">Total Channels Scanned</div>
+      <div class="rev-kpi-value" style="color:var(--arc)" id="kpi-scans">0</div>
+      <div class="rev-kpi-delta delta-pos" id="kpi-scans-d">Profiles in DB</div>
+    </div>
+  </div>
+
+  <!-- TIMELINE CHART -->
+  <div class="panel-timeline">
+    <div class="panel-header">
+      <span class="panel-title">Revenue Projection Timeline</span>
+      <div style="display:flex;gap:8px">
+        <button class="niche-btn active" onclick="setWindow(this,'3m')">3M</button>
+        <button class="niche-btn" onclick="setWindow(this,'6m')">6M</button>
+        <button class="niche-btn" onclick="setWindow(this,'12m')">12M</button>
+      </div>
+    </div>
+    <div class="niche-row">
+      <button class="niche-btn active" onclick="setNiche(this,'tech')">Tech</button>
+      <button class="niche-btn" onclick="setNiche(this,'finance')">Finance</button>
+      <button class="niche-btn" onclick="setNiche(this,'fitness')">Fitness</button>
+      <button class="niche-btn" onclick="setNiche(this,'gaming')">Gaming</button>
+      <button class="niche-btn" onclick="setNiche(this,'lifestyle')">Lifestyle</button>
+    </div>
+    <div class="panel-body">
+      <canvas id="timeline-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- REVENUE STREAM BREAKDOWN -->
+  <div class="panel-streams">
+    <div class="panel-header">
+      <span class="panel-title">Revenue Stream Breakdown</span>
+    </div>
+    <div class="panel-body" style="padding:0">
+      <canvas id="donut-canvas" style="max-height:160px;display:block;margin:0 auto;padding:8px;box-sizing:border-box"></canvas>
+    </div>
+    <div class="stream-list">
+      <div class="stream-item">
+        <div class="stream-meta">
+          <span class="stream-name">Ad Revenue (AdSense)</span>
+          <span class="stream-val text-blue">$2,800</span>
+        </div>
+        <div class="stream-bar"><div class="stream-fill" style="background:var(--blue)" data-width="62"></div></div>
+      </div>
+      <div class="stream-item">
+        <div class="stream-meta">
+          <span class="stream-name">Affiliate Programs</span>
+          <span class="stream-val text-green">$1,450</span>
+        </div>
+        <div class="stream-bar"><div class="stream-fill" style="background:var(--green)" data-width="38"></div></div>
+      </div>
+      <div class="stream-item">
+        <div class="stream-meta">
+          <span class="stream-name">Brand Sponsorships</span>
+          <span class="stream-val text-red">$3,200</span>
+        </div>
+        <div class="stream-bar"><div class="stream-fill" style="background:var(--red)" data-width="72"></div></div>
+      </div>
+      <div class="stream-item">
+        <div class="stream-meta">
+          <span class="stream-name">Merchandise</span>
+          <span class="stream-val" style="color:var(--yellow)">$680</span>
+        </div>
+        <div class="stream-bar"><div class="stream-fill" style="background:var(--yellow)" data-width="19"></div></div>
+      </div>
+      <div class="stream-item">
+        <div class="stream-meta">
+          <span class="stream-name">Memberships / Subs</span>
+          <span class="stream-val" style="color:var(--arc)">$920</span>
+        </div>
+        <div class="stream-bar"><div class="stream-fill" style="background:var(--arc)" data-width="24"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CPM WORLD TABLE -->
+  <div class="panel-world">
+    <div class="panel-header">
+      <span class="panel-title">CPM by Region</span>
+      <span class="panel-title" style="color:var(--green)">LIVE DATA</span>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <table class="cpm-table">
+        <thead>
+          <tr>
+            <th>Region</th>
+            <th>CPM</th>
+            <th>Rate</th>
+          </tr>
+        </thead>
+        <tbody id="cpm-body">
+          <tr><td><span class="cpm-flag">🇺🇸</span>United States</td><td class="cpm-val">$14.20</td><td class="cpm-bar-cell"><div class="cpm-bar-wrap"><div class="cpm-bar-fill" style="width:100%"></div></div></td></tr>
+          <tr><td><span class="cpm-flag">🇦🇺</span>Australia</td><td class="cpm-val">$11.80</td><td class="cpm-bar-cell"><div class="cpm-bar-wrap"><div class="cpm-bar-fill" style="width:83%"></div></div></td></tr>
+          <tr><td><span class="cpm-flag">🇨🇦</span>Canada</td><td class="cpm-val">$10.40</td><td class="cpm-bar-cell"><div class="cpm-bar-wrap"><div class="cpm-bar-fill" style="width:73%"></div></div></td></tr>
+          <tr><td><span class="cpm-flag">🇬🇧</span>United Kingdom</td><td class="cpm-val">$9.90</td><td class="cpm-bar-cell"><div class="cpm-bar-wrap"><div class="cpm-bar-fill" style="width:70%"></div></div></td></tr>
+          <tr><td><span class="cpm-flag">🇩🇪</span>Germany</td><td class="cpm-val">$8.70</td><td class="cpm-bar-cell"><div class="cpm-bar-wrap"><div class="cpm-bar-fill" style="width:61%"></div></div></td></tr>
+          <tr><td><span class="cpm-flag">🇳🇱</span>Netherlands</td><td class="cpm-val">$7.40</td><td class="cpm-bar-cell"><div class="cpm-bar-wrap"><div class="cpm-bar-fill" style="width:52%"></div></div></td></tr>
+          <tr><td><span class="cpm-flag">🇸🇬</span>Singapore</td><td class="cpm-val">$6.80</td><td class="cpm-bar-cell"><div class="cpm-bar-wrap"><div class="cpm-bar-fill" style="width:48%"></div></div></td></tr>
+          <tr><td><span class="cpm-flag">🇫🇷</span>France</td><td class="cpm-val">$5.90</td><td class="cpm-bar-cell"><div class="cpm-bar-wrap"><div class="cpm-bar-fill" style="width:42%"></div></div></td></tr>
+          <tr><td><span class="cpm-flag">🇧🇷</span>Brazil</td><td class="cpm-val">$2.80</td><td class="cpm-bar-cell"><div class="cpm-bar-wrap"><div class="cpm-bar-fill" style="width:20%"></div></div></td></tr>
+          <tr><td><span class="cpm-flag">🇮🇳</span>India</td><td class="cpm-val">$1.40</td><td class="cpm-bar-cell"><div class="cpm-bar-wrap"><div class="cpm-bar-fill" style="width:10%"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AFFILIATE TABLE -->
+  <div class="panel-aff">
+    <div class="panel-header">
+      <span class="panel-title">Top Affiliate Programs</span>
+      <span style="font-size:9px;color:var(--muted)">SORTED BY EPC</span>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <table class="aff-table">
+        <thead>
+          <tr>
+            <th>Program</th>
+            <th>Commission</th>
+            <th>Cookie</th>
+            <th>EPC</th>
+            <th>Score</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Amazon Associates</td>
+            <td>1–10%</td>
+            <td>24h</td>
+            <td class="cpm-val">$0.42</td>
+            <td><span class="aff-score-bar" style="width:85%"></span></td>
+            <td><span class="aff-badge badge-hot">HOT</span></td>
+          </tr>
+          <tr>
+            <td>NordVPN</td>
+            <td>40–100%</td>
+            <td>30d</td>
+            <td class="cpm-val">$1.82</td>
+            <td><span class="aff-score-bar" style="width:92%"></span></td>
+            <td><span class="aff-badge badge-good">GOOD</span></td>
+          </tr>
+          <tr>
+            <td>Skillshare</td>
+            <td>$7/trial</td>
+            <td>30d</td>
+            <td class="cpm-val">$2.10</td>
+            <td><span class="aff-score-bar" style="width:88%"></span></td>
+            <td><span class="aff-badge badge-prime">PRIME</span></td>
+          </tr>
+          <tr>
+            <td>Epidemic Sound</td>
+            <td>$22/sub</td>
+            <td>30d</td>
+            <td class="cpm-val">$3.40</td>
+            <td><span class="aff-score-bar" style="width:97%"></span></td>
+            <td><span class="aff-badge badge-hot">HOT</span></td>
+          </tr>
+          <tr>
+            <td>TubeBuddy</td>
+            <td>30–50%</td>
+            <td>90d</td>
+            <td class="cpm-val">$1.55</td>
+            <td><span class="aff-score-bar" style="width:78%"></span></td>
+            <td><span class="aff-badge badge-good">GOOD</span></td>
+          </tr>
+          <tr>
+            <td>Envato Elements</td>
+            <td>30%</td>
+            <td>90d</td>
+            <td class="cpm-val">$2.88</td>
+            <td><span class="aff-score-bar" style="width:91%"></span></td>
+            <td><span class="aff-badge badge-new">NEW</span></td>
+          </tr>
+          <tr>
+            <td>Fiverr Business</td>
+            <td>$150 CPA</td>
+            <td>30d</td>
+            <td class="cpm-val">$4.20</td>
+            <td><span class="aff-score-bar" style="width:99%"></span></td>
+            <td><span class="aff-badge badge-hot">HOT</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AI STRATEGY -->
+  <div class="panel-strategy">
+    <div class="panel-header">
+      <span class="panel-title">AI Revenue Strategy</span>
+      <div class="status-dot" style="background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite"></div>
+    </div>
+    <div class="strategy-list">
+      <div class="strategy-item">
+        <span class="strategy-num">01</span>
+        <div>
+          <div class="strategy-text">Target US + AU audiences with tech/finance content for maximum CPM ($14+ per 1K views)</div>
+          <span class="strategy-impact">+$800/mo potential at 100K views</span>
+        </div>
+      </div>
+      <div class="strategy-item">
+        <span class="strategy-num">02</span>
+        <div>
+          <div class="strategy-text">Stack Epidemic Sound + TubeBuddy links in every video description — converters for creators</div>
+          <span class="strategy-impact">+$320/mo passive at 50K subs</span>
+        </div>
+      </div>
+      <div class="strategy-item">
+        <span class="strategy-num">03</span>
+        <div>
+          <div class="strategy-text">First brand deal outreach at 10K subs: email 3 tools in your niche offering free integration</div>
+          <span class="strategy-impact">First $500 deal typical in 30d</span>
+        </div>
+      </div>
+      <div class="strategy-item">
+        <span class="strategy-num">04</span>
+        <div>
+          <div class="strategy-text">Create a $29 digital product (template pack / checklist) and pin in bio before 5K subs</div>
+          <span class="strategy-impact">Avg 1.2% conversion on views</span>
+        </div>
+      </div>
+      <div class="strategy-item">
+        <span class="strategy-num">05</span>
+        <div>
+          <div class="strategy-text">Use Shorts to drive memberships: 3 free Shorts per long-form, members get early access</div>
+          <span class="strategy-impact">20% of subs convert at $4.99/mo</span>
+        </div>
+      </div>
+      <div class="strategy-item">
+        <span class="strategy-num">06</span>
+        <div>
+          <div class="strategy-text">Cross-post to TikTok + Instagram Reels using Cinema Director — same content, 3x reach</div>
+          <span class="strategy-impact">Zero extra work, 3x growth speed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /rev-grid -->
+
+<!-- LIVE TICKER -->
+<div class="rev-ticker">
+  <div class="ticker-track" id="ticker-track">
+    <span class="ticker-item">💰 AdSense CPM US: <span class="pos">$14.20</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">📈 Tech Niche Trend: <span class="pos">+23% this week</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">🔥 NordVPN EPC: <span class="pos">$1.82</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">🎯 Skillshare: <span class="pos">$2.10 EPC</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">📊 Finance CPM AU: <span class="pos">$18.40</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">⚡ Gaming CPM: <span class="neg">$4.20</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">🌍 Global Average CPM: <span class="pos">$6.80</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">💰 AdSense CPM US: <span class="pos">$14.20</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">📈 Tech Niche Trend: <span class="pos">+23% this week</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">🔥 NordVPN EPC: <span class="pos">$1.82</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">🎯 Skillshare: <span class="pos">$2.10 EPC</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">📊 Finance CPM AU: <span class="pos">$18.40</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">⚡ Gaming CPM: <span class="neg">$4.20</span> <span class="ticker-sep">|</span></span>
+    <span class="ticker-item">🌍 Global Average CPM: <span class="pos">$6.80</span> <span class="ticker-sep">|</span></span>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/charts.js"></script>
+<script>
+// ── Niche & window data ────────────────────────────────────────────────────
+const NICHE_DATA = {
+  tech:      { monthly: '$4,200', aff: '$1,640', cpm: '$8.40', brand: '$1,200', label: '+18% vs last month', proj3: [400,520,680,820,1100,1400,1800,2300,2800,3200,3800,4200] },
+  finance:   { monthly: '$7,800', aff: '$2,900', cpm: '$14.20', brand: '$2,800', label: '+32% vs last month', proj3: [800,1100,1500,2000,2600,3400,4200,5000,5800,6600,7200,7800] },
+  fitness:   { monthly: '$2,600', aff: '$980',  cpm: '$5.80', brand: '$800',  label: '+9% vs last month',  proj3: [300,380,480,620,780,980,1200,1500,1800,2000,2300,2600] },
+  gaming:    { monthly: '$1,800', aff: '$620',  cpm: '$4.20', brand: '$500',  label: '+5% vs last month',  proj3: [200,250,320,400,520,650,820,1000,1200,1400,1600,1800] },
+  lifestyle: { monthly: '$3,200', aff: '$1,200', cpm: '$6.40', brand: '$900',  label: '+14% vs last month', proj3: [350,450,580,750,980,1250,1550,1900,2300,2700,3000,3200] },
+};
+
+let currentNiche = 'tech';
+let currentWindow = 3;
+let lineChart = null;
+let donutChart = null;
+
+function setNiche(btn, niche) {
+  document.querySelectorAll('.niche-row .niche-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentNiche = niche;
+  updateKPIs();
+  updateChart();
+}
+
+function setWindow(btn, w) {
+  document.querySelectorAll('.panel-header .niche-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentWindow = parseInt(w);
+  updateChart();
+}
+
+function updateKPIs() {
+  const d = NICHE_DATA[currentNiche];
+  function animCount(el, target, prefix) {
+    const num = parseFloat(target.replace(/[$,K]/g, ''));
+    let start = 0;
+    const step = num / 30;
+    const iv = setInterval(() => {
+      start = Math.min(start + step, num);
+      const val = num >= 1000 ? Math.round(start).toLocaleString() : start.toFixed(2);
+      el.textContent = prefix + val;
+      if (start >= num) clearInterval(iv);
+    }, 30);
+  }
+  animCount(document.getElementById('kpi-monthly'), d.monthly, '$');
+  animCount(document.getElementById('kpi-aff'),     d.aff,     '$');
+  animCount(document.getElementById('kpi-cpm'),     d.cpm,     '$');
+  animCount(document.getElementById('kpi-brand'),   d.brand,   '$');
+
+  document.getElementById('kpi-monthly-d').textContent = d.label;
+  document.getElementById('kpi-aff-d').textContent     = currentNiche.charAt(0).toUpperCase() + currentNiche.slice(1) + ' programs';
+  document.getElementById('kpi-cpm-d').textContent     = currentNiche.charAt(0).toUpperCase() + currentNiche.slice(1) + ' avg CPM';
+  document.getElementById('kpi-brand-d').textContent   = 'Per 60s integration';
+}
+
+function updateChart() {
+  const d = NICHE_DATA[currentNiche];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const sliceLen = currentWindow === 3 ? 3 : currentWindow === 6 ? 6 : 12;
+  const data = d.proj3.slice(0, sliceLen);
+  const labels = months.slice(0, sliceLen);
+
+  const canvas = document.getElementById('timeline-canvas');
+  if (!canvas) return;
+  if (lineChart) { lineChart.destroy && lineChart.destroy(); }
+  lineChart = new JarvisCharts.LineChart(canvas, {
+    labels,
+    datasets: [{
+      label: 'Revenue $',
+      data,
+      color: '#00d4ff',
+    }, {
+      label: 'Projection $',
+      data: data.map((v, i) => Math.round(v * (1 + (i + 1) * 0.08))),
+      color: '#10b981',
+      dash: [4, 4],
+    }],
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  updateKPIs();
+  updateChart();
+
+  // Donut
+  const donutEl = document.getElementById('donut-canvas');
+  if (donutEl && JarvisCharts.DonutChart) {
+    donutChart = new JarvisCharts.DonutChart(donutEl, {
+      segments: [
+        { label: 'AdSense',    value: 31, color: '#00d4ff' },
+        { label: 'Affiliates', value: 16, color: '#10b981' },
+        { label: 'Sponsors',   value: 36, color: '#ef4444' },
+        { label: 'Merch',      value: 8,  color: '#f59e0b' },
+        { label: 'Members',    value: 10, color: '#3b82f6' },
+      ],
+      centerLabel: 'MIX',
+    });
+  }
+
+  // Animate stream bars
+  setTimeout(() => {
+    document.querySelectorAll('.stream-fill').forEach(el => {
+      el.style.width = el.dataset.width + '%';
+    });
+  }, 400);
+
+  // KPI scan counter
+  let scans = 0;
+  const scanEl = document.getElementById('kpi-scans');
+  const iv = setInterval(() => {
+    scans = Math.min(scans + Math.floor(Math.random() * 3) + 1, 47);
+    if (scanEl) scanEl.textContent = scans;
+    if (scans >= 47) clearInterval(iv);
+  }, 80);
+});
+</script>
+{% endblock %}

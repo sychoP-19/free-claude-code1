@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+{% set active = "trends" %}
+{% block title %}Trend Miner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">TREND MINER</div>
+    <div class="page-subtitle">DETECT TRENDS BEFORE THEY PEAK · MULTI-PLATFORM INTELLIGENCE</div>
+  </div>
+  <div class="page-actions">
+    <span class="badge badge-blue">AGENT 02</span>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="hud-panel mb-16">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Scan Parameters</span>
+  </div>
+  <div class="hud-panel-body">
+    <form id="trend-form" onsubmit="submitTrend(event)" style="display:grid;grid-template-columns:1fr 140px 140px 140px;gap:12px;align-items:end">
+      <div>
+        <div class="metric-label mb-8">Keywords / Niche</div>
+        <input class="hud-input" name="query" placeholder="e.g. AI tools, crypto, fitness, cooking" required/>
+      </div>
+      <div>
+        <div class="metric-label mb-8">Platform</div>
+        <select class="hud-input" name="platform">
+          <option value="youtube">YouTube</option>
+          <option value="tiktok">TikTok</option>
+          <option value="twitter">Twitter/X</option>
+          <option value="all">All</option>
+        </select>
+      </div>
+      <div>
+        <div class="metric-label mb-8">Time Window</div>
+        <select class="hud-input" name="window">
+          <option value="24h">Last 24h</option>
+          <option value="7d" selected>Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+        </select>
+      </div>
+      <div>
+        <div class="metric-label mb-8">&nbsp;</div>
+        <button type="submit" class="btn btn-primary w-full" id="btn-trends"><span>SCAN TRENDS</span></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- TREND RESULTS -->
+<div class="grid-2-1 mb-16">
+
+  <!-- TRENDING NOW -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Trending Now</span>
+      <span class="badge badge-green" id="trend-count-badge">0 SIGNALS</span>
+    </div>
+    <div class="hud-panel-body" style="padding:0">
+      <div id="trend-empty" class="text-muted text-mono" style="padding:40px;text-align:center;font-size:11px;letter-spacing:2px">
+        ENTER KEYWORDS ABOVE TO BEGIN TREND DETECTION
+      </div>
+      <table class="data-table" id="trend-table" style="display:none">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Topic</th>
+            <th>Category</th>
+            <th>CPM</th>
+            <th>Est. Rev / Video</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="trend-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- HEAT MAP + STATS -->
+  <div class="flex flex-col gap-16">
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Trend Velocity</span></div>
+      <div class="hud-panel-body flex flex-col gap-10" id="velocity-bars">
+        <div class="text-muted text-mono text-xs" style="letter-spacing:2px">AWAITING SCAN</div>
+      </div>
+    </div>
+
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Opportunity Window</span></div>
+      <div class="hud-panel-body">
+        <div class="metric-grid" style="grid-template-columns:1fr 1fr">
+          <div class="metric-card">
+            <div class="metric-label">Peak ETA</div>
+            <div class="metric-value yellow" id="trend-peak-eta">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Competition</div>
+            <div class="metric-value" id="trend-competition">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Saturation</div>
+            <div class="metric-value" id="trend-saturation">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Avg CPM</div>
+            <div class="metric-value green" id="trend-cpm">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-panel">
+      <div class="hud-panel-header"><span class="hud-panel-title">Related Hashtags</span></div>
+      <div class="hud-panel-body">
+        <div id="trend-hashtags" class="flex" style="flex-wrap:wrap;gap:6px">
+          <span class="text-muted text-mono text-xs">Scan to reveal hashtags</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- DOWNLOAD + ANALYSIS -->
+<div class="grid-2 mb-16">
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Download Target Video</span>
+      <span class="badge badge-yellow">FREE · YT-DLP</span>
+    </div>
+    <div class="hud-panel-body">
+      <div style="display:grid;grid-template-columns:1fr 120px;gap:12px;align-items:end">
+        <div>
+          <div class="metric-label mb-8">Video URL</div>
+          <input class="hud-input" id="dl-url" placeholder="https://youtube.com/watch?v=..."/>
+        </div>
+        <button class="btn btn-primary" onclick="downloadVideo()"><span>DOWNLOAD</span></button>
+      </div>
+      <div id="dl-progress" class="mt-12 hidden">
+        <div class="profit-bar-wrap">
+          <div class="profit-bar-label"><span>Downloading</span><span id="dl-pct" class="text-blue">0%</span></div>
+          <div class="profit-bar"><div class="profit-bar-fill" id="dl-bar" style="width:0%;transition:width 0.5s"></div></div>
+        </div>
+      </div>
+      <div id="dl-result" class="mt-12 hidden">
+        <div class="hud-panel" style="background:rgba(0,212,255,0.05)">
+          <div class="hud-panel-body">
+            <div class="text-mono text-xs text-muted">OUTPUT PATH</div>
+            <div class="text-hud text-green" style="font-size:12px;margin-top:4px;word-break:break-all" id="dl-path">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Script Blueprint</span>
+      <span class="badge badge-blue">AI GENERATED</span>
+    </div>
+    <div class="hud-panel-body">
+      <div id="blueprint-empty" class="text-muted text-mono text-xs" style="letter-spacing:2px">SELECT A TREND TO GENERATE BLUEPRINT</div>
+      <div id="blueprint-content" class="hidden">
+        <div class="metric-label mb-8" id="blueprint-trend-label">—</div>
+        <div class="hud-panel mb-8" style="background:rgba(0,212,255,0.03)">
+          <div class="hud-panel-body">
+            <div class="text-mono" style="font-size:12px;line-height:1.8;color:var(--white);white-space:pre-wrap" id="blueprint-text">—</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="copyBlueprint()"><span>COPY SCRIPT</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE FEED -->
+<div class="hud-panel">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Agent Log</span>
+    <span class="badge badge-green" style="animation:badge-pulse 2s infinite">LIVE</span>
+  </div>
+  <div style="padding:0"><div class="live-feed" id="live-feed"></div></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentBlueprint = '';
+
+async function submitTrend(e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = { query: form.query.value, platform: form.platform.value, window: form.window.value };
+
+  const btn = document.getElementById('btn-trends');
+  btn.disabled = true; btn.textContent = 'SCANNING...';
+  appendFeed('info', 'Mining trends for: ' + data.query);
+
+  const result = await api('/api/agents/trends/run', 'POST', data);
+  btn.disabled = false; btn.textContent = 'SCAN TRENDS';
+
+  if (!result || result.status === 'error') {
+    appendFeed('error', result ? result.message : 'Network error');
+    return;
+  }
+  renderTrends(result.data);
+}
+
+function renderTrends(d) {
+  const trends = d.trends || [];
+
+  document.getElementById('trend-count-badge').textContent = trends.length + ' SIGNALS';
+  document.getElementById('trend-empty').style.display = 'none';
+  document.getElementById('trend-table').style.display = '';
+
+  const tbody = document.getElementById('trend-tbody');
+  tbody.textContent = '';
+
+  trends.forEach((t, i) => {
+    const meta = getTopicMeta(t.title || '');
+    const estRev = Math.round((45000 / 1000) * meta.cpm);
+    const row = document.createElement('tr');
+
+    // Rank
+    const rankTd = document.createElement('td'); rankTd.className = 'text-muted text-mono text-xs'; rankTd.textContent = String(i + 1); row.appendChild(rankTd);
+    // Title
+    const titleTd = document.createElement('td'); titleTd.className = 'text-hud'; titleTd.textContent = t.title; row.appendChild(titleTd);
+    // Category badge
+    const catTd = document.createElement('td');
+    const catBadge = document.createElement('span'); catBadge.className = 'badge';
+    catBadge.style.cssText = 'background:rgba(0,0,0,0.4);border:1px solid ' + meta.color + '40;color:' + meta.color + ';font-size:9px';
+    catBadge.textContent = meta.label; catTd.appendChild(catBadge); row.appendChild(catTd);
+    // CPM
+    const cpmTd = document.createElement('td'); cpmTd.className = 'text-green text-mono'; cpmTd.style.fontWeight = '700'; cpmTd.textContent = '$' + meta.cpm + ' CPM'; row.appendChild(cpmTd);
+    // Est Rev
+    const revTd = document.createElement('td'); revTd.className = 'text-hud'; revTd.style.color = '#ff6b35'; revTd.textContent = '$' + estRev.toLocaleString(); row.appendChild(revTd);
+    // Actions
+    const actTd = document.createElement('td');
+    const bpBtn = document.createElement('button'); bpBtn.className = 'btn'; bpBtn.style.cssText = 'font-size:9px;padding:4px 10px;margin-right:4px'; bpBtn.textContent = 'BLUEPRINT'; bpBtn.onclick = () => generateBlueprint(t); actTd.appendChild(bpBtn);
+    const reelBtn = document.createElement('a'); reelBtn.href = '/reel-producer'; reelBtn.className = 'btn btn-primary'; reelBtn.style.cssText = 'font-size:9px;padding:4px 10px;display:inline-block'; reelBtn.textContent = '+ REEL'; actTd.appendChild(reelBtn);
+    row.appendChild(actTd);
+    tbody.appendChild(row);
+  });
+
+  // Velocity bars
+  const velContainer = document.getElementById('velocity-bars');
+  velContainer.textContent = '';
+  trends.slice(0, 5).forEach(t => {
+    const wrap = document.createElement('div');
+    wrap.className = 'profit-bar-wrap';
+    const label = document.createElement('div');
+    label.className = 'profit-bar-label';
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = t.title.substring(0, 22) + (t.title.length > 22 ? '…' : '');
+    const scoreSpan = document.createElement('span');
+    scoreSpan.className = 'text-blue';
+    scoreSpan.textContent = (t.score || 0) + '%';
+    label.appendChild(nameSpan);
+    label.appendChild(scoreSpan);
+    const bar = document.createElement('div');
+    bar.className = 'profit-bar';
+    const fill = document.createElement('div');
+    fill.className = 'profit-bar-fill';
+    fill.dataset.pct = t.score || 0;
+    fill.style.width = '0%';
+    setTimeout(() => { fill.style.width = (t.score || 0) + '%'; fill.style.transition = 'width 1s ease'; }, 200);
+    bar.appendChild(fill);
+    wrap.appendChild(label);
+    wrap.appendChild(bar);
+    velContainer.appendChild(wrap);
+  });
+
+  document.getElementById('trend-peak-eta').textContent = d.peak_eta || '3-5 days';
+  document.getElementById('trend-competition').textContent = d.competition || 'Medium';
+  document.getElementById('trend-saturation').textContent = (d.saturation || 0) + '%';
+  document.getElementById('trend-cpm').textContent = '$' + (d.avg_cpm || '0.00');
+
+  const htEl = document.getElementById('trend-hashtags');
+  htEl.textContent = '';
+  (d.hashtags || []).forEach(tag => {
+    const pill = document.createElement('span');
+    pill.className = 'trend-pill';
+    pill.textContent = tag;
+    htEl.appendChild(pill);
+  });
+
+  appendFeed('success', 'Found ' + trends.length + ' trending signals');
+}
+
+async function generateBlueprint(trend) {
+  appendFeed('info', 'Generating blueprint for: ' + trend.title);
+  document.getElementById('blueprint-empty').style.display = 'none';
+  document.getElementById('blueprint-content').classList.remove('hidden');
+  document.getElementById('blueprint-trend-label').textContent = trend.title;
+  document.getElementById('blueprint-text').textContent = 'GENERATING...';
+
+  const result = await api('/api/agents/trends/blueprint', 'POST', { trend });
+  if (result && result.script) {
+    currentBlueprint = result.script;
+    document.getElementById('blueprint-text').textContent = result.script;
+    appendFeed('success', 'Blueprint ready');
+  }
+}
+
+function copyBlueprint() {
+  if (!currentBlueprint) return;
+  navigator.clipboard.writeText(currentBlueprint).then(() => notify('Blueprint copied!', 'success'));
+}
+
+// ─── AUTO-LOAD: Show CPM-ranked topics on page load ──────────────────────
+const CPM_DATA = {
+  finance: { label: 'Finance', cpm: 18, color: '#ff6b35', kw: ['crypto','bitcoin','invest','finance','stock','money','income','profit','trading','passive income','affiliate','saas'] },
+  tech:    { label: 'Tech / AI', cpm: 14, color: '#00d4ff', kw: ['ai','claude','chatgpt','gpt','llm','python','code','developer','programming','automation','machine learning','api','prompt'] },
+  health:  { label: 'Health', cpm: 12, color: '#10b981', kw: ['health','fitness','weight','workout','diet','mindset','mental','yoga'] },
+  biz:     { label: 'Business', cpm: 11, color: '#f59e0b', kw: ['business','entrepreneur','startup','freelanc','productivity','remote work','career','marketing','seo','growth'] },
+  content: { label: 'Content', cpm: 8,  color: '#a78bfa', kw: ['youtube','tiktok','instagram','viral','shorts','reel','content','creator','algorithm','thumbnail'] },
+  other:   { label: 'General', cpm: 6,  color: '#6b7280', kw: [] },
+};
+function getTopicMeta(title) {
+  const t = title.toLowerCase();
+  for (const [, d] of Object.entries(CPM_DATA)) {
+    if (d.kw.some(k => t.includes(k))) return d;
+  }
+  return CPM_DATA.other;
+}
+
+(async function autoLoadTrends() {
+  try {
+    const r = await fetch('/api/trending/topics');
+    if (!r.ok) return;
+    const raw = await r.json();
+    const topics = (Array.isArray(raw) ? raw : (raw.topics || []));
+    if (!topics.length) return;
+
+    // Sort by CPM descending
+    const ranked = topics.map(t => ({ ...t, meta: getTopicMeta(t.title || '') }))
+                         .sort((a, b) => b.meta.cpm - a.meta.cpm);
+
+    document.getElementById('trend-empty').style.display = 'none';
+    document.getElementById('trend-table').style.display = '';
+    document.getElementById('trend-count-badge').textContent = ranked.length + ' LIVE SIGNALS';
+
+    // Compute avg CPM
+    const avgCpm = (ranked.reduce((s, t) => s + t.meta.cpm, 0) / ranked.length).toFixed(2);
+    document.getElementById('trend-cpm').textContent = '$' + avgCpm;
+    document.getElementById('trend-peak-eta').textContent = '2-4 days';
+    document.getElementById('trend-competition').textContent = 'MEDIUM';
+    document.getElementById('trend-saturation').textContent = 'LOW';
+
+    const tbody = document.getElementById('trend-tbody');
+    tbody.textContent = '';
+    ranked.forEach((t, i) => {
+      const estRev = Math.round((45000 / 1000) * t.meta.cpm);
+      const tr = document.createElement('tr');
+
+      const cells = [
+        { text: String(i + 1), cls: 'text-muted text-mono text-xs' },
+        { text: t.title, cls: 'text-hud' },
+      ];
+      cells.forEach(c => { const td = document.createElement('td'); td.className = c.cls; td.textContent = c.text; tr.appendChild(td); });
+
+      // Category badge
+      const catTd = document.createElement('td');
+      const catBadge = document.createElement('span');
+      catBadge.className = 'badge';
+      catBadge.style.cssText = 'background:rgba(0,0,0,0.4);border:1px solid ' + t.meta.color + '40;color:' + t.meta.color + ';font-size:9px';
+      catBadge.textContent = t.meta.label;
+      catTd.appendChild(catBadge);
+      tr.appendChild(catTd);
+
+      // CPM
+      const cpmTd = document.createElement('td');
+      cpmTd.className = 'text-green text-mono';
+      cpmTd.style.fontWeight = '700';
+      cpmTd.textContent = '$' + t.meta.cpm + ' CPM';
+      tr.appendChild(cpmTd);
+
+      // Est Rev
+      const revTd = document.createElement('td');
+      revTd.className = 'text-hud';
+      revTd.style.color = '#ff6b35';
+      revTd.textContent = '$' + estRev.toLocaleString() + '/video';
+      tr.appendChild(revTd);
+
+      // Action
+      const actTd = document.createElement('td');
+      const btn = document.createElement('a');
+      btn.href = '/reel-producer';
+      btn.className = 'btn btn-primary';
+      btn.style.cssText = 'font-size:9px;padding:4px 10px;display:inline-block';
+      btn.textContent = '+ REEL';
+      actTd.appendChild(btn);
+      tr.appendChild(actTd);
+
+      tbody.appendChild(tr);
+    });
+
+    // Update velocity bars
+    const velContainer = document.getElementById('velocity-bars');
+    velContainer.textContent = '';
+    ranked.slice(0, 5).forEach(t => {
+      const wrap = document.createElement('div'); wrap.className = 'profit-bar-wrap';
+      const label = document.createElement('div'); label.className = 'profit-bar-label';
+      const name = document.createElement('span'); name.textContent = t.title.substring(0, 30) + (t.title.length > 30 ? '…' : '');
+      name.style.fontSize = '11px';
+      const val = document.createElement('span'); val.style.color = t.meta.color; val.textContent = '$' + t.meta.cpm + ' CPM';
+      label.appendChild(name); label.appendChild(val);
+      const bar = document.createElement('div'); bar.className = 'profit-bar';
+      const fill = document.createElement('div'); fill.className = 'profit-bar-fill';
+      fill.style.background = t.meta.color;
+      setTimeout(() => { fill.style.width = Math.round(t.meta.cpm / 18 * 100) + '%'; fill.style.transition = 'width 1.2s ease'; }, 300);
+      bar.appendChild(fill); wrap.appendChild(label); wrap.appendChild(bar);
+      velContainer.appendChild(wrap);
+    });
+  } catch (_) {}
+})();
+
+async function downloadVideo() {
+  const url = document.getElementById('dl-url').value.trim();
+  if (!url) { notify('Enter a video URL first', 'error'); return; }
+
+  document.getElementById('dl-progress').classList.remove('hidden');
+  document.getElementById('dl-result').classList.add('hidden');
+  document.getElementById('dl-bar').style.width = '0%';
+  document.getElementById('dl-pct').textContent = '0%';
+  appendFeed('info', 'Downloading: ' + url);
+
+  const result = await api('/api/agents/trends/download', 'POST', { url });
+  document.getElementById('dl-progress').classList.add('hidden');
+
+  if (!result || result.status === 'error') {
+    appendFeed('error', result ? result.message : 'Download failed');
+    notify('Download failed', 'error');
+    return;
+  }
+
+  document.getElementById('dl-result').classList.remove('hidden');
+  document.getElementById('dl-path').textContent = result.path || 'Unknown path';
+  document.getElementById('dl-bar').style.width = '100%';
+  document.getElementById('dl-pct').textContent = '100%';
+  appendFeed('success', 'Downloaded to: ' + result.path);
+  notify('Download complete!', 'success');
+}
+</script>
+{% endblock %}

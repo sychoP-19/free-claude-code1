@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% set active = "schedule" %}
+{% block title %}Schedules{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">SCHEDULES</div>
+    <div class="page-subtitle">CRON-BASED AUTONOMOUS RUNS · APSCHEDULER · SURVIVES RESTART</div>
+  </div>
+</div>
+
+<div class="bento-grid">
+  <div class="bento-tile bento-tile--strip holo-border">
+    <div class="bento-tile-label">New Schedule</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;margin-top:10px;align-items:end;">
+      <div><div class="bento-tile-label">Name</div><input id="sc-name" class="hud-input" placeholder="Morning shorts"/></div>
+      <div><div class="bento-tile-label">Cron (or @daily, @hourly)</div><input id="sc-cron" class="hud-input" placeholder="0 9 * * *"/></div>
+      <div><div class="bento-tile-label">Pipeline</div>
+        <select id="sc-pipe" class="hud-input">
+          <option value="research">research</option>
+          <option value="blog">blog</option>
+          <option value="podcast">podcast</option>
+          <option value="carousel">carousel</option>
+          <option value="longform">longform</option>
+          <option value="shorts">shorts</option>
+        </select>
+      </div>
+      <div><div class="bento-tile-label">Params JSON</div><input id="sc-params" class="hud-input" placeholder='{"topic":"AI news"}'/></div>
+      <button class="btn btn-primary" onclick="addSched()"><span>ADD</span></button>
+    </div>
+  </div>
+
+  <div class="bento-tile bento-tile--strip">
+    <div class="bento-tile-label">Active</div>
+    <table class="data-table" style="width:100%;margin-top:10px;">
+      <thead><tr><th>#</th><th>Name</th><th>Cron</th><th>Pipeline</th><th>Last Run</th><th>Next Run</th><th>Action</th></tr></thead>
+      <tbody id="sc-rows"></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function emptyRow(msg, span) {
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.colSpan = span; td.className = 'text-muted';
+  td.style.textAlign = 'center'; td.style.padding = '24px';
+  td.textContent = msg;
+  tr.appendChild(td);
+  return tr;
+}
+function ts(t) { return t ? new Date(t*1000).toLocaleString() : '—'; }
+async function loadSched() {
+  const r = await fetch('/api/schedules');
+  const j = await r.json();
+  const tbody = document.getElementById('sc-rows'); tbody.textContent='';
+  if (!j.items || !j.items.length) {
+    tbody.appendChild(emptyRow('No schedules.', 7)); return;
+  }
+  j.items.forEach((s, i) => {
+    const tr = document.createElement('tr');
+    [i+1, s.name, s.cron, s.pipeline, ts(s.last_run), ts(s.next_run)].forEach(v => {
+      const td = document.createElement('td'); td.textContent = String(v); tr.appendChild(td);
+    });
+    const act = document.createElement('td');
+    const tg = document.createElement('button'); tg.className='btn'; tg.style.fontSize='10px'; tg.style.padding='3px 8px';
+    tg.textContent = s.enabled ? 'Pause' : 'Resume';
+    tg.onclick = async () => { await fetch('/api/schedules/'+s.id, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({enabled: !s.enabled})}); loadSched(); };
+    const del = document.createElement('button'); del.className='btn'; del.style.fontSize='10px'; del.style.padding='3px 8px'; del.style.marginLeft='4px';
+    del.textContent='Delete'; del.onclick = async () => { await fetch('/api/schedules/'+s.id, { method:'DELETE'}); loadSched(); };
+    act.appendChild(tg); act.appendChild(del);
+    tr.appendChild(act);
+    tbody.appendChild(tr);
+  });
+}
+async function addSched() {
+  let params;
+  try { params = JSON.parse(document.getElementById('sc-params').value || '{}'); }
+  catch { toast({text:'Params must be JSON', level:'err'}); return; }
+  const body = {
+    name: document.getElementById('sc-name').value.trim(),
+    cron: document.getElementById('sc-cron').value.trim(),
+    pipeline: document.getElementById('sc-pipe').value,
+    params,
+  };
+  if (!body.name || !body.cron) { toast({text:'Name + cron required', level:'warn'}); return; }
+  const r = await fetch('/api/schedules', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  if (j.ok) { toast({text:'Schedule added', level:'ok'}); loadSched(); }
+  else { toast({text:'Failed: '+(j.error||''), level:'err'}); }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('sc-rows').appendChild(emptyRow('Loading…', 7));
+  loadSched();
+});
+</script>
+{% endblock %}

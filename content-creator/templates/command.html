@@ -1,0 +1,553 @@
+{% extends "base.html" %}
+{% set active = "command" %}
+{% block title %}Neural Command Interface{% endblock %}
+
+{% block head %}
+<style>
+/* COMMAND INTERFACE — FULL IMMERSION */
+.cmd-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr 280px;
+  grid-template-rows: 1fr 200px;
+  gap: 12px;
+  height: calc(100vh - 120px);
+  min-height: 600px;
+}
+.cmd-center {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.cmd-left  { grid-column: 1; grid-row: 1 / 3; }
+.cmd-right { grid-column: 3; grid-row: 1 / 3; }
+.cmd-bottom { grid-column: 1 / 4; grid-row: 2; }
+
+/* Arc Reactor — big version */
+.arc-main {
+  width: 220px; height: 220px;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.arc-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(0,212,255,0.4);
+  animation: arc-spin linear infinite;
+}
+.arc-ring:nth-child(1) { width:220px; height:220px; border-color:rgba(59,130,246,0.3); animation-duration:8s; }
+.arc-ring:nth-child(2) { width:180px; height:180px; border-color:rgba(0,212,255,0.5); border-width:2px; animation-duration:5s; animation-direction:reverse; }
+.arc-ring:nth-child(3) { width:140px; height:140px; border-color:rgba(16,185,129,0.4); animation-duration:12s; }
+.arc-ring:nth-child(4) { width:100px; height:100px; border-color:rgba(0,212,255,0.6); border-width:2px; animation-duration:3s; animation-direction:reverse; }
+.arc-core {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,212,255,0.8) 0%, rgba(59,130,246,0.5) 50%, transparent 100%);
+  box-shadow: 0 0 30px rgba(0,212,255,0.8), 0 0 60px rgba(0,212,255,0.4), 0 0 90px rgba(0,212,255,0.2);
+  animation: core-pulse 2s ease-in-out infinite;
+  z-index: 2;
+}
+@keyframes core-pulse {
+  0%,100% { box-shadow:0 0 30px rgba(0,212,255,0.8),0 0 60px rgba(0,212,255,0.4); transform:scale(1); }
+  50%      { box-shadow:0 0 50px rgba(0,212,255,1),0 0 100px rgba(0,212,255,0.6),0 0 140px rgba(0,212,255,0.3); transform:scale(1.08); }
+}
+
+/* Status ring around arc */
+.arc-status-ring {
+  position: absolute;
+  width: 240px; height: 240px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: #00d4ff;
+  border-right-color: #00d4ff;
+  animation: arc-spin 2s linear infinite;
+  box-shadow: 0 0 10px rgba(0,212,255,0.6);
+}
+
+/* COMMAND TERMINAL */
+.cmd-terminal {
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--blue);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.cmd-terminal-header {
+  padding: 8px 12px;
+  background: rgba(0,212,255,0.05);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cmd-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.8;
+}
+.cmd-log .line { display: flex; gap: 8px; }
+.cmd-log .ts  { color: rgba(0,212,255,0.4); min-width: 60px; }
+.cmd-log .lvl-info    { color: var(--blue); }
+.cmd-log .lvl-success { color: var(--green); }
+.cmd-log .lvl-error   { color: var(--red); }
+.cmd-log .lvl-warning { color: var(--yellow); }
+.cmd-input-row {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.cmd-prompt { color: var(--blue); font-family: var(--font-mono); font-size: 12px; }
+.cmd-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--white); font-family: var(--font-mono); font-size: 12px;
+  caret-color: var(--blue);
+}
+
+/* METRIC TILES */
+.metric-tile {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--blue);
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+.metric-tile.green  { border-left-color: var(--green); }
+.metric-tile.yellow { border-left-color: var(--yellow); }
+.metric-tile.red    { border-left-color: var(--red); }
+
+.ticker-wrap {
+  overflow: hidden;
+  white-space: nowrap;
+  border-top: 1px solid var(--border);
+  padding: 6px 0;
+  margin-top: auto;
+}
+.ticker-inner {
+  display: inline-block;
+  animation: ticker-scroll 40s linear infinite;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(0,212,255,0.6);
+}
+@keyframes ticker-scroll {
+  from { transform: translateX(100vw); }
+  to   { transform: translateX(-100%); }
+}
+
+.hud-hex {
+  position: absolute;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpolygon points='30,2 58,17 58,47 30,62 2,47 2,17' fill='none' stroke='%2300d4ff' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 60px 52px;
+}
+
+.agent-mini {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.agent-mini:hover { border-color: var(--blue); background: rgba(0,212,255,0.05); }
+.agent-mini.active { border-color: var(--green); background: rgba(16,185,129,0.05); }
+.agent-mini-dot { width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0; }
+.agent-mini.active .agent-mini-dot { background:var(--green); animation: pulse-dot 1.5s ease-in-out infinite; }
+
+canvas.chart-canvas {
+  width: 100% !important;
+  display: block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom:12px">
+  <div>
+    <div class="page-title">NEURAL COMMAND INTERFACE</div>
+    <div class="page-subtitle">ALL SYSTEMS ONLINE · MAJD v3.0 ACTIVE</div>
+  </div>
+  <div class="page-actions">
+    <span class="badge badge-green" style="animation:badge-pulse 1.5s infinite;font-size:11px">◉ NEURAL LINK ACTIVE</span>
+  </div>
+</div>
+
+<div class="cmd-shell">
+
+  <!-- LEFT: Agent Status + Radar -->
+  <div class="cmd-left flex flex-col gap-12">
+    <div class="hud-panel" style="flex:0 0 auto">
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">AGENT SWARM</span>
+        <span class="badge badge-blue" id="cmd-agents-online">5 / 5</span>
+      </div>
+      <div class="hud-panel-body" style="padding:8px">
+        <div id="cmd-agent-list">
+          <div class="agent-mini" id="ami-spy" onclick="pingAgent('spy')">
+            <div class="agent-mini-dot"></div>
+            <div style="flex:1">
+              <div class="text-hud" style="font-size:10px">CHANNEL SPY</div>
+              <div class="text-muted text-mono" style="font-size:9px" id="ami-spy-status">STANDBY</div>
+            </div>
+            <span class="badge badge-blue" style="font-size:8px">01</span>
+          </div>
+          <div class="agent-mini" id="ami-trends" onclick="pingAgent('trends')">
+            <div class="agent-mini-dot"></div>
+            <div style="flex:1">
+              <div class="text-hud" style="font-size:10px">TREND MINER</div>
+              <div class="text-muted text-mono" style="font-size:9px" id="ami-trends-status">STANDBY</div>
+            </div>
+            <span class="badge badge-blue" style="font-size:8px">02</span>
+          </div>
+          <div class="agent-mini" id="ami-factory" onclick="pingAgent('factory')">
+            <div class="agent-mini-dot"></div>
+            <div style="flex:1">
+              <div class="text-hud" style="font-size:10px">CONTENT FACTORY</div>
+              <div class="text-muted text-mono" style="font-size:9px" id="ami-factory-status">STANDBY</div>
+            </div>
+            <span class="badge badge-blue" style="font-size:8px">03</span>
+          </div>
+          <div class="agent-mini" id="ami-money" onclick="pingAgent('money')">
+            <div class="agent-mini-dot"></div>
+            <div style="flex:1">
+              <div class="text-hud" style="font-size:10px">MONEY INTEL</div>
+              <div class="text-muted text-mono" style="font-size:9px" id="ami-money-status">STANDBY</div>
+            </div>
+            <span class="badge badge-blue" style="font-size:8px">04</span>
+          </div>
+          <div class="agent-mini" id="ami-director" onclick="pingAgent('director')">
+            <div class="agent-mini-dot"></div>
+            <div style="flex:1">
+              <div class="text-hud" style="font-size:10px">CINEMA DIRECTOR</div>
+              <div class="text-muted text-mono" style="font-size:9px" id="ami-director-status">STANDBY</div>
+            </div>
+            <span class="badge badge-blue" style="font-size:8px">05</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-panel" style="flex:1">
+      <div class="hud-panel-header"><span class="hud-panel-title">OPPORTUNITY RADAR</span></div>
+      <div class="hud-panel-body" style="padding:4px">
+        <canvas id="radar-canvas" class="chart-canvas" style="height:200px"></canvas>
+      </div>
+    </div>
+
+    <div class="hud-panel" style="flex:0 0 auto">
+      <div class="hud-panel-header"><span class="hud-panel-title">SYSTEM</span></div>
+      <div class="hud-panel-body" style="padding:8px">
+        <div class="metric-tile">
+          <div class="text-mono text-xs text-muted">CPU</div>
+          <div class="text-hud text-blue" id="cmd-cpu">--</div>
+        </div>
+        <div class="metric-tile green">
+          <div class="text-mono text-xs text-muted">OLLAMA</div>
+          <div class="text-hud text-green" id="cmd-ollama">ONLINE</div>
+        </div>
+        <div class="metric-tile yellow">
+          <div class="text-mono text-xs text-muted">REVENUE / MONTH</div>
+          <div class="text-hud text-yellow" id="cmd-revenue">$12,500</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: Arc Reactor + Stats -->
+  <div class="cmd-center">
+    <div class="hud-hex"></div>
+
+    <!-- Live KPIs floating -->
+    <div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:24px">
+      <div style="text-align:center">
+        <div class="text-hud text-green" style="font-size:24px;font-weight:700" id="kpi-videos">0</div>
+        <div class="text-mono text-xs text-muted">VIDEOS</div>
+      </div>
+      <div style="text-align:center">
+        <div class="text-hud text-blue" style="font-size:24px;font-weight:700" id="kpi-channels">0</div>
+        <div class="text-mono text-xs text-muted">CHANNELS</div>
+      </div>
+      <div style="text-align:center">
+        <div class="text-hud text-yellow" style="font-size:24px;font-weight:700" id="kpi-trends">0</div>
+        <div class="text-mono text-xs text-muted">TRENDS</div>
+      </div>
+    </div>
+
+    <!-- Arc Reactor -->
+    <div class="arc-main">
+      <div class="arc-ring"></div>
+      <div class="arc-ring"></div>
+      <div class="arc-ring"></div>
+      <div class="arc-ring"></div>
+      <div class="arc-status-ring"></div>
+      <div class="arc-core"></div>
+    </div>
+
+    <!-- Neural network canvas below reactor -->
+    <div style="width:100%;margin-top:20px">
+      <canvas id="neural-canvas" class="chart-canvas" style="height:160px"></canvas>
+    </div>
+
+    <!-- Waveform -->
+    <div style="width:100%;margin-top:8px">
+      <canvas id="wave-canvas" class="chart-canvas" style="height:50px"></canvas>
+    </div>
+
+    <!-- Quick actions -->
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;justify-content:center">
+      <a href="/spy" class="btn btn-primary" style="font-size:9px;padding:6px 14px"><span>SPY CHANNEL</span></a>
+      <a href="/trends" class="btn btn-primary" style="font-size:9px;padding:6px 14px"><span>MINE TRENDS</span></a>
+      <a href="/factory" class="btn btn-primary" style="font-size:9px;padding:6px 14px"><span>GENERATE</span></a>
+      <a href="/revenue" class="btn btn-primary" style="font-size:9px;padding:6px 14px"><span>REVENUE MAP</span></a>
+      <a href="/pipeline" class="btn btn-primary" style="font-size:9px;padding:6px 14px"><span>PIPELINE</span></a>
+    </div>
+  </div>
+
+  <!-- RIGHT: Revenue + Neural Graph -->
+  <div class="cmd-right flex flex-col gap-12">
+    <div class="hud-panel" style="flex:1">
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">REVENUE STREAM</span>
+        <span class="badge badge-green">LIVE</span>
+      </div>
+      <div class="hud-panel-body" style="padding:4px">
+        <canvas id="donut-canvas" class="chart-canvas" style="height:180px"></canvas>
+      </div>
+    </div>
+
+    <div class="hud-panel" style="flex:1">
+      <div class="hud-panel-header"><span class="hud-panel-title">TREND VELOCITY</span></div>
+      <div class="hud-panel-body" style="padding:4px">
+        <canvas id="bar-canvas" class="chart-canvas" style="height:160px"></canvas>
+      </div>
+    </div>
+
+    <div class="hud-panel" style="flex:0 0 auto">
+      <div class="hud-panel-header"><span class="hud-panel-title">INTEL FEED</span></div>
+      <div class="hud-panel-body" style="padding:8px">
+        <div class="metric-tile">
+          <div class="text-mono text-xs text-muted">NEXT PEAK TREND</div>
+          <div class="text-hud text-blue" style="font-size:11px" id="cmd-next-trend">AI Tools Niche</div>
+        </div>
+        <div class="metric-tile green">
+          <div class="text-mono text-xs text-muted">BEST CPM TODAY</div>
+          <div class="text-hud text-green" id="cmd-best-cpm">$12.40</div>
+        </div>
+        <div class="metric-tile yellow">
+          <div class="text-mono text-xs text-muted">SCRIPTS READY</div>
+          <div class="text-hud text-yellow" id="cmd-scripts">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM: Command Terminal -->
+  <div class="cmd-bottom">
+    <div class="cmd-terminal">
+      <div class="cmd-terminal-header">
+        <span class="text-mono text-xs text-muted">MAJD COMMAND INTERFACE</span>
+        <span class="text-mono text-xs text-muted" id="cmd-time">--:--:--</span>
+      </div>
+      <div class="cmd-log" id="cmd-log"></div>
+      <div class="ticker-wrap">
+        <div class="ticker-inner" id="cmd-ticker">
+          ◈ TRENDING: AI TOOLS · SHORT-FORM VIDEO · CRYPTO TRADING · PASSIVE INCOME · DROPSHIPPING · AFFILIATE MARKETING · CONTENT AUTOMATION ·
+          ◈ TOP CPM: FINANCE $18.20 · TECH $14.50 · FITNESS $9.80 · GAMING $6.20 · COOKING $7.40 ·
+          ◈ MAJD NEURAL NET ACTIVE · ALL 9 AGENTS ONLINE · OLLAMA CONNECTED ·
+        </div>
+      </div>
+      <div class="cmd-input-row">
+        <span class="cmd-prompt">MAJD❯</span>
+        <input class="cmd-input" id="cmd-input" placeholder="Type a command… (try: scan, trends, revenue, help)" autocomplete="off"/>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/charts.js"></script>
+<script>
+// ── Charts ──────────────────────────────────────────────────────────────────
+const radar = new JarvisCharts.RadarSweep('radar-canvas', [
+  { label: 'YouTube',   value: 0.82, color: '#ef4444' },
+  { label: 'TikTok',    value: 0.91, color: '#f59e0b' },
+  { label: 'Finance',   value: 0.75, color: '#10b981' },
+  { label: 'Tech',      value: 0.88, color: '#00d4ff' },
+  { label: 'Instagram', value: 0.68, color: '#a78bfa' },
+  { label: 'Twitter',   value: 0.55, color: '#3b82f6' },
+]);
+
+const donut = new JarvisCharts.DonutChart('donut-canvas', [
+  { label: 'AdSense',  value: 2500, color: '#00d4ff' },
+  { label: 'Sponsor',  value: 4000, color: '#10b981' },
+  { label: 'Affiliate',value: 3000, color: '#f59e0b' },
+  { label: 'Merch',    value: 1500, color: '#a78bfa' },
+  { label: 'Members',  value: 800,  color: '#3b82f6' },
+]);
+
+const bars = new JarvisCharts.BarChart('bar-canvas', [
+  { label: 'AI Tools',  value: 9400, color: '#00d4ff' },
+  { label: 'Finance',   value: 7800, color: '#10b981' },
+  { label: 'Fitness',   value: 6200, color: '#f59e0b' },
+  { label: 'Crypto',    value: 8100, color: '#a78bfa' },
+  { label: 'Passive',   value: 5400, color: '#3b82f6' },
+]);
+
+const neural = new JarvisCharts.NeuralGraph('neural-canvas', [
+  { label: 'Scout',    color: '#00d4ff', size: 8 },
+  { label: 'Miner',   color: '#f59e0b', size: 7 },
+  { label: 'Factory', color: '#10b981', size: 8 },
+  { label: 'Intel',   color: '#a78bfa', size: 7 },
+  { label: 'Director',color: '#ef4444', size: 8 },
+  { label: 'YT',      color: '#ef4444', size: 5 },
+  { label: 'TikTok',  color: '#f59e0b', size: 5 },
+  { label: 'IG',      color: '#a78bfa', size: 5 },
+  { label: 'Revenue', color: '#10b981', size: 10 },
+  { label: 'Script',  color: '#00d4ff', size: 5 },
+  { label: 'Video',   color: '#3b82f6', size: 6 },
+]);
+
+const wave = new JarvisCharts.Waveform('wave-canvas');
+
+// ── Clock ───────────────────────────────────────────────────────────────────
+setInterval(() => {
+  const el = document.getElementById('cmd-time');
+  if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+}, 1000);
+
+// ── Command Interpreter ─────────────────────────────────────────────────────
+const COMMANDS = {
+  help: () => [
+    'Available commands:',
+    '  scan <url>     — Spy a channel',
+    '  trends <niche> — Mine trending topics',
+    '  revenue <niche>— Revenue intelligence',
+    '  status         — Agent status',
+    '  clear          — Clear terminal',
+  ].join('\n'),
+
+  status: async () => {
+    const data = await api('/api/system/stats');
+    return `CPU: ${data.cpu}%  MEM: ${data.mem}%  OLLAMA: ${data.ollama_ok ? 'ONLINE' : 'OFFLINE'}`;
+  },
+
+  clear: () => { document.getElementById('cmd-log').textContent = ''; return ''; },
+};
+
+function jarvisLog(text, level = 'info') {
+  const log  = document.getElementById('cmd-log');
+  const line = document.createElement('div');
+  line.className = 'line';
+  const ts = document.createElement('span');
+  ts.className = 'ts';
+  ts.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const msg = document.createElement('span');
+  msg.className = 'lvl-' + level;
+  msg.textContent = text;
+  line.appendChild(ts); line.appendChild(msg);
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+  while (log.children.length > 100) log.removeChild(log.firstChild);
+}
+
+async function processCommand(raw) {
+  const parts = raw.trim().split(/\s+/);
+  const cmd   = parts[0].toLowerCase();
+  const args  = parts.slice(1).join(' ');
+  jarvisLog('❯ ' + raw, 'info');
+
+  if (cmd === 'scan' && args) {
+    jarvisLog('Initiating channel scan: ' + args, 'info');
+    const r = await api('/api/agents/spy/run', 'POST', { url: args, platform: 'youtube' });
+    if (r && r.data) jarvisLog(`FOUND: ${r.data.name} — ${r.data.subscribers} subs — Est $${r.data.revenue_est}/mo`, 'success');
+    return;
+  }
+  if (cmd === 'trends' && args) {
+    jarvisLog('Mining trends for: ' + args, 'info');
+    const r = await api('/api/agents/trends/run', 'POST', { query: args, platform: 'youtube', window: '7d' });
+    if (r && r.data) {
+      const top = (r.data.trends || []).slice(0, 3);
+      top.forEach(t => jarvisLog(`[${t.score}] ${t.title} — ${t.velocity.toUpperCase()}`, 'success'));
+    }
+    return;
+  }
+  if (cmd === 'revenue' && args) {
+    jarvisLog('Running revenue intelligence: ' + args, 'info');
+    const r = await api('/api/agents/money/run', 'POST', { niche: args, views: '1m' });
+    if (r && r.data) jarvisLog(`EST MONTHLY: $${r.data.total_monthly?.toLocaleString()} — CPM: $${r.data.best_cpm}`, 'success');
+    return;
+  }
+
+  const fn = COMMANDS[cmd];
+  if (!fn) { jarvisLog(`Unknown command: "${cmd}". Type "help" for commands.`, 'warning'); return; }
+  const out = await fn(args);
+  if (out) out.split('\n').forEach(l => jarvisLog(l, 'info'));
+}
+
+document.getElementById('cmd-input').addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter') return;
+  const val = e.target.value.trim();
+  if (!val) return;
+  e.target.value = '';
+  await processCommand(val);
+});
+
+// ── Agent mini status sync ──────────────────────────────────────────────────
+function pingAgent(name) {
+  const el = document.getElementById('ami-' + name);
+  if (el) { el.classList.add('active'); setTimeout(() => el.classList.remove('active'), 3000); }
+  jarvisLog(`Pinging agent: ${name.toUpperCase()}`, 'info');
+}
+
+// ── Stats refresh ───────────────────────────────────────────────────────────
+async function refreshStats() {
+  const stats = await api('/api/system/stats');
+  if (stats) {
+    document.getElementById('cmd-cpu').textContent     = stats.cpu + '%';
+    document.getElementById('cmd-ollama').textContent  = stats.ollama_ok ? 'ONLINE' : 'OFFLINE';
+  }
+  const metrics = await api('/api/dashboard/metrics');
+  if (metrics) {
+    document.getElementById('kpi-videos').textContent   = metrics.videos_generated;
+    document.getElementById('kpi-channels').textContent = metrics.channels_analyzed;
+    document.getElementById('kpi-trends').textContent   = metrics.trends_found;
+    document.getElementById('cmd-scripts').textContent  = metrics.videos_generated;
+  }
+}
+
+// ── Boot sequence ───────────────────────────────────────────────────────────
+async function boot() {
+  const lines = [
+    ['MAJD v3.0 — Neural Content OS — ONLINE', 'success'],
+    ['Initializing agent swarm… 9/9 online', 'info'],
+    ['Ollama neural engine: CONNECTED', 'success'],
+    ['Revenue streams: ACTIVE', 'success'],
+    ['All systems nominal. Awaiting commands.', 'info'],
+  ];
+  for (const [txt, lvl] of lines) {
+    await new Promise(r => setTimeout(r, 400));
+    jarvisLog(txt, lvl);
+  }
+  refreshStats();
+  setInterval(refreshStats, 8000);
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+</script>
+{% endblock %}

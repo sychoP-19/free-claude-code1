@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% set active = "story" %}
+{% block title %}Story Video{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">STORY VIDEO</div>
+    <div class="page-subtitle">5-ACT NARRATIVE → PILLOW FRAMES + GTTS AUDIO → VIDEO.MP4</div>
+  </div>
+</div>
+
+<div class="bento-grid">
+
+  <!-- INPUT -->
+  <div class="bento-tile bento-tile--half holo-border">
+    <div class="bento-tile-label">Story Config</div>
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:12px;">
+      <input id="sv-topic" class="hud-input" placeholder="Story topic / hook…"/>
+      <select id="sv-style" class="hud-input">
+        <option value="educational">Educational</option>
+        <option value="motivational" selected>Motivational</option>
+        <option value="storytelling">Cinematic Storytelling</option>
+      </select>
+      <button class="btn btn-primary" onclick="svRun()"><span id="sv-btn">GENERATE STORY VIDEO</span></button>
+    </div>
+  </div>
+
+  <!-- PIPELINE STAGES -->
+  <div class="bento-tile bento-tile--half scanline">
+    <div class="bento-tile-label">Pipeline — 5-Act Arc</div>
+    <div class="stage-strip" id="sv-stages">
+      {% for s in ['setup','rising','climax','falling','resolution'] %}
+      <div class="stage-cell" data-stage="{{ s }}">
+        <div class="stage-cell__label">{{ s }}</div>
+        <div class="stage-cell__dot"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <!-- progress bar -->
+    <div style="margin-top:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;">
+        <span>PROGRESS</span><span id="sv-pct">0%</span>
+      </div>
+      <div class="orch-arc" style="height:6px;background:rgba(0,212,255,0.08);border-radius:3px;overflow:hidden;">
+        <div id="sv-arc" style="height:100%;width:0%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:3px;transition:width 0.6s ease;"></div>
+      </div>
+    </div>
+    <div id="sv-status" style="font-size:12px;color:var(--muted);margin-top:8px;">idle</div>
+  </div>
+
+  <!-- VIDEO PREVIEW -->
+  <div class="bento-tile bento-tile--strip" id="sv-video-tile" style="display:none;">
+    <div class="bento-tile-label">Preview</div>
+    <div style="margin-top:12px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+      <video id="sv-video" controls style="max-width:320px;max-height:568px;border:1px solid rgba(0,212,255,0.3);border-radius:8px;"></video>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div id="sv-meta"></div>
+        <a id="sv-download" class="btn btn-secondary" download style="display:none;">DOWNLOAD VIDEO</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANELS GRID -->
+  <div class="bento-tile bento-tile--strip" id="sv-panels-tile" style="display:none;">
+    <div class="bento-tile-label">Panels</div>
+    <div id="sv-panels" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px;"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SV_STAGE_MAP = {
+  'script':   'setup',
+  'visuals':  'rising',
+  'audio':    'climax',
+  'assembly': 'falling',
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof wsEvents !== 'undefined') {
+    wsEvents.on('pipeline_stage', (ev) => {
+      if (ev.pipeline !== 'story_video') return;
+      const stage = SV_STAGE_MAP[ev.stage] || ev.stage;
+      svHighlightStage(stage, ev.progress);
+    });
+  }
+});
+
+function svHighlightStage(stage, pct) {
+  document.querySelectorAll('#sv-stages .stage-cell').forEach(cell => {
+    const s = cell.dataset.stage;
+    cell.classList.remove('active', 'done');
+    if (s === stage) cell.classList.add('active');
+  });
+  if (pct != null) {
+    document.getElementById('sv-arc').style.width = pct + '%';
+    document.getElementById('sv-pct').textContent = pct + '%';
+  }
+}
+
+function svMetaRow(label, value) {
+  const row = document.createElement('div');
+  const lbl = document.createElement('span');
+  lbl.style.color = 'var(--cyan)';
+  lbl.textContent = label + ': ';
+  const val = document.createElement('span');
+  val.textContent = value;
+  row.appendChild(lbl);
+  row.appendChild(val);
+  return row;
+}
+
+async function svRun() {
+  const topic = document.getElementById('sv-topic').value.trim();
+  const style = document.getElementById('sv-style').value;
+  if (!topic) { toast({text: 'Topic required', level: 'warn'}); return; }
+
+  const btn = document.getElementById('sv-btn');
+  btn.textContent = 'GENERATING…';
+  document.getElementById('sv-status').textContent = 'starting…';
+  document.getElementById('sv-arc').style.width = '0%';
+  document.getElementById('sv-pct').textContent = '0%';
+  document.getElementById('sv-video-tile').style.display = 'none';
+  document.getElementById('sv-panels-tile').style.display = 'none';
+  svHighlightStage('setup', 5);
+
+  try {
+    const r = await fetch('/api/pipelines/story/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({topic, style}),
+    });
+    const j = await r.json();
+    btn.textContent = 'GENERATE STORY VIDEO';
+
+    if (j.ok) {
+      toast({text: 'Story video ready!', level: 'ok'});
+      document.getElementById('sv-arc').style.width = '100%';
+      document.getElementById('sv-pct').textContent = '100%';
+
+      document.querySelectorAll('#sv-stages .stage-cell').forEach(c => {
+        c.classList.remove('active');
+        c.classList.add('done');
+      });
+      const extra = j.extra || {};
+      const elapsed = j.elapsed_s != null ? j.elapsed_s + 's' : '';
+      const sizeKb = extra.size_kb ? extra.size_kb + ' KB' : '';
+      document.getElementById('sv-status').textContent =
+        ['complete', elapsed, sizeKb].filter(Boolean).join(' — ');
+
+      // Video player
+      const videoPath = '/' + j.output_path.replace(/.*outputs/, 'outputs').replace(/\\/g, '/');
+      const vid = document.getElementById('sv-video');
+      vid.src = videoPath;
+      document.getElementById('sv-video-tile').style.display = 'block';
+
+      const dl = document.getElementById('sv-download');
+      dl.href = videoPath;
+      dl.download = 'story-' + topic.slice(0, 40).replace(/\s+/g, '-') + '.mp4';
+      dl.style.display = 'inline-block';
+
+      const meta = document.getElementById('sv-meta');
+      meta.textContent = '';
+      meta.appendChild(svMetaRow('Panels', extra.panels || 5));
+      meta.appendChild(svMetaRow('Style', style));
+      if (extra.size_kb) meta.appendChild(svMetaRow('Size', extra.size_kb + ' KB'));
+
+      // Panel thumbnails
+      const panels = (j.assets || []).filter(a => a.kind === 'image');
+      if (panels.length) {
+        document.getElementById('sv-panels-tile').style.display = 'block';
+        const grid = document.getElementById('sv-panels');
+        grid.textContent = '';
+        panels.forEach(a => {
+          const img = document.createElement('img');
+          img.src = '/' + a.path.replace(/.*outputs/, 'outputs').replace(/\\/g, '/');
+          img.style.cssText = 'width:100%;border-radius:6px;border:1px solid rgba(0,212,255,0.2);';
+          img.alt = 'story panel';
+          grid.appendChild(img);
+        });
+      }
+    } else {
+      toast({text: 'Error: ' + (j.error || 'unknown'), level: 'err'});
+      document.getElementById('sv-status').textContent = 'error: ' + (j.error || '');
+    }
+  } catch (e) {
+    toast({text: e.message, level: 'err'});
+    btn.textContent = 'GENERATE STORY VIDEO';
+  }
+}
+</script>
+{% endblock %}

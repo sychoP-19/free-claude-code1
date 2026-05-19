@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% set active = "research" %}
+{% block title %}Research Briefs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">RESEARCH BRIEFS</div>
+    <div class="page-subtitle">RSS + REDDIT + HN SCRAPE → OLLAMA SYNTHESIS</div>
+  </div>
+</div>
+
+<!-- Trending Now section — auto-loads on page load, cards auto-fill research topic -->
+<div class="bento-tile holo-border" style="margin-bottom:20px;">
+  <div class="bento-tile-label">TRENDING NOW
+    <span id="trend-niche-label" style="font-size:11px;color:var(--muted);margin-left:8px;">AI</span>
+    <span id="trend-loader" style="font-size:11px;color:var(--accent);margin-left:8px;">loading...</span>
+  </div>
+  <div id="trend-cards" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;min-height:40px;"></div>
+  <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+    <input id="trend-niche" class="hud-input" style="max-width:200px;" placeholder="niche (e.g. AI)" value="AI"/>
+    <button class="btn btn-secondary" style="font-size:11px;padding:4px 12px;" onclick="loadTrending()">REFRESH</button>
+  </div>
+</div>
+
+<div class="bento-grid">
+  <div class="bento-tile bento-tile--half holo-border">
+    <div class="bento-tile-label">New Brief</div>
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:12px;">
+      <input id="rs-topic" class="hud-input" placeholder="Research topic"/>
+      <button class="btn btn-primary" onclick="rsRun()"><span id="rs-btn">SCAN</span></button>
+    </div>
+    <div id="rs-status" style="font-size:12px;color:var(--muted);margin-top:8px;">idle</div>
+  </div>
+  <div class="bento-tile bento-tile--half scanline">
+    <div class="bento-tile-label">Brief Output</div>
+    <pre id="rs-output" style="white-space:pre-wrap;font-size:12px;max-height:520px;overflow-y:auto;margin-top:8px;"></pre>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function _clearChildren(el) {
+  while (el.firstChild) { el.removeChild(el.firstChild); }
+}
+
+async function loadTrending() {
+  var niche = document.getElementById('trend-niche').value.trim() || 'AI';
+  document.getElementById('trend-niche-label').textContent = niche;
+  document.getElementById('trend-loader').textContent = 'loading...';
+  var container = document.getElementById('trend-cards');
+  _clearChildren(container);
+
+  try {
+    var r = await fetch('/api/research/trending?niche=' + encodeURIComponent(niche));
+    var j = await r.json();
+    document.getElementById('trend-loader').textContent = '';
+
+    if (!j.results || j.results.length === 0) {
+      var msg = document.createElement('span');
+      msg.textContent = 'No trends found';
+      msg.style.cssText = 'font-size:12px;color:var(--muted);';
+      container.appendChild(msg);
+      return;
+    }
+
+    j.results.slice(0, 10).forEach(function(item) {
+      var card = document.createElement('button');
+      card.className = 'btn btn-secondary';
+      card.style.cssText = 'font-size:11px;padding:5px 10px;text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;';
+      card.title = item.title;
+
+      var badge = document.createElement('span');
+      badge.textContent = item.source === 'google_trends' ? '[trend] ' : '[hot] ';
+
+      var label = document.createTextNode(item.title);
+      card.appendChild(badge);
+      card.appendChild(label);
+
+      card.addEventListener('click', function() {
+        document.getElementById('rs-topic').value = item.title;
+        document.getElementById('rs-topic').focus();
+      });
+
+      container.appendChild(card);
+    });
+  } catch(e) {
+    document.getElementById('trend-loader').textContent = 'error: ' + e.message;
+  }
+}
+
+async function rsRun() {
+  var topic = document.getElementById('rs-topic').value.trim();
+  if (!topic) { toast({text:'Topic required', level:'warn'}); return; }
+  document.getElementById('rs-btn').textContent = 'SCANNING...';
+  document.getElementById('rs-status').textContent = 'fetching sources...';
+  try {
+    var r = await fetch('/api/pipelines/research/run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({topic}),
+    });
+    var j = await r.json();
+    document.getElementById('rs-btn').textContent = 'SCAN';
+    if (j.ok) {
+      toast({text:'Brief ready', level:'ok'});
+      var path = j.output_path.replace(/.*outputs/, 'outputs').replace(/\\\\/g,'/');
+      var fr = await fetch('/' + path);
+      document.getElementById('rs-output').textContent = await fr.text();
+      document.getElementById('rs-status').textContent = 'complete in ' + j.elapsed_s + 's';
+    } else {
+      toast({text:'Failed: ' + j.error, level:'err'});
+      document.getElementById('rs-status').textContent = 'error: ' + (j.error || '');
+    }
+  } catch(e) {
+    toast({text:e.message, level:'err'});
+    document.getElementById('rs-btn').textContent = 'SCAN';
+  }
+}
+
+// Auto-load trending on page load
+document.addEventListener('DOMContentLoaded', function() { loadTrending(); });
+</script>
+{% endblock %}

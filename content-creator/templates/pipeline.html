@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+{% block title %}Content Pipeline{% endblock %}
+
+{% block head %}
+<style>
+/* ── Content Pipeline Visualizer ─────────────────────────────── */
+.pipe-layout {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  padding: 20px;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.pipe-stages {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
+.stage-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 14px;
+  position: relative;
+  cursor: pointer;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.stage-card:hover { border-color: var(--blue); box-shadow: 0 0 20px rgba(0,212,255,0.1); }
+.stage-card.active { border-color: var(--blue); box-shadow: 0 0 24px rgba(0,212,255,0.15); }
+.stage-card.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--blue), transparent);
+}
+
+.stage-num  { font-size: 9px; color: var(--muted); font-family: var(--font-mono); letter-spacing: 2px; margin-bottom: 6px; }
+.stage-icon { font-size: 20px; margin-bottom: 6px; display: block; }
+.stage-name { font-size: 10px; color: var(--text); letter-spacing: 1px; text-transform: uppercase; font-weight: 600; }
+.stage-count { font-size: 20px; font-family: var(--font-mono); font-weight: 700; color: var(--blue); margin-top: 4px; }
+.stage-sub  { font-size: 9px; color: var(--muted); margin-top: 2px; }
+
+.pipe-canvas-wrap {
+  position: relative;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+}
+#pipeline-canvas { width: 100%; height: 100%; display: block; }
+
+.pipe-controls {
+  position: absolute; top: 12px; right: 12px;
+  display: flex; gap: 8px;
+}
+.pipe-btn {
+  padding: 5px 14px; border: 1px solid var(--border);
+  background: rgba(9,9,11,0.8); color: var(--muted);
+  font-size: 9px; letter-spacing: 1px; cursor: pointer;
+  transition: all 0.2s; font-family: var(--font-mono);
+}
+.pipe-btn:hover, .pipe-btn.active { border-color: var(--blue); color: var(--blue); }
+
+.pipe-speed {
+  position: absolute; top: 12px; left: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.speed-label { font-size: 9px; color: var(--muted); font-family: var(--font-mono); }
+.speed-dots { display: flex; gap: 4px; }
+.speed-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  border: 1px solid var(--border); cursor: pointer; transition: all 0.2s;
+}
+.speed-dot.on { background: var(--blue); border-color: var(--blue); box-shadow: 0 0 6px var(--blue); }
+
+.pipe-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr) 2fr;
+  gap: 12px;
+}
+.pipe-stat {
+  border: 1px solid var(--border); background: var(--surface);
+  padding: 14px; display: flex; flex-direction: column; gap: 4px;
+}
+.pipe-stat-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.pipe-stat-val   { font-size: 22px; font-family: var(--font-mono); font-weight: 700; color: var(--blue); }
+.pipe-stat-sub   { font-size: 9px; color: var(--muted); }
+
+.pipe-queue { border: 1px solid var(--border); background: var(--surface); padding: 14px; overflow: hidden; }
+.queue-title { font-size: 9px; color: var(--blue); letter-spacing: 2px; margin-bottom: 10px; }
+.queue-list  { display: flex; flex-direction: column; gap: 6px; }
+.queue-item  {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 9px; color: var(--muted); padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.queue-dot   { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.queue-stage { font-family: var(--font-mono); color: var(--blue); min-width: 60px; }
+.queue-topic { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-pct   { font-family: var(--font-mono); color: var(--text); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pipe-layout">
+
+  <div class="pipe-stages">
+    <div class="stage-card active" onclick="focusStage(0)" id="stage-0">
+      <div class="stage-num">STAGE 01</div>
+      <span class="stage-icon">💡</span>
+      <div class="stage-name">Ideation</div>
+      <div class="stage-count" id="s0-count">0</div>
+      <div class="stage-sub">topics queued</div>
+    </div>
+    <div class="stage-card" onclick="focusStage(1)" id="stage-1">
+      <div class="stage-num">STAGE 02</div>
+      <span class="stage-icon">📡</span>
+      <div class="stage-name">Research</div>
+      <div class="stage-count" id="s1-count">0</div>
+      <div class="stage-sub">trend scans</div>
+    </div>
+    <div class="stage-card" onclick="focusStage(2)" id="stage-2">
+      <div class="stage-num">STAGE 03</div>
+      <span class="stage-icon">✍️</span>
+      <div class="stage-name">Script</div>
+      <div class="stage-count" id="s2-count">0</div>
+      <div class="stage-sub">scripts written</div>
+    </div>
+    <div class="stage-card" onclick="focusStage(3)" id="stage-3">
+      <div class="stage-num">STAGE 04</div>
+      <span class="stage-icon">🎬</span>
+      <div class="stage-name">Production</div>
+      <div class="stage-count" id="s3-count">0</div>
+      <div class="stage-sub">renders active</div>
+    </div>
+    <div class="stage-card" onclick="focusStage(4)" id="stage-4">
+      <div class="stage-num">STAGE 05</div>
+      <span class="stage-icon">📤</span>
+      <div class="stage-name">Publish</div>
+      <div class="stage-count" id="s4-count">0</div>
+      <div class="stage-sub">live today</div>
+    </div>
+    <div class="stage-card" onclick="focusStage(5)" id="stage-5">
+      <div class="stage-num">STAGE 06</div>
+      <span class="stage-icon">💰</span>
+      <div class="stage-name">Monetize</div>
+      <div class="stage-count" id="s5-count">0</div>
+      <div class="stage-sub">earning</div>
+    </div>
+  </div>
+
+  <div class="pipe-canvas-wrap">
+    <canvas id="pipeline-canvas"></canvas>
+    <div class="pipe-speed">
+      <span class="speed-label">FLOW</span>
+      <div class="speed-dots">
+        <div class="speed-dot on" onclick="setSpeed(0,this)" title="Slow"></div>
+        <div class="speed-dot on" onclick="setSpeed(1,this)" title="Normal"></div>
+        <div class="speed-dot on" onclick="setSpeed(2,this)" title="Fast"></div>
+        <div class="speed-dot"   onclick="setSpeed(3,this)" title="Ludicrous"></div>
+      </div>
+    </div>
+    <div class="pipe-controls">
+      <button class="pipe-btn active" onclick="setView(this,'flow')">FLOW</button>
+      <button class="pipe-btn"        onclick="setView(this,'funnel')">FUNNEL</button>
+      <button class="pipe-btn"        onclick="setView(this,'heatmap')">HEATMAP</button>
+      <button class="pipe-btn"        onclick="togglePause(this)">⏸ PAUSE</button>
+    </div>
+  </div>
+
+  <div class="pipe-stats">
+    <div class="pipe-stat">
+      <div class="pipe-stat-label">Pipeline Throughput</div>
+      <div class="pipe-stat-val" id="stat-throughput">0</div>
+      <div class="pipe-stat-sub">videos/hour</div>
+    </div>
+    <div class="pipe-stat">
+      <div class="pipe-stat-label">Avg. Cycle Time</div>
+      <div class="pipe-stat-val" id="stat-cycle">0m</div>
+      <div class="pipe-stat-sub">idea → publish</div>
+    </div>
+    <div class="pipe-stat">
+      <div class="pipe-stat-label">Bottleneck Stage</div>
+      <div class="pipe-stat-val" style="font-size:14px;color:var(--yellow)" id="stat-bottleneck">--</div>
+      <div class="pipe-stat-sub">highest wait time</div>
+    </div>
+    <div class="pipe-stat">
+      <div class="pipe-stat-label">Success Rate</div>
+      <div class="pipe-stat-val" style="color:var(--green)" id="stat-success">0%</div>
+      <div class="pipe-stat-sub">idea → published</div>
+    </div>
+    <div class="pipe-queue">
+      <div class="queue-title">ACTIVE PIPELINE QUEUE</div>
+      <div class="queue-list" id="queue-list"></div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const STAGES = ['Ideation','Research','Scripting','Production','Publishing','Monetize'];
+const STAGE_COLORS = ['#3b82f6','#00d4ff','#10b981','#f59e0b','#a78bfa','#ef4444'];
+const TOPICS = [
+  'AI Tools 2026','Make $100/Day','Best VPN 2026','JARVIS Build','10x Productivity',
+  'Passive Income','Trading Bots','YouTube Hack','ChatGPT Secrets','Side Hustle',
+  'Budget Travel','Faceless Channel','Stock Tips','React in 1hr','Best GPU 2026',
+];
+
+let paused = false;
+let speedMultiplier = 1;
+let currentView = 'flow';
+let focusedStage = -1;
+const stageCounts = [0, 0, 0, 0, 0, 0];
+const particles = [];
+const PARTICLE_MAX = 18;
+
+function createParticle() {
+  return {
+    topic: TOPICS[Math.floor(Math.random() * TOPICS.length)],
+    stage: 0,
+    stageProgress: Math.random(),
+    speed: 0.0004 + Math.random() * 0.0006,
+    color: STAGE_COLORS[0],
+    size: 5 + Math.random() * 4,
+    trail: [],
+    published: false,
+    publishedAt: 0,
+  };
+}
+
+for (let i = 0; i < 12; i++) {
+  const p = createParticle();
+  p.stage = Math.floor(Math.random() * 5);
+  p.stageProgress = Math.random();
+  p.color = STAGE_COLORS[p.stage];
+  particles.push(p);
+}
+
+const canvas = document.getElementById('pipeline-canvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  canvas.width  = r.width;
+  canvas.height = r.height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function getStageLanes() {
+  const w = canvas.width, h = canvas.height;
+  const margin = 40;
+  const stageW = (w - margin * 2) / 6;
+  return STAGES.map((_, i) => ({
+    cx: margin + i * stageW + stageW / 2,
+    cy: h / 2,
+  }));
+}
+
+function drawFlow() {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const lanes = getStageLanes();
+  const pipeY = h / 2;
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+  for (let y = 0; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+  // Pipe backbone
+  const grad = ctx.createLinearGradient(lanes[0].cx, 0, lanes[5].cx, 0);
+  STAGE_COLORS.forEach((c, i) => grad.addColorStop(i / 5, c + '60'));
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,212,255,0.3)';
+  ctx.shadowBlur  = 12;
+  ctx.strokeStyle = grad;
+  ctx.lineWidth   = 6;
+  ctx.beginPath();
+  ctx.moveTo(lanes[0].cx, pipeY);
+  ctx.lineTo(lanes[5].cx, pipeY);
+  ctx.stroke();
+  ctx.restore();
+
+  // Stage nodes
+  lanes.forEach(({ cx }, i) => {
+    const focused = focusedStage === i;
+    const radius  = focused ? 24 : 18;
+
+    const halo = ctx.createRadialGradient(cx, pipeY, 0, cx, pipeY, radius * 2.5);
+    halo.addColorStop(0, STAGE_COLORS[i] + '30');
+    halo.addColorStop(1, 'transparent');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(cx, pipeY, radius * 2.5, 0, Math.PI * 2); ctx.fill();
+
+    ctx.save();
+    ctx.strokeStyle = STAGE_COLORS[i];
+    ctx.lineWidth   = focused ? 2 : 1.5;
+    ctx.shadowColor = STAGE_COLORS[i];
+    ctx.shadowBlur  = focused ? 16 : 8;
+    ctx.beginPath(); ctx.arc(cx, pipeY, radius, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+
+    const nf = ctx.createRadialGradient(cx, pipeY - 4, 0, cx, pipeY, radius);
+    nf.addColorStop(0, STAGE_COLORS[i] + '60');
+    nf.addColorStop(1, STAGE_COLORS[i] + '15');
+    ctx.fillStyle = nf;
+    ctx.beginPath(); ctx.arc(cx, pipeY, radius, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = STAGE_COLORS[i];
+    ctx.font = `bold ${focused ? 11 : 9}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText('0' + (i + 1), cx, pipeY + 4);
+
+    ctx.fillStyle = focused ? STAGE_COLORS[i] : 'rgba(255,255,255,0.5)';
+    ctx.font = `${focused ? 10 : 9}px "Inter", sans-serif`;
+    ctx.fillText(STAGES[i].toUpperCase(), cx, pipeY + radius + 18);
+
+    const cnt = particles.filter(p => !p.published && p.stage === i).length;
+    if (cnt > 0) {
+      ctx.fillStyle = STAGE_COLORS[i];
+      ctx.beginPath(); ctx.arc(cx + radius - 2, pipeY - radius + 2, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#09090b';
+      ctx.font = 'bold 8px monospace';
+      ctx.fillText(cnt, cx + radius - 2, pipeY - radius + 5);
+    }
+  });
+
+  // Particles
+  particles.forEach(p => {
+    if (p.published || p.stage >= 6) return;
+    const lane = lanes[p.stage];
+    const next = lanes[Math.min(p.stage + 1, 5)];
+    const x = lane.cx + (next.cx - lane.cx) * p.stageProgress;
+    const blend = p.stageProgress < 0.5 ? p.stageProgress * 2 : (1 - p.stageProgress) * 2;
+    const y = pipeY + Math.sin(p.stageProgress * Math.PI * 2 + Date.now() * 0.002) * 20 * blend;
+
+    p.trail.push({ x, y });
+    if (p.trail.length > 12) p.trail.shift();
+
+    for (let t = 1; t < p.trail.length; t++) {
+      const alpha = (t / p.trail.length) * 0.4;
+      const hex = Math.round(alpha * 255).toString(16).padStart(2, '0');
+      ctx.strokeStyle = p.color + hex;
+      ctx.lineWidth = (t / p.trail.length) * p.size * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(p.trail[t - 1].x, p.trail[t - 1].y);
+      ctx.lineTo(p.trail[t].x, p.trail[t].y);
+      ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur  = 12;
+    ctx.fillStyle   = p.color;
+    ctx.beginPath(); ctx.arc(x, y, p.size * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath(); ctx.arc(x, y, p.size * 0.2, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // Published burst
+  const now = Date.now();
+  particles.filter(p => p.published && now - p.publishedAt < 1500).forEach(p => {
+    const age = (now - p.publishedAt) / 1500;
+    const cx = lanes[5].cx;
+    ctx.save();
+    ctx.globalAlpha = 1 - age;
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, pipeY, age * 60, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  });
+}
+
+function drawFunnel() {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const counts = STAGES.map((_, i) => particles.filter(p => p.stage >= i).length);
+  const maxCnt = counts[0] || 1;
+  const margin = 60;
+  const stepW = (w - margin * 2) / STAGES.length;
+
+  STAGES.forEach((name, i) => {
+    const frac = counts[i] / maxCnt;
+    const barH = (h - 100) * frac;
+    const x = margin + i * stepW;
+    const y = h - 50 - barH;
+
+    const grd = ctx.createLinearGradient(x, y, x, h - 50);
+    grd.addColorStop(0, STAGE_COLORS[i] + 'cc');
+    grd.addColorStop(1, STAGE_COLORS[i] + '20');
+
+    ctx.fillStyle = grd;
+    ctx.fillRect(x + 4, y, stepW - 8, barH);
+    ctx.strokeStyle = STAGE_COLORS[i];
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 4, y, stepW - 8, barH);
+
+    ctx.fillStyle = STAGE_COLORS[i];
+    ctx.font = '9px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(name.toUpperCase(), x + stepW / 2, h - 30);
+
+    ctx.fillStyle = '#fafafa';
+    ctx.font = 'bold 14px "JetBrains Mono", monospace';
+    ctx.fillText(counts[i], x + stepW / 2, y - 8);
+  });
+}
+
+function drawHeatmap() {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const cellW = w / 7;
+  const cellH = h / 5;
+  const days  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const hours = ['6am','9am','12pm','3pm','6pm'];
+  const heat  = [
+    [0.3,0.5,0.7,0.9,0.8,0.4,0.3],
+    [0.4,0.7,0.9,1.0,0.9,0.5,0.4],
+    [0.5,0.8,1.0,0.9,0.8,0.6,0.5],
+    [0.3,0.6,0.8,0.9,0.7,0.4,0.3],
+    [0.2,0.4,0.6,0.7,0.5,0.3,0.2],
+  ];
+
+  hours.forEach((hour, row) => {
+    days.forEach((day, col) => {
+      const val = heat[row][col];
+      const x = col * cellW, y = row * cellH;
+
+      ctx.fillStyle = `rgba(0,212,255,${val * 0.6})`;
+      ctx.fillRect(x + 2, y + 2, cellW - 4, cellH - 4);
+
+      if (val > 0.8) {
+        ctx.save();
+        ctx.shadowColor = '#00d4ff';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = `rgba(0,212,255,${(val - 0.8) * 1.5})`;
+        ctx.fillRect(x + 2, y + 2, cellW - 4, cellH - 4);
+        ctx.restore();
+      }
+
+      ctx.fillStyle = val > 0.5 ? '#fafafa' : 'rgba(255,255,255,0.4)';
+      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(Math.round(val * 100) + '%', x + cellW / 2, y + cellH / 2 + 4);
+    });
+
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '9px "Inter", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(hour, w - 4, row * cellH + cellH / 2 + 4);
+  });
+
+  days.forEach((day, col) => {
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '9px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(day, (col + 0.5) * cellW, h - 6);
+  });
+
+  ctx.fillStyle = '#00d4ff';
+  ctx.font = 'bold 10px "Inter", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('OPTIMAL PUBLISH WINDOWS (Engagement %)', w / 2, 20);
+}
+
+// ── Animation loop ────────────────────────────────────────────────────────
+let lastTs = 0;
+function tick(ts) {
+  requestAnimationFrame(tick);
+  if (paused) return;
+  const dt = Math.min(ts - lastTs, 50);
+  lastTs = ts;
+
+  particles.forEach(p => {
+    if (p.published) return;
+    p.stageProgress += p.speed * speedMultiplier * (dt / 16);
+    if (p.stageProgress >= 1) {
+      p.stageProgress = 0;
+      p.stage++;
+      if (p.stage >= 6) {
+        p.published = true;
+        p.publishedAt = Date.now();
+        stageCounts[5]++;
+      } else {
+        p.color = STAGE_COLORS[p.stage];
+        stageCounts[p.stage]++;
+      }
+    }
+  });
+
+  // Respawn
+  const alive = particles.filter(p => !p.published || Date.now() - p.publishedAt < 2000);
+  while (alive.length < PARTICLE_MAX) alive.push(createParticle());
+  particles.length = 0;
+  alive.forEach(p => particles.push(p));
+
+  if (currentView === 'flow')   drawFlow();
+  else if (currentView === 'funnel') drawFunnel();
+  else drawHeatmap();
+
+  // Stage counter update
+  const live = [0, 0, 0, 0, 0, 0];
+  particles.forEach(p => { if (!p.published && p.stage < 6) live[p.stage]++; });
+  STAGES.forEach((_, i) => {
+    const el = document.getElementById('s' + i + '-count');
+    if (el) el.textContent = live[i] + stageCounts[i];
+  });
+}
+requestAnimationFrame(tick);
+
+// ── Controls ──────────────────────────────────────────────────────────────
+function setView(btn, view) {
+  currentView = view;
+  document.querySelectorAll('.pipe-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function togglePause(btn) {
+  paused = !paused;
+  btn.textContent = paused ? '▶ RESUME' : '⏸ PAUSE';
+}
+
+function setSpeed(level, dot) {
+  speedMultiplier = [0.3, 1, 2.5, 6][level];
+  document.querySelectorAll('.speed-dot').forEach((d, i) => d.classList.toggle('on', i <= level));
+}
+
+function focusStage(i) {
+  focusedStage = focusedStage === i ? -1 : i;
+  document.querySelectorAll('.stage-card').forEach((c, j) => c.classList.toggle('active', j === focusedStage));
+}
+
+// ── Stats (DOM-safe queue rendering) ─────────────────────────────────────
+function updateStats() {
+  const throughput = (particles.filter(p => p.published).length / 5).toFixed(1);
+  const throughputEl = document.getElementById('stat-throughput');
+  const cycleEl      = document.getElementById('stat-cycle');
+  const bottleneckEl = document.getElementById('stat-bottleneck');
+  const successEl    = document.getElementById('stat-success');
+  if (throughputEl) throughputEl.textContent = throughput;
+  if (cycleEl)      cycleEl.textContent      = Math.round(18 / speedMultiplier) + 'm';
+  if (bottleneckEl) bottleneckEl.textContent  = 'SCRIPTING';
+  if (successEl)    successEl.textContent     = '78%';
+
+  const queueEl = document.getElementById('queue-list');
+  if (!queueEl) return;
+
+  const active = particles.filter(p => !p.published).slice(0, 6);
+  // Remove excess rows
+  while (queueEl.children.length > active.length) queueEl.removeChild(queueEl.lastChild);
+  // Add or update rows
+  active.forEach((p, idx) => {
+    const pct = Math.round((p.stage / 6 + p.stageProgress / 6) * 100);
+    let row = queueEl.children[idx];
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'queue-item';
+      const dot   = document.createElement('div');   dot.className   = 'queue-dot';
+      const stage = document.createElement('span');  stage.className = 'queue-stage';
+      const topic = document.createElement('span');  topic.className = 'queue-topic';
+      const pctEl = document.createElement('span');  pctEl.className = 'queue-pct';
+      row.appendChild(dot); row.appendChild(stage); row.appendChild(topic); row.appendChild(pctEl);
+      queueEl.appendChild(row);
+    }
+    row.children[0].style.background = STAGE_COLORS[p.stage];
+    row.children[1].textContent = STAGES[p.stage].toUpperCase();
+    row.children[2].textContent = p.topic;
+    row.children[3].textContent = pct + '%';
+  });
+}
+
+setInterval(updateStats, 1000);
+updateStats();
+</script>
+{% endblock %}

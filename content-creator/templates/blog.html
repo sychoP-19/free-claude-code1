@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% set active = "blog" %}
+{% block title %}Blog Writer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">BLOG WRITER</div>
+    <div class="page-subtitle">1500-WORD MARKDOWN ARTICLE + POLLINATIONS HERO IMAGE</div>
+  </div>
+</div>
+
+<div class="bento-grid">
+  <div class="bento-tile bento-tile--half holo-border">
+    <div class="bento-tile-label">Input</div>
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:12px;">
+      <input id="bg-topic" class="hud-input" placeholder="Article topic"/>
+      <input id="bg-words" class="hud-input" type="number" value="1500" min="400" max="5000"/>
+      <button class="btn btn-primary" onclick="bgRun()"><span id="bg-btn">WRITE</span></button>
+    </div>
+  </div>
+  <div class="bento-tile bento-tile--half scanline">
+    <div class="bento-tile-label">Pipeline</div>
+    <div class="stage-strip" id="bg-stages">
+      {% for s in ['research','script','visuals','audio','assembly'] %}
+      <div class="stage-cell" data-stage="{{ s }}"><div class="stage-cell__label">{{ s }}</div><div class="stage-cell__dot"></div></div>
+      {% endfor %}
+    </div>
+    <div id="bg-status" style="font-size:12px;color:var(--muted);margin-top:8px;">idle</div>
+  </div>
+  <div class="bento-tile bento-tile--strip" id="bg-result-tile" style="display:none;">
+    <div class="bento-tile-label">Output</div>
+    <pre id="bg-preview" style="white-space:pre-wrap;font-size:12px;max-height:400px;overflow-y:auto;"></pre>
+    <div id="bg-result" style="margin-top:10px;font-size:12px;"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function bgRun() {
+  const topic = document.getElementById('bg-topic').value.trim();
+  const words = parseInt(document.getElementById('bg-words').value) || 1500;
+  if (!topic) { toast({text:'Topic required', level:'warn'}); return; }
+  document.getElementById('bg-btn').textContent='WRITING…';
+  try {
+    const r = await fetch('/api/pipelines/blog/run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({topic, words}),
+    });
+    const j = await r.json();
+    document.getElementById('bg-btn').textContent='WRITE';
+    if (j.ok) {
+      toast({text:'Article ready', level:'ok'});
+      document.getElementById('bg-result-tile').style.display='block';
+      const path = j.output_path.replace(/.*outputs/, 'outputs').replace(/\\\\/g,'/');
+      const fr = await fetch('/' + path);
+      document.getElementById('bg-preview').textContent = (await fr.text()).slice(0, 6000);
+      const link = document.createElement('a');
+      link.href = '/' + path; link.target='_blank'; link.textContent = j.output_path;
+      const r2 = document.getElementById('bg-result'); r2.textContent=''; r2.appendChild(link);
+    } else {
+      toast({text:'Failed: '+j.error, level:'err'});
+    }
+  } catch(e) { toast({text:e.message, level:'err'}); document.getElementById('bg-btn').textContent='WRITE'; }
+}
+</script>
+{% endblock %}
