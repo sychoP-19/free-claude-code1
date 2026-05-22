@@ -129,12 +129,42 @@ CREATE TABLE IF NOT EXISTS reel_completed (
 );
 CREATE INDEX IF NOT EXISTS idx_reel_completed_topic ON reel_completed(topic_id);
 CREATE INDEX IF NOT EXISTS idx_reel_completed_platform ON reel_completed(platform);
+CREATE TABLE IF NOT EXISTS reel_pipeline_state (
+    topic_id        TEXT PRIMARY KEY,
+    current_stage   TEXT NOT NULL,
+    approval_status TEXT NOT NULL,
+    last_updated    REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_reel_pipeline_state_topic ON reel_pipeline_state(topic_id);
 """
 
 
 def init_schema() -> None:
     with _conn() as c:
         c.executescript(SCHEMA)
+
+
+# ── reel_pipeline_state ────────────────────────────────────────────────────
+def update_reel_state(topic_id: str, current_stage: str, approval_status: str) -> None:
+    """Updates or inserts the pipeline state for a given master."""
+    with _conn() as c:
+        c.execute(
+            """INSERT INTO reel_pipeline_state (topic_id, current_stage, approval_status, last_updated)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(topic_id) DO UPDATE SET
+               current_stage=excluded.current_stage,
+               approval_status=excluded.approval_status,
+               last_updated=excluded.last_updated""",
+            (topic_id, current_stage, approval_status, time.time()),
+        )
+
+
+def get_reel_state(topic_id: str) -> dict | None:
+    """Retrieves the current pipeline state for a given master."""
+    with _conn() as c:
+        row = c.execute("SELECT * FROM reel_pipeline_state WHERE topic_id=?", (topic_id,)).fetchone()
+        return dict(row) if row else None
 
 
 # ── ideas ──────────────────────────────────────────────────────────────────

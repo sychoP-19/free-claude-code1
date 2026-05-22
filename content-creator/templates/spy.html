@@ -3,29 +3,30 @@
 {% block title %}Channel Spy{% endblock %}
 
 {% block content %}
+<!-- Page Header -->
 <div class="page-header">
-  <div>
-    <div class="page-title">CHANNEL SPY</div>
-    <div class="page-subtitle">REVERSE-ENGINEER ANY CHANNEL · DECODE THEIR PROFIT FORMULA</div>
+  <div class="page-header-content">
+    <h1 class="page-title">CHANNEL SPY</h1>
+    <p class="page-subtitle">REVERSE-ENGINEER ANY CHANNEL · DECODE THEIR PROFIT FORMULA</p>
   </div>
   <div class="page-actions">
     <span class="badge badge-blue">AGENT 01</span>
   </div>
 </div>
 
-<!-- INPUT -->
+<!-- Target Acquisition Form -->
 <div class="hud-panel mb-16">
   <div class="hud-panel-header">
     <span class="hud-panel-title">Target Acquisition</span>
   </div>
   <div class="hud-panel-body">
-    <form id="spy-form" onsubmit="submitSpy(event)" style="display:grid;grid-template-columns:1fr 160px 160px;gap:12px;align-items:end">
-      <div>
-        <div class="metric-label mb-8">Channel URL or @handle</div>
+    <form id="spy-form" onsubmit="submitSpy(event)" class="form-grid-3">
+      <div class="form-group">
+        <label class="metric-label">Channel URL or @handle</label>
         <input class="hud-input" name="url" placeholder="https://youtube.com/@channelname or @tiktokhandle" required/>
       </div>
-      <div>
-        <div class="metric-label mb-8">Platform</div>
+      <div class="form-group">
+        <label class="metric-label">Platform</label>
         <select class="hud-input" name="platform">
           <option value="youtube">YouTube</option>
           <option value="tiktok">TikTok</option>
@@ -34,41 +35,43 @@
           <option value="all">All Platforms</option>
         </select>
       </div>
-      <div>
-        <div class="metric-label mb-8">&nbsp;</div>
-        <button type="submit" class="btn btn-primary w-full" id="btn-spy"><span>SCAN CHANNEL</span></button>
+      <div class="form-group">
+        <label class="metric-label">&nbsp;</label>
+        <button type="submit" class="btn btn-primary w-full" id="btn-spy">
+          <span>SCAN CHANNEL</span>
+        </button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- RESULTS GRID -->
+<!-- Results Grid -->
 <div class="grid-2-1 mb-16">
 
-  <!-- CHANNEL ANALYSIS -->
+  <!-- Channel Analysis -->
   <div class="hud-panel">
     <div class="hud-panel-header">
       <span class="hud-panel-title">Channel Intelligence</span>
-      <span class="badge badge-blue" id="spy-platform-badge">AWAITING TARGET</span>
+      <span class="badge badge-blue" id="spy-platform-badge" role="status">AWAITING TARGET</span>
     </div>
     <div class="hud-panel-body">
-      <div id="spy-loading" class="text-muted text-mono" style="padding:40px;text-align:center;font-size:11px;letter-spacing:2px">
+      <div id="spy-loading" class="text-muted text-mono text-center py-10 text-xs tracking-widest hidden">
         ENTER A CHANNEL URL ABOVE TO BEGIN ANALYSIS
       </div>
       <div id="spy-results" class="hidden">
 
         <!-- Channel Header -->
         <div class="channel-card mb-16">
-          <div class="channel-avatar" id="spy-avatar">?</div>
-          <div>
+          <div class="channel-avatar" id="spy-avatar" aria-hidden="true">?</div>
+          <div class="channel-info">
             <div class="channel-name" id="spy-channel-name">—</div>
             <div class="channel-meta" id="spy-channel-meta">—</div>
           </div>
-          <div class="channel-score" id="spy-profit-score">—</div>
+          <div class="channel-score" id="spy-profit-score" role="status">—</div>
         </div>
 
         <!-- Key Metrics -->
-        <div class="metric-grid mb-16">
+        <div class="metric-grid mb-16" role="region" aria-label="Key Metrics">
           <div class="metric-card">
             <div class="metric-label">Subscribers</div>
             <div class="metric-value" id="spy-subs">—</div>
@@ -94,16 +97,25 @@
             <span class="badge badge-yellow">HIGH VALUE</span>
           </div>
           <div class="hud-panel-body">
-            <div id="spy-hook-formula" class="text-mono" style="font-size:12px;line-height:1.8;color:var(--white)">—</div>
+            <div id="spy-hook-formula" class="text-mono text-sm text-white">—</div>
           </div>
         </div>
 
-        <!-- Best Posting Times -->
+        <!-- Optimal Posting Times -->
         <div class="hud-panel">
-          <div class="hud-panel-header"><span class="hud-panel-title">Optimal Posting Times</span></div>
+          <div class="hud-panel-header">
+            <span class="hud-panel-title">Optimal Posting Times</span>
+          </div>
           <div class="hud-panel-body">
             <table class="data-table">
-              <thead><tr><th>Day</th><th>Time (UTC)</th><th>Avg Views</th><th>Signal</th></tr></thead>
+              <thead>
+                <tr>
+                  <th scope="col">Day</th>
+                  <th scope="col">Time (UTC)</th>
+                  <th scope="col">Avg Views</th>
+                  <th scope="col">Signal</th>
+                </tr>
+              </thead>
               <tbody id="spy-times-body"></tbody>
             </table>
           </div>
@@ -112,26 +124,48 @@
     </div>
   </div>
 
-  <!-- PROFIT BREAKDOWN -->
+  <!-- Profit Breakdown -->
   <div class="flex flex-col gap-16">
     <div class="hud-panel">
-      <div class="hud-panel-header"><span class="hud-panel-title">Revenue Streams</span></div>
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">Revenue Streams</span>
+      </div>
       <div class="hud-panel-body flex flex-col gap-12">
         <div class="profit-bar-wrap">
-          <div class="profit-bar-label"><span>AdSense</span><span id="rev-adsense" class="text-blue">—</span></div>
-          <div class="profit-bar"><div class="profit-bar-fill" id="bar-adsense" data-pct="0" style="width:0%"></div></div>
+          <div class="profit-bar-label">
+            <span>AdSense</span>
+            <span id="rev-adsense" class="text-blue">—</span>
+          </div>
+          <div class="profit-bar">
+            <div class="profit-bar-fill" id="bar-adsense" data-pct="0" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
         </div>
         <div class="profit-bar-wrap">
-          <div class="profit-bar-label"><span>Sponsorships</span><span id="rev-sponsor" class="text-blue">—</span></div>
-          <div class="profit-bar"><div class="profit-bar-fill" id="bar-sponsor" data-pct="0" style="width:0%"></div></div>
+          <div class="profit-bar-label">
+            <span>Sponsorships</span>
+            <span id="rev-sponsor" class="text-blue">—</span>
+          </div>
+          <div class="profit-bar">
+            <div class="profit-bar-fill" id="bar-sponsor" data-pct="0" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
         </div>
         <div class="profit-bar-wrap">
-          <div class="profit-bar-label"><span>Affiliate</span><span id="rev-affiliate" class="text-blue">—</span></div>
-          <div class="profit-bar"><div class="profit-bar-fill" id="bar-affiliate" data-pct="0" style="width:0%"></div></div>
+          <div class="profit-bar-label">
+            <span>Affiliate</span>
+            <span id="rev-affiliate" class="text-blue">—</span>
+          </div>
+          <div class="profit-bar">
+            <div class="profit-bar-fill" id="bar-affiliate" data-pct="0" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
         </div>
         <div class="profit-bar-wrap">
-          <div class="profit-bar-label"><span>Merch / Products</span><span id="rev-merch" class="text-blue">—</span></div>
-          <div class="profit-bar"><div class="profit-bar-fill" id="bar-merch" data-pct="0" style="width:0%"></div></div>
+          <div class="profit-bar-label">
+            <span>Merch / Products</span>
+            <span id="rev-merch" class="text-blue">—</span>
+          </div>
+          <div class="profit-bar">
+            <div class="profit-bar-fill" id="bar-merch" data-pct="0" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
         </div>
         <hr class="hud-divider"/>
         <div class="flex justify-between items-center">
@@ -142,36 +176,46 @@
     </div>
 
     <div class="hud-panel">
-      <div class="hud-panel-header"><span class="hud-panel-title">Top Performing Videos</span></div>
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">Top Performing Videos</span>
+      </div>
       <div class="hud-panel-body" style="padding:0">
         <table class="data-table">
-          <thead><tr><th>Title</th><th>Views</th><th>Type</th></tr></thead>
+          <thead>
+            <tr>
+              <th scope="col">Title</th>
+              <th scope="col">Views</th>
+              <th scope="col">Type</th>
+            </tr>
+          </thead>
           <tbody id="spy-top-videos"></tbody>
         </table>
       </div>
     </div>
 
     <div class="hud-panel">
-      <div class="hud-panel-header"><span class="hud-panel-title">Hashtag Strategy</span></div>
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">Hashtag Strategy</span>
+      </div>
       <div class="hud-panel-body">
-        <div id="spy-hashtags" class="flex" style="flex-wrap:wrap;gap:6px">
+        <div id="spy-hashtags" class="flex flex-wrap gap-2">
           <span class="text-muted text-mono text-xs">Scan a channel to reveal hashtags</span>
         </div>
       </div>
     </div>
   </div>
-
 </div>
 
-<!-- LIVE FEED -->
+<!-- Live Feed -->
 <div class="hud-panel">
   <div class="hud-panel-header">
     <span class="hud-panel-title">Agent Log</span>
-    <span class="badge badge-green" style="animation:badge-pulse 2s infinite">LIVE</span>
+    <span class="badge badge-green" style="animation:badge-pulse 2s infinite" role="status">LIVE</span>
   </div>
-  <div style="padding:0"><div class="live-feed" id="live-feed"></div></div>
+  <div style="padding:0">
+    <div class="live-feed" id="live-feed" role="log" aria-live="polite"></div>
+  </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
@@ -196,64 +240,6 @@ async function submitSpy(e) {
     return;
   }
   renderSpyResults(result.data);
-}
-
-function renderSpyResults(d) {
-  document.getElementById('spy-loading').classList.add('hidden');
-  document.getElementById('spy-results').classList.remove('hidden');
-
-  document.getElementById('spy-channel-name').textContent = d.name || '—';
-  document.getElementById('spy-channel-meta').textContent = (d.platform || '').toUpperCase() + ' · ' + (d.niche || '');
-  document.getElementById('spy-avatar').textContent       = (d.name || '?')[0].toUpperCase();
-  document.getElementById('spy-profit-score').textContent = (d.profit_score || '—') + '/10';
-  document.getElementById('spy-subs').textContent         = fmtNum(d.subscribers);
-  document.getElementById('spy-views').textContent        = fmtNum(d.avg_views);
-  document.getElementById('spy-freq').textContent         = d.post_frequency || '—';
-  document.getElementById('spy-engagement').textContent   = (d.engagement_rate || '—') + '%';
-  document.getElementById('spy-hook-formula').textContent = d.hook_formula || '—';
-  document.getElementById('rev-total').textContent        = '$' + fmtNum(d.revenue_est);
-
-  // Revenue bars
-  const streams = d.revenue_streams || {};
-  const total   = Object.values(streams).reduce((a, b) => a + b, 1);
-  ['adsense','sponsor','affiliate','merch'].forEach(k => {
-    const val = streams[k] || 0;
-    const el  = document.getElementById('rev-' + k);
-    const bar = document.getElementById('bar-' + k);
-    if (el) el.textContent = '$' + fmtNum(val);
-    if (bar) { bar.dataset.pct = Math.round(val/total*100); bar.style.width = bar.dataset.pct + '%'; }
-  });
-
-  // Top videos
-  const tbody = document.getElementById('spy-top-videos');
-  tbody.textContent = '';
-  (d.top_videos || []).forEach(v => {
-    const row = document.createElement('tr');
-    const tdT = document.createElement('td'); tdT.textContent = v.title; tdT.style.maxWidth = '160px'; tdT.style.overflow = 'hidden'; tdT.style.textOverflow = 'ellipsis'; tdT.style.whiteSpace = 'nowrap';
-    const tdV = document.createElement('td'); tdV.textContent = fmtNum(v.views); tdV.className = 'text-blue';
-    const tdK = document.createElement('td'); const b = document.createElement('span'); b.className = 'badge badge-yellow'; b.textContent = v.type || 'SHORT'; tdK.appendChild(b);
-    row.appendChild(tdT); row.appendChild(tdV); row.appendChild(tdK);
-    tbody.appendChild(row);
-  });
-
-  // Hashtags
-  const htEl = document.getElementById('spy-hashtags');
-  htEl.textContent = '';
-  (d.hashtags || []).forEach(tag => {
-    const pill = document.createElement('span');
-    pill.className   = 'trend-pill';
-    pill.textContent = tag;
-    htEl.appendChild(pill);
-  });
-
-  appendFeed('success', 'Channel analysis complete: ' + d.name);
-}
-
-function fmtNum(n) {
-  if (!n) return '0';
-  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
-  if (n >= 1000)    return (n/1000).toFixed(1) + 'K';
-  return String(n);
 }
 </script>
 {% endblock %}

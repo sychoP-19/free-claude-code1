@@ -29,7 +29,7 @@ DEFAULT_HEIGHT = 1920  # Vertical for shorts/Reels
 class AssetResult:
     """Result from asset generation."""
     ok: bool
-    scene_e: list[str]
+    scene_texts: list[str]
     assets: list[dict]  # {"path": str, "source": "pollinations"|"stock"|"fallback", "bytes": int}
     errors: list[str]
     elapsed_s: float
@@ -72,17 +72,23 @@ async def generate_assets(
     all_errors: list[str] = []
     all_scene_texts: list[str] = []
 
+    # Normalize scenes: Stage 2 returns dicts {"description": "...", "timing": "..."}
+    normalized_scenes = [
+        s if isinstance(s, str) else s.get("description", str(s))
+        for s in scenes
+    ]
+
     async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
         tasks = [
             _generate_scene_assets(
                 client, scene, topic_id, scene_idx, n_images_per_scene, width, height
             )
-            for scene_idx, scene in enumerate(scenes)
+            for scene_idx, scene in enumerate(normalized_scenes)
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for scene_idx, result in enumerate(results):
-        scene_text = scenes[scene_idx] if scene_idx < len(scenes) else f"scene_{scene_idx}"
+        scene_text = normalized_scenes[scene_idx] if scene_idx < len(normalized_scenes) else f"scene_{scene_idx}"
 
         if isinstance(result, dict) and result.get("ok"):
             all_assets.extend(result.get("assets", []))

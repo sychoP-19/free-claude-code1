@@ -142,12 +142,25 @@ async def reel_approve_script(request: Request):
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 
-async def reel_pending():
-    """List completed reels from database."""
+async def reel_transition(request: Request):
+    """Transition pipeline state for a reel.
+
+    POST /api/reel/transition {"topic_id": "topic_001", "target_stage": "assets", "action": "approve"}
+    """
+    body = await request.json()
+    topic_id = str(body.get("topic_id", ""))
+    target_stage = str(body.get("target_stage", ""))
+    action = str(body.get("action", ""))
+
+    if not topic_id or not action:
+        return JSONResponse({"status": "error", "message": "topic_id and action required"}, status_code=400)
+
     try:
-        from core import db as jdb
-        completed = jdb.reel_get_completed()
-        return {"status": "ok", "reels": completed}
+        from core import pipeline_manager as p_mgr
+        result = p_mgr.transition_state(topic_id, target_stage, action)
+        return {"status": "ok", **result}
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 

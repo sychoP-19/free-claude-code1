@@ -34,10 +34,11 @@ def _run_local(url: str, num_clips: int, aspect_ratio: str, quality: str) -> dic
     try:
         from shorts_generator.pipeline import generate_shorts
         result = generate_shorts(
-            url=url,
+            youtube_url=url,
             num_clips=num_clips,
             aspect_ratio=aspect_ratio,
-            quality=quality,
+            download_format=quality,
+            mode="local",
         )
         return _normalise(result)
     except ImportError:

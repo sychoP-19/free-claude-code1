@@ -1,472 +1,468 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MAJD — {% block title %}Neural Content OS{% endblock %}</title>
-  <!-- Google Fonts: Neural Command Center Typography -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;600&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <!-- MAJD Design System -->
-  <link rel="stylesheet" href="/static/css/majd.css"/>
-  <!-- Alpine.js Reactivity -->
-  <script defer src="https://unpkg.com/alpinejs@3.14.0/dist/cdn.min.js"></script>
-  <!-- HTMX Server Partials -->
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-  {% block head %}{% endblock %}
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MAJD — {% block title %}Empire OS{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/majd-v3.css"/>
+<script defer src="https://unpkg.com/alpinejs@3.14.0/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+{% block head %}{% endblock %}
 </head>
-<body x-data="{ sidebarCollapsed: false }">
-  <canvas id="particle-canvas"></canvas>
-  <div id="notifications"></div>
+<body x-data="{ sidebarOpen: true, theme: 'light' }" :class="{ 'sidebar-collapsed': !sidebarOpen }"
+  x-init="
+    const saved = localStorage.getItem('majd-theme') || 'light';
+    theme = saved;
+    document.documentElement.setAttribute('data-theme', saved);
+  ">
 
-  <div class="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<div id="toast-root" role="status" aria-live="polite"></div>
 
-    <!-- TOP BAR -->
-    <header class="topbar">
-      <div class="topbar-brand">
-        <!-- MAJD Neural Core Logo -->
-        <div class="arc-reactor" title="MAJD Neural Core v3.0">
-          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="20" cy="20" r="18" stroke="#00d4ff" stroke-width="0.8" stroke-opacity="0.3"/>
-            <circle cx="20" cy="20" r="13" stroke="#00d4ff" stroke-width="1.2" stroke-opacity="0.5"/>
-            <circle cx="20" cy="20" r="8" fill="#00d4ff" fill-opacity="0.08" stroke="#00d4ff" stroke-width="1.5"/>
-            <!-- Rotating hex indicator -->
-            <polygon points="20,12 26,16 26,24 20,28 14,24 14,16" stroke="#00d4ff" stroke-width="1" fill="none" stroke-opacity="0.6" style="animation:spin-slow 8s linear infinite;transform-origin:20px 20px"/>
-            <circle cx="20" cy="20" r="3" fill="#00d4ff" style="animation:pulse-glow 2s ease-in-out infinite"/>
-            <!-- Cardinal lines -->
-            <line x1="20" y1="6" x2="20" y2="2" stroke="#00d4ff" stroke-width="1.5" stroke-opacity="0.7"/>
-            <line x1="20" y1="34" x2="20" y2="38" stroke="#00d4ff" stroke-width="1.5" stroke-opacity="0.7"/>
-            <line x1="6" y1="20" x2="2" y2="20" stroke="#00d4ff" stroke-width="1.5" stroke-opacity="0.7"/>
-            <line x1="34" y1="20" x2="38" y2="20" stroke="#00d4ff" stroke-width="1.5" stroke-opacity="0.7"/>
-          </svg>
-        </div>
-        <div class="brand-text">
-          <span class="brand-name">M.A.J.D</span>
-          <span class="brand-sub">NEURAL CONTENT OS v3.0</span>
-        </div>
-        <button @click="sidebarCollapsed = !sidebarCollapsed"
-                class="sidebar-toggle" title="Toggle sidebar"
-                style="background:none;border:none;cursor:pointer;color:var(--cyan);padding:4px 8px;margin-left:8px;opacity:0.6;transition:opacity 0.2s;"
-                @mouseenter="$el.style.opacity='1'" @mouseleave="$el.style.opacity='0.6'">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </button>
-      </div>
+<div class="app-shell">
 
-      <div class="topbar-status">
-        <div class="status-item">
-          <div class="status-dot" id="sys-status-dot"></div>
-          <span id="sys-status-text">SYSTEM ONLINE</span>
-        </div>
-        <div class="status-item">
-          <div class="status-dot" id="ollama-dot"></div>
-          <span id="ollama-status">OLLAMA READY</span>
-        </div>
-        <div class="status-item">
-          <div class="status-dot" id="ws-dot" style="background:var(--yellow);box-shadow:0 0 8px var(--yellow)"></div>
-          <span id="ws-status">CONNECTING...</span>
-        </div>
-        <div class="topbar-time" id="clock">--:--:--</div>
-        <select id="jarvis-lang-select" title="Voice language" onchange="Voice && Voice.setLang(this.value)"
-          style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);color:var(--cyan);font-size:11px;padding:2px 6px;border-radius:4px;cursor:pointer;outline:none;font-family:var(--font-data);">
-          <option value="en-US">EN</option>
-          <option value="ar-SA">AR</option>
-          <option value="ar-MA">AR-MA</option>
-        </select>
-        <button id="voice-btn" title="Speak to MAJD">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-            <line x1="12" y1="19" x2="12" y2="23"/>
-            <line x1="8" y1="23" x2="16" y2="23"/>
-          </svg>
-        </button>
-        <div id="topbar-arc" class="topbar-arc" data-active="0" title="Active agents (click for mission control)"
-             onclick="window.location.href='/mission-control'">
-          <span class="topbar-arc__num"></span>
-        </div>
-        <button id="cmd-k-btn" title="Command palette (Ctrl+K)" onclick="CommandPalette && CommandPalette.open()"
-                style="background:rgba(255,255,255,0.04);border:1px solid rgba(0,212,255,0.2);color:var(--cyan);font-size:10px;padding:4px 8px;border-radius:4px;cursor:pointer;font-family:var(--font-data,monospace);">⌘K</button>
-      </div>
-    </header>
-    <div id="voice-status" class="voice-status"></div>
+<!-- TOP BAR -->
+<header class="topbar" role="banner">
+  <div class="topbar-brand">
+    <button @click="sidebarOpen = !sidebarOpen"
+      class="sidebar-toggle" title="Toggle sidebar" aria-label="Toggle sidebar"
+      :aria-expanded="sidebarOpen.toString()">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+    <a href="/" class="brand-logo" aria-label="MAJD Empire OS home">
+      <span class="brand-name">MAJD</span>
+      <span class="brand-tagline">Empire OS</span>
+    </a>
+  </div>
 
-    <!-- SIDEBAR -->
-    <nav class="sidebar">
-      <div class="sidebar-section-label">Navigation</div>
+  <div class="topbar-status" role="region" aria-label="System status">
+    <div class="status-pill" id="proxy-pill" role="status" aria-label="AI proxy status">
+      <span class="status-dot" id="proxy-dot"></span>
+      <span id="proxy-label">Proxy</span>
+    </div>
+    <div class="status-pill" id="ollama-pill" role="status" aria-label="Ollama status">
+      <span class="status-dot" id="ollama-dot"></span>
+      <span id="ollama-label">Ollama</span>
+    </div>
+    <div class="status-pill" id="ws-pill" role="status" aria-label="WebSocket status">
+      <span class="status-dot" id="ws-dot" style="background:var(--warning)"></span>
+      <span id="ws-label">WS</span>
+    </div>
+  </div>
 
-      <a href="/" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-          <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
-        </svg>
-        <span>Command Hub</span>
-        <span class="nav-badge live">LIVE</span>
-      </a>
+  <div class="topbar-actions">
+    <span class="topbar-clock" id="clock" aria-label="Current time"></span>
 
-      <!-- MONEY SECTION -->
-      <div class="sidebar-section-label" style="margin-top:8px;color:var(--orange)">💰 Revenue Hunt</div>
+    <label for="jarvis-lang-select" class="sr-only">Voice language</label>
+    <select id="jarvis-lang-select" aria-label="Voice language"
+      onchange="window.Voice && Voice.setLang(this.value)"
+      class="lang-select">
+      <option value="en-US">EN</option>
+      <option value="ar-SA">AR</option>
+      <option value="ar-MA">AR-MA</option>
+    </select>
 
-      <a href="/money" class="nav-item {% if active == 'money' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <line x1="12" y1="1" x2="12" y2="23"/>
-          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-        </svg>
-        <span>Money Intel</span>
-        <span class="nav-badge" style="background:rgba(255,107,53,0.2);border-color:#ff6b35;color:#ff6b35">$$$</span>
-      </a>
+    <button id="voice-btn" title="Voice input" aria-label="Voice input" class="topbar-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+    </button>
 
-      <a href="/revenue" class="nav-item {% if active == 'revenue' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/>
-          <polyline points="17,6 23,6 23,12"/>
-        </svg>
-        <span>Revenue Matrix</span>
-        <span class="nav-badge" style="background:rgba(16,185,129,0.2);border-color:#10b981;color:#10b981">GAIN</span>
-      </a>
+    <button title="Command palette (Ctrl+K)" onclick="window.CommandPalette && CommandPalette.open()"
+      class="topbar-btn" aria-label="Open command palette">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+    </button>
 
-      <a href="/portfolio" class="nav-item {% if active == 'portfolio' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="2" y="7" width="20" height="14" rx="2"/>
-          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-        </svg>
-        <span>Portfolio</span>
-        <span class="nav-badge" style="background:rgba(16,185,129,0.2);border-color:#10b981;color:#10b981">$</span>
-      </a>
+    <button @click="
+      theme = theme === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('majd-theme', theme);
+    " class="topbar-btn" :title="'Switch to ' + (theme === 'light' ? 'dark' : 'light') + ' mode'"
+      :aria-label="'Switch to ' + (theme === 'light' ? 'dark' : 'light') + ' mode'">
+      <svg x-show="theme === 'light'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+      <svg x-show="theme === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+    </button>
+  </div>
+</header>
 
-      <!-- CONTENT AGENTS -->
-      <div class="sidebar-section-label" style="margin-top:8px">🤖 AI Agents</div>
+<div id="voice-status" role="status" aria-live="polite" style="display:none"></div>
 
-      <a href="/spy" class="nav-item {% if active == 'spy' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          <path d="M11 8v6M8 11h6"/>
-        </svg>
-        <span>Channel Spy</span>
-        <span class="nav-badge">01</span>
-      </a>
+<!-- SIDEBAR -->
+<nav class="sidebar" role="navigation" aria-label="Main navigation">
 
-      <a href="/trends" class="nav-item {% if active == 'trends' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
-        </svg>
-        <span>Trend Miner</span>
-        <span class="nav-badge">02</span>
-      </a>
+  <!-- EMPIRE OS — primary action -->
+  <div class="nav-section">
+    <a href="/empire" class="nav-item nav-empire {% if active == 'empire' %}active{% endif %}"
+      aria-current="{% if active == 'empire' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+      <span>Empire OS</span>
+      <span class="nav-badge badge-primary">RUN</span>
+    </a>
+  </div>
 
-      <a href="/factory" class="nav-item {% if active == 'factory' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-        <span>Content Factory</span>
-        <span class="nav-badge">03</span>
-      </a>
+  <!-- DASHBOARD -->
+  <div class="nav-section">
+    <div class="nav-label">Overview</div>
+    <a href="/" class="nav-item {% if active == 'dashboard' %}active{% endif %}"
+      aria-current="{% if active == 'dashboard' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Dashboard</span>
+    </a>
+    <a href="/revenue" class="nav-item {% if active == 'revenue' %}active{% endif %}"
+      aria-current="{% if active == 'revenue' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/>
+        <polyline points="17,6 23,6 23,12"/>
+      </svg>
+      <span>Revenue</span>
+      <span class="nav-badge badge-green">$$$</span>
+    </a>
+    <a href="/money" class="nav-item {% if active == 'money' %}active{% endif %}"
+      aria-current="{% if active == 'money' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <line x1="12" y1="1" x2="12" y2="23"/>
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      </svg>
+      <span>Money Intel</span>
+    </a>
+    <a href="/portfolio" class="nav-item {% if active == 'portfolio' %}active{% endif %}"
+      aria-current="{% if active == 'portfolio' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="2" y="7" width="20" height="14" rx="2"/>
+        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+      </svg>
+      <span>Portfolio</span>
+    </a>
+  </div>
 
-      <a href="/director" class="nav-item {% if active == 'director' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <polygon points="23,7 16,12 23,17"/>
-          <rect x="1" y="5" width="15" height="14" rx="2"/>
-        </svg>
-        <span>Cinema Director</span>
-        <span class="nav-badge">04</span>
-      </a>
+  <!-- AI AGENTS -->
+  <div class="nav-section">
+    <div class="nav-label">AI Agents</div>
+    <a href="/spy" class="nav-item {% if active == 'spy' %}active{% endif %}"
+      aria-current="{% if active == 'spy' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        <path d="M11 8v6M8 11h6"/>
+      </svg>
+      <span>Channel Spy</span>
+    </a>
+    <a href="/trends" class="nav-item {% if active == 'trends' %}active{% endif %}"
+      aria-current="{% if active == 'trends' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+      </svg>
+      <span>Trend Miner</span>
+    </a>
+    <a href="/factory" class="nav-item {% if active == 'factory' %}active{% endif %}"
+      aria-current="{% if active == 'factory' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+      <span>Content Factory</span>
+    </a>
+    <a href="/director" class="nav-item {% if active == 'director' %}active{% endif %}"
+      aria-current="{% if active == 'director' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <polygon points="23,7 16,12 23,17 23,7"/>
+        <rect x="1" y="5" width="15" height="14" rx="2"/>
+      </svg>
+      <span>Cinema Director</span>
+    </a>
+    <a href="/orchestration" class="nav-item {% if active == 'orchestration' %}active{% endif %}"
+      aria-current="{% if active == 'orchestration' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>
+        <path d="M12 7v4M7 17l3-4M17 17l-3-4"/>
+      </svg>
+      <span>Agent Crews</span>
+    </a>
+  </div>
 
-      <!-- VOICE LAB (NEW) -->
-      <div class="sidebar-section-label" style="margin-top:8px;color:#a78bfa">🎙️ Voice Lab</div>
+  <!-- CONTENT STUDIO -->
+  <div class="nav-section">
+    <div class="nav-label">Content Studio</div>
+    <a href="/reel-producer" class="nav-item {% if active == 'reel_producer' %}active{% endif %}"
+      aria-current="{% if active == 'reel_producer' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="10,8 16,12 10,16"/>
+      </svg>
+      <span>Auto Reels</span>
+      <span class="nav-badge badge-red">HOT</span>
+    </a>
+    <a href="/shorts" class="nav-item {% if active == 'shorts' %}active{% endif %}"
+      aria-current="{% if active == 'shorts' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="2" y="4" width="15" height="16" rx="2"/>
+        <path d="M17 8l4 2-4 2"/>
+      </svg>
+      <span>Shorts Gen</span>
+    </a>
+    <a href="/cinegen" class="nav-item {% if active == 'cinegen' %}active{% endif %}"
+      aria-current="{% if active == 'cinegen' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M2 8h4l3-3h6l3 3h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z"/>
+        <circle cx="12" cy="15" r="4"/>
+      </svg>
+      <span>CineGen AI</span>
+    </a>
+    <a href="/longform" class="nav-item {% if active == 'longform' %}active{% endif %}"
+      aria-current="{% if active == 'longform' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="14" rx="2"/><polygon points="10,9 15,12 10,15"/>
+      </svg>
+      <span>Long-form</span>
+    </a>
+    <a href="/voice-lab" class="nav-item {% if active == 'voice_lab' %}active{% endif %}"
+      aria-current="{% if active == 'voice_lab' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+      </svg>
+      <span>Voice Lab</span>
+    </a>
+    <a href="/blog" class="nav-item {% if active == 'blog' %}active{% endif %}"
+      aria-current="{% if active == 'blog' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
+      </svg>
+      <span>Blog</span>
+    </a>
+    <a href="/carousel" class="nav-item {% if active == 'carousel' %}active{% endif %}"
+      aria-current="{% if active == 'carousel' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>Carousel</span>
+    </a>
+  </div>
 
-      <a href="/voice-lab" class="nav-item {% if active == 'voice_lab' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-          <line x1="12" y1="19" x2="12" y2="23"/>
-        </svg>
-        <span>Voice Cloning</span>
-        <span class="nav-badge" style="background:rgba(167,139,250,0.2);border-color:#a78bfa;color:#a78bfa">TTS</span>
-      </a>
+  <!-- PUBLISH & SCHEDULE -->
+  <div class="nav-section">
+    <div class="nav-label">Publish</div>
+    <a href="/publish-hub" class="nav-item {% if active == 'publish_hub' %}active{% endif %}"
+      aria-current="{% if active == 'publish_hub' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+        <polyline points="16,6 12,2 8,6"/>
+        <line x1="12" y1="2" x2="12" y2="15"/>
+      </svg>
+      <span>Export Hub</span>
+    </a>
+    <a href="/schedule" class="nav-item {% if active == 'schedule' %}active{% endif %}"
+      aria-current="{% if active == 'schedule' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>Schedule</span>
+    </a>
+    <a href="/skills" class="nav-item {% if active == 'skills' %}active{% endif %}"
+      aria-current="{% if active == 'skills' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>
+      <span>Calendar</span>
+    </a>
+  </div>
 
-      <a href="/ollama-studio" class="nav-item {% if active == 'ollama_studio' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-        <span>Ollama Studio</span>
-        <span class="nav-badge" style="background:rgba(249,115,22,0.2);border-color:#f97316;color:#f97316">LLM</span>
-      </a>
+  <!-- INTELLIGENCE -->
+  <div class="nav-section">
+    <div class="nav-label">Intelligence</div>
+    <a href="/pipeline" class="nav-item {% if active == 'pipeline' %}active{% endif %}"
+      aria-current="{% if active == 'pipeline' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M3 3h18v4H3zM3 10h12v4H3zM3 17h8v4H3z"/>
+      </svg>
+      <span>Pipeline</span>
+    </a>
+    <a href="/content-hub" class="nav-item {% if active == 'content_hub' %}active{% endif %}"
+      aria-current="{% if active == 'content_hub' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>
+      <span>Content Hub</span>
+    </a>
+    <a href="/research" class="nav-item {% if active == 'research' %}active{% endif %}"
+      aria-current="{% if active == 'research' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <span>Research</span>
+    </a>
+    <a href="/github-hub" class="nav-item {% if active == 'github_hub' %}active{% endif %}"
+      aria-current="{% if active == 'github_hub' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+      </svg>
+      <span>GitHub Hub</span>
+    </a>
+    <a href="/ideas" class="nav-item {% if active == 'ideas' %}active{% endif %}"
+      aria-current="{% if active == 'ideas' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.5V17h8v-2.5A7 7 0 0 0 12 2z"/>
+      </svg>
+      <span>Ideas</span>
+    </a>
+  </div>
 
-      <!-- REEL MACHINE (NEW) -->
-      <div class="sidebar-section-label" style="margin-top:8px;color:#ef4444">🎬 Reel Machine</div>
+  <!-- SYSTEM -->
+  <div class="nav-section">
+    <div class="nav-label">System</div>
+    <a href="/ai-studio" class="nav-item {% if active == 'ai_studio' %}active{% endif %}"
+      aria-current="{% if active == 'ai_studio' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+      <span>AI Studio</span>
+    </a>
+    <a href="/ollama-studio" class="nav-item {% if active == 'ollama_studio' %}active{% endif %}"
+      aria-current="{% if active == 'ollama_studio' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <span>Ollama Studio</span>
+    </a>
+    <a href="/media-lab" class="nav-item {% if active == 'media_lab' %}active{% endif %}"
+      aria-current="{% if active == 'media_lab' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <path d="M10 13l2 2 4-4"/>
+      </svg>
+      <span>Media Lab</span>
+    </a>
+    <a href="/repos" class="nav-item {% if active == 'repos' %}active{% endif %}"
+      aria-current="{% if active == 'repos' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77"/>
+      </svg>
+      <span>AI Repos</span>
+      <span class="nav-badge" id="repos-count">18</span>
+    </a>
+    <a href="/mission-control" class="nav-item {% if active == 'mission_control' %}active{% endif %}"
+      aria-current="{% if active == 'mission_control' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+      </svg>
+      <span>Mission Control</span>
+    </a>
+    <a href="/brand" class="nav-item {% if active == 'brand' %}active{% endif %}"
+      aria-current="{% if active == 'brand' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+        <line x1="7" y1="7" x2="7.01" y2="7"/>
+      </svg>
+      <span>Brand Voice</span>
+    </a>
+    <a href="/command" class="nav-item {% if active == 'command' %}active{% endif %}"
+      aria-current="{% if active == 'command' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <polyline points="4,17 10,11 4,5"/><line x1="12" y1="19" x2="20" y2="19"/>
+      </svg>
+      <span>Command</span>
+    </a>
+    <a href="/session" class="nav-item {% if active == 'session' %}active{% endif %}"
+      aria-current="{% if active == 'session' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12,6 12,12 16,14"/>
+      </svg>
+      <span>Session</span>
+    </a>
+    <a href="/library" class="nav-item {% if active == 'library' %}active{% endif %}"
+      aria-current="{% if active == 'library' %}page{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+      </svg>
+      <span>Asset Library</span>
+    </a>
+  </div>
 
-      <a href="/reel-producer" class="nav-item {% if active == 'reel_producer' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/>
-          <polygon points="10,8 16,12 10,16"/>
-        </svg>
-        <span>Auto Reels</span>
-        <span class="nav-badge" style="background:rgba(239,68,68,0.2);border-color:#ef4444;color:#ef4444">HOT</span>
-      </a>
+</nav>
 
-      <a href="/shorts" class="nav-item {% if active == 'shorts' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="2" y="4" width="15" height="16" rx="2"/>
-          <path d="M17 8l4 2-4 2"/>
-        </svg>
-        <span>Shorts Gen</span>
-        <span class="nav-badge" style="background:rgba(239,68,68,0.2);border-color:#ef4444;color:#ef4444">YT</span>
-      </a>
+<!-- MAIN CONTENT -->
+<main class="main-content" id="main-content" role="main">
+{% block content %}{% endblock %}
+</main>
 
-      <a href="/cinegen" class="nav-item {% if active == 'cinegen' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M2 8h4l3-3h6l3 3h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z"/>
-          <circle cx="12" cy="15" r="4"/>
-        </svg>
-        <span>CineGen AI</span>
-        <span class="nav-badge" style="background:rgba(124,58,237,0.2);border-color:#7c3aed;color:#7c3aed">VID</span>
-      </a>
+</div><!-- /app-shell -->
 
-      <a href="/longform" class="nav-item {% if active == 'longform' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="4" width="18" height="14" rx="2"/><polygon points="10,9 15,12 10,15"/>
-        </svg>
-        <span>Long-form</span><span class="nav-badge">YT</span>
-      </a>
+<script src="/static/js/majd.js"></script>
+<script src="/static/js/voice.js"></script>
+<script src="/static/js/chat-overlay.js"></script>
+<script src="/static/js/toast.js"></script>
+<script src="/static/js/command-palette.js"></script>
+<script src="/static/js/topbar-arc.js"></script>
+<script src="/static/js/mission-control.js"></script>
 
-      <!-- PUBLISH HUB (NEW) -->
-      <div class="sidebar-section-label" style="margin-top:8px;color:#10b981">📡 Publish Hub</div>
+<script>
+// Clock
+(function() {
+  const el = document.getElementById('clock');
+  if (!el) return;
+  function tick() { el.textContent = new Date().toLocaleTimeString(); }
+  tick(); setInterval(tick, 1000);
+})();
 
-      <a href="/publish-hub" class="nav-item {% if active == 'publish_hub' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-          <polyline points="16,6 12,2 8,6"/>
-          <line x1="12" y1="2" x2="12" y2="15"/>
-        </svg>
-        <span>Social Publish</span>
-        <span class="nav-badge" style="background:rgba(16,185,129,0.2);border-color:#10b981;color:#10b981">ALL</span>
-      </a>
+// Service status pills
+(async function() {
+  async function checkUrl(url) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      return r.ok || r.status < 500;
+    } catch { return false; }
+  }
 
-      <a href="/schedule" class="nav-item {% if active == 'schedule' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-        </svg>
-        <span>Schedules</span>
-      </a>
+  function setPill(dotId, labelId, alive, label) {
+    const dot = document.getElementById(dotId);
+    const lbl = document.getElementById(labelId);
+    if (!dot || !lbl) return;
+    dot.style.background = alive ? 'var(--success)' : 'var(--danger)';
+    lbl.textContent = label + (alive ? ' ✓' : ' ✗');
+  }
 
-      <!-- CONTENT CREATION -->
-      <div class="sidebar-section-label" style="margin-top:8px">✍️ Content</div>
+  const [proxy, ollama] = await Promise.all([
+    checkUrl('http://localhost:8082/health'),
+    checkUrl('http://localhost:11434/api/tags'),
+  ]);
+  setPill('proxy-dot', 'proxy-label', proxy, 'Proxy');
+  setPill('ollama-dot', 'ollama-label', ollama, 'Ollama');
+})();
+</script>
 
-      <a href="/podcast" class="nav-item {% if active == 'podcast' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="9" y="2" width="6" height="12" rx="3"/>
-          <path d="M5 10v2a7 7 0 0 0 14 0v-2"/>
-          <line x1="12" y1="19" x2="12" y2="23"/>
-        </svg>
-        <span>Podcast</span><span class="nav-badge">MP3</span>
-      </a>
-
-      <a href="/blog" class="nav-item {% if active == 'blog' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
-        </svg>
-        <span>Blog</span><span class="nav-badge">MD</span>
-      </a>
-
-      <a href="/carousel" class="nav-item {% if active == 'carousel' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/>
-        </svg>
-        <span>Carousel</span><span class="nav-badge">IG</span>
-      </a>
-
-      <!-- GOD MODE -->
-      <div class="sidebar-section-label" style="margin-top:8px;color:var(--cyan)">⚡ God Mode</div>
-
-      <a href="/ai-studio" class="nav-item {% if active == 'ai_studio' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
-        </svg>
-        <span>AI Studio</span>
-        <span class="nav-badge" style="background:rgba(139,92,246,0.2);border-color:#8b5cf6;color:#8b5cf6">FAL</span>
-      </a>
-
-      <a href="/media-lab" class="nav-item {% if active == 'media_lab' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14,2 14,8 20,8"/>
-          <path d="M10 13l2 2 4-4"/>
-        </svg>
-        <span>Media Lab</span>
-        <span class="nav-badge" style="background:rgba(6,182,212,0.2);border-color:#06b6d4;color:#06b6d4">DL</span>
-      </a>
-
-      <a href="/orchestration" class="nav-item {% if active == 'orchestration' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>
-          <path d="M12 7v4M7 17l3-4M17 17l-3-4"/>
-        </svg>
-        <span>Agent Crews</span>
-        <span class="nav-badge" style="background:rgba(0,212,255,0.2);border-color:#00d4ff;color:#00d4ff">AI</span>
-      </a>
-
-      <a href="/mission-control" class="nav-item {% if active == 'mission_control' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
-          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-        </svg>
-        <span>Mission Control</span>
-        <span class="nav-badge" style="background:rgba(255,46,195,0.18);border-color:#ff2ec3;color:#ff2ec3">HUB</span>
-      </a>
-
-      <!-- INTEL / ANALYTICS -->
-      <div class="sidebar-section-label" style="margin-top:8px">📊 Intel</div>
-
-      <a href="/pipeline" class="nav-item {% if active == 'pipeline' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M3 3h18v4H3zM3 10h12v4H3zM3 17h8v4H3z"/>
-        </svg>
-        <span>Pipeline Flow</span>
-        <span class="nav-badge" style="background:rgba(167,139,250,0.2);border-color:#a78bfa;color:#a78bfa">AI</span>
-      </a>
-
-      <a href="/command" class="nav-item {% if active == 'command' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
-        </svg>
-        <span>Neural Command</span>
-        <span class="nav-badge" style="background:rgba(59,130,246,0.2);border-color:#3b82f6;color:#3b82f6">HQ</span>
-      </a>
-
-      <a href="/content-hub" class="nav-item {% if active == 'content_hub' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-        <span>Content Hub</span>
-        <span class="nav-badge" style="background:rgba(245,158,11,0.2);border-color:#f59e0b;color:#f59e0b">17</span>
-      </a>
-
-      <a href="/research" class="nav-item {% if active == 'research' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <span>Research</span><span class="nav-badge">RAG</span>
-      </a>
-
-      <!-- DISCOVERY -->
-      <div class="sidebar-section-label" style="margin-top:8px">🔭 Discovery</div>
-
-      <a href="/github-hub" class="nav-item {% if active == 'github_hub' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
-        </svg>
-        <span>GitHub Hub</span>
-        <span class="nav-badge" style="background:rgba(139,92,246,0.2);border-color:#8b5cf6;color:#8b5cf6">GH</span>
-      </a>
-
-      <a href="/skills" class="nav-item {% if active == 'skills' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-        <span>Skills</span>
-        <span class="nav-badge" style="background:rgba(16,185,129,0.2);border-color:#10b981;color:#10b981">CAL</span>
-      </a>
-
-      <a href="/ideas" class="nav-item {% if active == 'ideas' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.5V17h8v-2.5A7 7 0 0 0 12 2z"/>
-        </svg>
-        <span>Idea Inbox</span><span class="nav-badge">AI</span>
-      </a>
-
-      <!-- SYSTEM -->
-      <div class="sidebar-section-label" style="margin-top:8px">⚙️ System</div>
-
-      <a href="/repos" class="nav-item {% if active == 'repos' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77"/>
-        </svg>
-        <span>AI Repos</span>
-        <span class="nav-badge" id="repos-count">18</span>
-      </a>
-
-      <a href="/brand" class="nav-item {% if active == 'brand' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-          <line x1="7" y1="7" x2="7.01" y2="7"/>
-        </svg>
-        <span>Brand Voice</span>
-      </a>
-
-      <a href="/library" class="nav-item {% if active == 'library' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-        </svg>
-        <span>Asset Library</span>
-      </a>
-
-      <a href="/session" class="nav-item {% if active == 'session' %}active{% endif %}">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12,6 12,12 16,14"/>
-        </svg>
-        <span>Session</span>
-      </a>
-
-      <!-- System Stats Footer -->
-      <div class="sidebar-footer">
-        <div class="sys-stats">
-          <div class="sys-stat">
-            <span>CPU</span><span id="cpu-val" class="text-blue">--</span>
-          </div>
-          <div class="sys-bar"><div class="sys-bar-fill" id="cpu-bar" style="width:0%"></div></div>
-          <div class="sys-stat" style="margin-top:6px">
-            <span>MEM</span><span id="mem-val" class="text-blue">--</span>
-          </div>
-          <div class="sys-bar"><div class="sys-bar-fill" id="mem-bar" style="width:0%"></div></div>
-          <div class="sys-stat" style="margin-top:6px">
-            <span>OLLAMA</span><span id="ollama-val" class="text-green">READY</span>
-          </div>
-          <div class="sys-stat" style="margin-top:6px">
-            <span>AI REPOS</span><span style="color:var(--orange);font-family:var(--font-data);font-size:11px">18 LOADED</span>
-          </div>
-        </div>
-      </div>
-    </nav>
-
-    <!-- MAIN CONTENT -->
-    <main class="main-content">
-      {% block content %}{% endblock %}
-    </main>
-
-  </div><!-- /app-shell -->
-
-  <!-- SVG gradient defs -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <linearGradient id="gradHolo" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#00d4ff"/>
-        <stop offset="100%" stop-color="#ff2ec3"/>
-      </linearGradient>
-      <linearGradient id="gradRevenue" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#ff6b35"/>
-        <stop offset="100%" stop-color="#10b981"/>
-      </linearGradient>
-    </defs>
-  </svg>
-
-  <div id="toast-root"></div>
-
-  <script src="/static/js/majd.js"></script>
-  <script src="/static/js/voice.js"></script>
-  <script src="/static/js/chat-overlay.js"></script>
-  <script src="/static/js/toast.js"></script>
-  <script src="/static/js/command-palette.js"></script>
-  <script src="/static/js/topbar-arc.js"></script>
-  <script src="/static/js/mission-control.js"></script>
-  {% block scripts %}{% endblock %}
+{% block scripts %}{% endblock %}
 </body>
 </html>

@@ -22,7 +22,7 @@
       <div class="hud-panel-header"><span class="hud-panel-title">Model</span></div>
       <div class="hud-panel-body">
         <select id="ol-model" class="form-control mb-16">
-          <option value="llama3.1:latest">llama3.1:latest</option>
+          <option value="llama3.1:8b">llama3.1:8b</option>
         </select>
         <div id="ol-models-list" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;"></div>
       </div>
@@ -142,8 +142,8 @@ async function loadModels() {
     select.textContent = '';
     if (!models.length) {
       const opt = document.createElement('option');
-      opt.value = 'llama3.1:latest';
-      opt.textContent = 'llama3.1:latest (default)';
+      opt.value = 'llama3.1:8b';
+      opt.textContent = 'llama3.1:8b (default)';
       select.appendChild(opt);
     }
     models.forEach(m => {

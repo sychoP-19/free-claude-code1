@@ -17,10 +17,21 @@ from core.anthropic.sse import ANTHROPIC_SSE_RESPONSE_HEADERS
 from providers.base import BaseProvider
 from providers.exceptions import InvalidRequestError, ProviderError
 
+from .dual_brain.intent_classifier import classify_intent, BrainTarget
+from .dual_brain.model_override import maybe_override_model
+from .detection import (
+    is_filepath_extraction_request,
+    is_prefix_detection_request,
+    is_prompt_rebuild_request,
+    is_quota_check_request,
+    is_suggestion_mode_request,
+    is_title_generation_request,
+)
 from .model_router import ModelRouter
 from .models.anthropic import MessagesRequest, TokenCountRequest
 from .models.responses import TokenCountResponse
 from .optimization_handlers import try_optimizations
+from .prompt_rebuilder import PromptRebuilder
 from .web_tools.egress import WebFetchEgressPolicy
 from .web_tools.request import (
     is_web_server_tool_request,
@@ -33,7 +44,7 @@ TokenCounter = Callable[[list[Any], str | list[Any] | None, list[Any] | None], i
 ProviderGetter = Callable[[str], BaseProvider]
 
 # Providers that use ``/chat/completions`` + Anthropic-to-OpenAI conversion (not native Messages).
-_OPENAI_CHAT_UPSTREAM_IDS = frozenset({"nvidia_nim"})
+_OPENAI_CHAT_UPSTREAM_IDS = frozenset({"nvidia_nim", "kimi", "glm"})
 
 
 def anthropic_sse_streaming_response(
@@ -92,16 +103,21 @@ class ClaudeProxyService:
         provider_getter: ProviderGetter,
         model_router: ModelRouter | None = None,
         token_counter: TokenCounter = get_token_count,
+        prompt_rebuilder: PromptRebuilder | None = None,
     ):
         self._settings = settings
         self._provider_getter = provider_getter
         self._model_router = model_router or ModelRouter(settings)
         self._token_counter = token_counter
+        self._prompt_rebuilder = prompt_rebuilder or PromptRebuilder(settings, provider_getter)
 
     def create_message(self, request_data: MessagesRequest) -> object:
         """Create a message response or streaming response."""
         try:
             _require_non_empty_messages(request_data.messages)
+
+            if self._settings.enable_prompt_rebuilding and is_prompt_rebuild_request(request_data):
+                request_data = self._prompt_rebuilder.rebuild(request_data)
 
             routed = self._model_router.resolve_messages_request(request_data)
             if routed.resolved.provider_id in _OPENAI_CHAT_UPSTREAM_IDS:
@@ -136,6 +152,29 @@ class ClaudeProxyService:
             if optimized is not None:
                 return optimized
             logger.debug("No optimization matched, routing to provider")
+
+            # Dual-brain routing: classify intent and switch models if configured
+            if getattr(self._settings, "dual_brain_enabled", False):
+                brain_target = classify_intent(
+                    routed.request.messages,
+                    system=routed.request.system,
+                )
+                if brain_target is not BrainTarget.AUTO:
+                    override_result = maybe_override_model(
+                        routed.request.model,
+                        brain_target,
+                        self._settings,
+                    )
+                    if override_result.applied and override_result.overridden_model:
+                        logger.info(
+                            "DUAL_BRAIN: routed to brain={} model={} (was {})",
+                            brain_target.value,
+                            override_result.overridden_model,
+                            override_result.original_model,
+                        )
+                        # Update original request model and re-resolve
+                        request_data.model = override_result.overridden_model
+                        routed = self._model_router.resolve_messages_request(request_data)
 
             provider = self._provider_getter(routed.resolved.provider_id)
             provider.preflight_stream(

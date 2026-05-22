@@ -206,6 +206,9 @@ class Settings(BaseSettings):
     # ==================== Fast Prefix Detection ====================
     fast_prefix_detection: bool = True
 
+    # ==================== Prompt Rebuilding ====================
+    enable_prompt_rebuilding: bool = True
+
     # ==================== Optimizations ====================
     enable_network_probe_mock: bool = True
     enable_title_generation_skip: bool = True
@@ -256,6 +259,11 @@ class Settings(BaseSettings):
     debug_subagent_stack: bool = Field(
         default=False, validation_alias="DEBUG_SUBAGENT_STACK"
     )
+
+    # ==================== Dual-Brain Settings ====================
+    dual_brain_enabled: bool = Field(default=False, validation_alias="DUAL_BRAIN_ENABLED")
+    dual_brain_codex_model: str | None = Field(default=None, validation_alias="DUAL_BRAIN_CODEX_MODEL")
+    dual_brain_claude_model: str | None = Field(default=None, validation_alias="DUAL_BRAIN_CLAUDE_MODEL")
 
     # ==================== NIM Settings ====================
     nim: NimSettings = Field(default_factory=NimSettings)
@@ -321,6 +329,8 @@ class Settings(BaseSettings):
         "enable_opus_thinking",
         "enable_sonnet_thinking",
         "enable_haiku_thinking",
+        "dual_brain_codex_model",
+        "dual_brain_claude_model",
         mode="before",
     )
     @classmethod

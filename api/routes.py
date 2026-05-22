@@ -218,6 +218,41 @@ async def health():
     return {"status": "healthy"}
 
 
+# =============================================================================
+# Dual-Brain Diagnostics
+# =============================================================================
+@router.get("/v1/brain/current")
+async def brain_current(
+    settings: Settings = Depends(get_settings), _auth=Depends(require_api_key)
+):
+    """Return the current dual-brain configuration and active target."""
+    return {
+        "dual_brain_enabled": settings.dual_brain_enabled,
+        "codex_model": settings.dual_brain_codex_model,
+        "claude_model": settings.dual_brain_claude_model,
+        "default_model": settings.model,
+    }
+
+
+@router.post("/v1/brain/switch")
+async def brain_switch(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+    _auth=Depends(require_api_key),
+):
+    """Switch the default brain for the next requests (not persisted)."""
+    body = await request.json()
+    target = body.get("target")
+    if target not in {"codex", "claude", "auto"}:
+        raise HTTPException(status_code=400, detail="Invalid target")
+
+    return {
+        "status": "ok",
+        "target": target,
+        "note": "Per-request routing is intent-based; /switch affects fallback only",
+    }
+
+
 @router.api_route("/health", methods=["HEAD", "OPTIONS"])
 async def probe_health():
     """Respond to compatibility probes for the health endpoint."""

@@ -3,8 +3,13 @@ import re
 import json
 from datetime import datetime
 from pathlib import Path
-from core import ollama_client as ollama
+from core.llm import llm_json
 from core.downloader import download_video, DOWNLOADS_DIR
+try:
+    from skill_utils import web_search_exa
+except ModuleNotFoundError:
+    async def web_search_exa(query: str, **_):  # type: ignore[misc]
+        return []
 
 # Output directories
 TOPICS_DIR = Path(__file__).parent.parent / "outputs" / "topics"
@@ -14,108 +19,69 @@ SYSTEM_PROMPT = "You are a trend analyst. Return ONLY valid JSON, no explanation
 
 
 async def run(query: str, platform: str, window: str, output_batch: bool = True) -> dict:
-    """
-    Mine trending topics for a given niche/platform/time window.
+    """Mine trending topics using LLM (proxy → Ollama → offline fallback)."""
+    search_results = await web_search_exa(query=f"trending {query} {platform} {window}", numResults=10)
 
-    Args:
-        query: Niche/topic to analyze
-        platform: Target platform (youtube, tiktok, instagram)
-        window: Time window (e.g., "7 days", "30 days")
-        output_batch: If True, write results to batch_YYYYMMDD.json
+    prompt = f"""Analyze trends for niche: "{query}" on {platform} over {window}.
+Search hints: {json.dumps(search_results)[:1000]}
 
-    Returns:
-        Dict with 10-15 topic candidates with trend metrics
-    """
-    models = await ollama.list_models()
-    model = ollama.pick_model(models, ["mistral:7b", "llama3:8b", "phi3:mini"])
-
-    prompt = f"""Analyze trending content for niche: "{query}" on {platform} in the last {window}.
-
-Return JSON with 10-15 topic candidates:
+Return JSON with exactly 10 topics:
 {{
-  "batch_id": "batch_YYYYMMDD",
+  "batch_id": "batch_{datetime.now().strftime('%Y%m%d')}",
   "query": "{query}",
   "platform": "{platform}",
   "window": "{window}",
-  "generated_at": "ISO timestamp",
+  "generated_at": "{datetime.now().isoformat()}",
   "topics": [
-    {{"id": "topic_001", "title": "trend title", "platform": "{platform}", "trend_score": 94, "velocity": "explosive", "competition": "Medium", "saturation": 34, "estimated_cpm": 8.50, "hashtags": ["#tag1","#tag2","#tag3","#tag4","#tag5"], "peak_window": "2-3 days"}},
-    {{"id": "topic_002", "title": "trend title", "platform": "{platform}", "trend_score": 78, "velocity": "rising", "competition": "Low", "saturation": 22, "estimated_cpm": 6.20, "hashtags": ["#tag1","#tag2","#tag3","#tag4","#tag5"], "peak_window": "5-7 days"}},
-    {{"id": "topic_003", "title": "trend title", "platform": "{platform}", "trend_score": 65, "velocity": "stable", "competition": "High", "saturation": 78, "estimated_cpm": 4.50, "hashtags": ["#tag1","#tag2","#tag3","#tag4","#tag5"], "peak_window": "evergreen"}}
+    {{
+      "id": "topic_001",
+      "title": "topic title here",
+      "platform": "{platform}",
+      "trend_score": 88,
+      "velocity": "rising",
+      "competition": "Medium",
+      "saturation": 45,
+      "estimated_cpm": 6.5,
+      "hashtags": ["#tag1", "#tag2"],
+      "peak_window": "3-5 days"
+    }}
   ],
   "summary": {{
     "total_topics": 10,
-    "avg_trend_score": 72.4,
+    "avg_trend_score": 72,
     "competition_level": "Medium",
-    "best_opportunity": "topic_002"
+    "best_opportunity": "topic_001"
   }}
-}}
+}}"""
 
-Make topics realistic for the "{query}" niche. Vary scores, competition, and saturation. Return only JSON."""
+    result = await llm_json(prompt, system=SYSTEM_PROMPT)
 
-    try:
-        response = await ollama.generate(model, prompt, system=SYSTEM_PROMPT)
-        match = re.search(r'\{.*\}', response, re.DOTALL)
-        if match:
-            result = json.loads(match.group())
+    if not result or not result.get("topics"):
+        result = _fallback(query, platform)
 
-            # Output to batch file if requested
-            if output_batch:
-                batch_id = f"batch_{datetime.now().strftime('%Y%m%d')}"
-                result["batch_id"] = batch_id
-                output_path = TOPICS_DIR / f"{batch_id}.json"
-                with open(output_path, "w", encoding="utf-8") as f:
-                    json.dump(result, f, indent=2, ensure_ascii=False)
-                result["_output_path"] = str(output_path)
-
-            return result
-    except Exception:
-        pass
-
-    result = _fallback(query, platform)
-
-    # Write fallback to file if requested
     if output_batch:
-        batch_id = f"batch_{datetime.now().strftime('%Y%m%d')}"
-        result["batch_id"] = batch_id
+        batch_id = result.setdefault("batch_id", f"batch_{datetime.now().strftime('%Y%m%d')}")
         output_path = TOPICS_DIR / f"{batch_id}.json"
-        result["_output_path"] = str(output_path)
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
+        result["_output_path"] = str(output_path)
 
     return result
 
 
 async def generate_blueprint(topic_id: str, topic_data: dict) -> dict:
-    """
-    Generate a script blueprint from a selected topic (Stage 1 output).
-
-    Args:
-        topic_id: Topic identifier
-        topic_data: Topic data from Stage 1 output (with 'title', 'hashtags', etc.)
-
-    Returns:
-        Script blueprint dict
-    """
-    models = await ollama.list_models()
-    model = ollama.pick_model(models, ["mistral:7b", "llama3:8b", "phi3:mini"])
-
+    """Generate a script blueprint from a selected topic."""
+    from core.llm import llm_complete
     title = topic_data.get("title", "trending topic")
+    prompt = f"""Write a viral 60-second short-form video script for: "{title}"
 
-    prompt = f"""Write a viral short-form video script for this trending topic: "{title}"
-
-Format as a 60-second script with:
 HOOK (0-3s): [attention grabber]
-BODY (3-45s): [3 key points]
-CTA (45-60s): [call to action]
+BODY (3-45s): [3 key points, punchy]
+CTA (45-60s): [strong call to action]
 
-Keep it punchy, viral, and monetization-ready."""
-
-    try:
-        script = await ollama.generate(model, prompt)
-        return {"script": script, "topic_id": topic_id}
-    except Exception:
-        return {"script": _fallback_script(title), "topic_id": topic_id}
+Keep it viral and monetization-ready."""
+    script = await llm_complete(prompt) or _fallback_script(title)
+    return {"script": script, "topic_id": topic_id}
 
 
 async def download(url: str) -> dict:

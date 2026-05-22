@@ -1,378 +1,424 @@
 {% extends "base.html" %}
 {% set active = "command" %}
-{% block title %}Neural Command Interface{% endblock %}
+{% block title %}MAJD NEXUS — Mission Control{% endblock %}
 
 {% block head %}
 <style>
-/* COMMAND INTERFACE — FULL IMMERSION */
-.cmd-shell {
-  display: grid;
-  grid-template-columns: 280px 1fr 280px;
-  grid-template-rows: 1fr 200px;
-  gap: 12px;
-  height: calc(100vh - 120px);
-  min-height: 600px;
-}
-.cmd-center {
-  grid-column: 2;
-  grid-row: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-.cmd-left  { grid-column: 1; grid-row: 1 / 3; }
-.cmd-right { grid-column: 3; grid-row: 1 / 3; }
-.cmd-bottom { grid-column: 1 / 4; grid-row: 2; }
-
-/* Arc Reactor — big version */
-.arc-main {
-  width: 220px; height: 220px;
-  position: relative;
-  display: flex; align-items: center; justify-content: center;
-}
-.arc-ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 1px solid rgba(0,212,255,0.4);
-  animation: arc-spin linear infinite;
-}
-.arc-ring:nth-child(1) { width:220px; height:220px; border-color:rgba(59,130,246,0.3); animation-duration:8s; }
-.arc-ring:nth-child(2) { width:180px; height:180px; border-color:rgba(0,212,255,0.5); border-width:2px; animation-duration:5s; animation-direction:reverse; }
-.arc-ring:nth-child(3) { width:140px; height:140px; border-color:rgba(16,185,129,0.4); animation-duration:12s; }
-.arc-ring:nth-child(4) { width:100px; height:100px; border-color:rgba(0,212,255,0.6); border-width:2px; animation-duration:3s; animation-direction:reverse; }
-.arc-core {
-  width: 60px; height: 60px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(0,212,255,0.8) 0%, rgba(59,130,246,0.5) 50%, transparent 100%);
-  box-shadow: 0 0 30px rgba(0,212,255,0.8), 0 0 60px rgba(0,212,255,0.4), 0 0 90px rgba(0,212,255,0.2);
-  animation: core-pulse 2s ease-in-out infinite;
-  z-index: 2;
-}
-@keyframes core-pulse {
-  0%,100% { box-shadow:0 0 30px rgba(0,212,255,0.8),0 0 60px rgba(0,212,255,0.4); transform:scale(1); }
-  50%      { box-shadow:0 0 50px rgba(0,212,255,1),0 0 100px rgba(0,212,255,0.6),0 0 140px rgba(0,212,255,0.3); transform:scale(1.08); }
+/* ── NEXUS COLOR TOKENS ─────────────────────────────────────────────────── */
+:root {
+  --nx-purple: #7c3aed;
+  --nx-violet: #a78bfa;
+  --nx-cyan:   #06b6d4;
+  --nx-panel:  rgba(255,255,255,.025);
+  --nx-border: rgba(124,58,237,.28);
 }
 
-/* Status ring around arc */
-.arc-status-ring {
-  position: absolute;
-  width: 240px; height: 240px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  border-top-color: #00d4ff;
-  border-right-color: #00d4ff;
-  animation: arc-spin 2s linear infinite;
-  box-shadow: 0 0 10px rgba(0,212,255,0.6);
+/* ── AMBIENT BACKGROUND ─────────────────────────────────────────────────── */
+.nx-bg { position:fixed;inset:0;z-index:0;pointer-events:none; }
+.nx-grid-bg {
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(124,58,237,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(124,58,237,.05) 1px,transparent 1px);
+  background-size:32px 32px;
+  transform:rotateX(40deg) translateY(-40%);
+  transform-origin:center top;
+  opacity:.4;
+}
+.nx-glow-a {
+  position:absolute;width:600px;height:600px;top:-200px;left:-100px;
+  background:radial-gradient(circle,rgba(124,58,237,.15) 0%,transparent 70%);
+  border-radius:50%;
+}
+.nx-glow-b {
+  position:absolute;width:500px;height:500px;top:-150px;right:-100px;
+  background:radial-gradient(circle,rgba(6,182,212,.1) 0%,transparent 70%);
+  border-radius:50%;
 }
 
-/* COMMAND TERMINAL */
-.cmd-terminal {
-  background: rgba(0,0,0,0.6);
-  border: 1px solid var(--border);
-  border-top: 2px solid var(--blue);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+/* ── SHELL GRID ─────────────────────────────────────────────────────────── */
+.nx-shell {
+  position:relative;z-index:1;
+  display:grid;
+  grid-template-columns:255px 1fr 255px;
+  grid-template-rows:1fr 215px;
+  gap:10px;
+  height:calc(100vh - 110px);
+  min-height:620px;
 }
-.cmd-terminal-header {
-  padding: 8px 12px;
-  background: rgba(0,212,255,0.05);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.cmd-log {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px 12px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1.8;
-}
-.cmd-log .line { display: flex; gap: 8px; }
-.cmd-log .ts  { color: rgba(0,212,255,0.4); min-width: 60px; }
-.cmd-log .lvl-info    { color: var(--blue); }
-.cmd-log .lvl-success { color: var(--green); }
-.cmd-log .lvl-error   { color: var(--red); }
-.cmd-log .lvl-warning { color: var(--yellow); }
-.cmd-input-row {
-  padding: 8px 12px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.cmd-prompt { color: var(--blue); font-family: var(--font-mono); font-size: 12px; }
-.cmd-input {
-  flex: 1; background: transparent; border: none; outline: none;
-  color: var(--white); font-family: var(--font-mono); font-size: 12px;
-  caret-color: var(--blue);
-}
+.nx-left   { grid-column:1;grid-row:1/3;display:flex;flex-direction:column;gap:10px; }
+.nx-center { grid-column:2;grid-row:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative; }
+.nx-right  { grid-column:3;grid-row:1/3;display:flex;flex-direction:column;gap:10px; }
+.nx-bottom { grid-column:2;grid-row:2; }
 
-/* METRIC TILES */
-.metric-tile {
-  background: rgba(0,0,0,0.4);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--blue);
-  padding: 10px 14px;
-  margin-bottom: 8px;
+/* ── HOLOGRAPHIC PANEL ──────────────────────────────────────────────────── */
+.holo { background:var(--nx-panel);border:1px solid var(--nx-border);position:relative;overflow:hidden; }
+.holo::before {
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(135deg,rgba(124,58,237,.06) 0%,transparent 50%,rgba(6,182,212,.04) 100%);
 }
-.metric-tile.green  { border-left-color: var(--green); }
-.metric-tile.yellow { border-left-color: var(--yellow); }
-.metric-tile.red    { border-left-color: var(--red); }
+.holo::after {
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(124,58,237,.8),rgba(6,182,212,.6),transparent);
+}
+.holo-header {
+  padding:8px 14px;border-bottom:1px solid var(--nx-border);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.holo-title { font-family:var(--font-mono);font-size:9px;letter-spacing:.15em;color:var(--nx-violet);text-transform:uppercase; }
+.holo-body  { padding:10px;position:relative; }
 
-.ticker-wrap {
-  overflow: hidden;
-  white-space: nowrap;
-  border-top: 1px solid var(--border);
-  padding: 6px 0;
-  margin-top: auto;
+/* ── HEXAGONAL AGENT CARDS ──────────────────────────────────────────────── */
+.hex-grid { display:flex;flex-direction:column;gap:6px;padding:4px; }
+.hex-card {
+  clip-path:polygon(10px 0%,calc(100% - 10px) 0%,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0% calc(100% - 10px),0% 10px);
+  background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);
+  padding:8px 12px;display:flex;align-items:center;gap:10px;
+  cursor:pointer;transition:background .2s,border-color .2s;position:relative;
 }
-.ticker-inner {
-  display: inline-block;
-  animation: ticker-scroll 40s linear infinite;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: rgba(0,212,255,0.6);
+.hex-card:hover { background:rgba(124,58,237,.18);border-color:rgba(124,58,237,.6); }
+.hex-card.active { background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.5); }
+.hex-card.active::before {
+  content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);
+  width:3px;height:60%;background:#10b981;box-shadow:0 0 8px #10b981;
 }
-@keyframes ticker-scroll {
-  from { transform: translateX(100vw); }
-  to   { transform: translateX(-100%); }
-}
+.hex-num  { font-family:var(--font-mono);font-size:15px;font-weight:700;color:rgba(124,58,237,.3);min-width:22px; }
+.hex-dot  { width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0;margin-right:2px; }
+.hex-card.active .hex-dot { background:#10b981;box-shadow:0 0 6px #10b981;animation:hex-pulse 1.5s ease-in-out infinite; }
+@keyframes hex-pulse { 0%,100%{opacity:1}50%{opacity:.35} }
+.hex-label  { font-size:9px;font-family:var(--font-mono);letter-spacing:.08em;color:var(--nx-violet); }
+.hex-status { font-size:8px;color:rgba(255,255,255,.3);margin-top:1px; }
 
-.hud-hex {
-  position: absolute;
-  width: 100%; height: 100%;
-  pointer-events: none;
-  opacity: 0.04;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpolygon points='30,2 58,17 58,47 30,62 2,47 2,17' fill='none' stroke='%2300d4ff' stroke-width='1'/%3E%3C/svg%3E");
-  background-size: 60px 52px;
+/* ── KPI STRIP ──────────────────────────────────────────────────────────── */
+.nx-kpi-strip { display:flex;gap:28px;margin-bottom:14px;z-index:2; }
+.nx-kpi { text-align:center; }
+.nx-kpi-val {
+  font-size:26px;font-weight:800;line-height:1;
+  background:linear-gradient(135deg,var(--nx-purple),var(--nx-cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
 }
+.nx-kpi-label { font-family:var(--font-mono);font-size:8px;letter-spacing:.15em;color:rgba(255,255,255,.3);margin-top:3px; }
 
-.agent-mini {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  margin-bottom: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.agent-mini:hover { border-color: var(--blue); background: rgba(0,212,255,0.05); }
-.agent-mini.active { border-color: var(--green); background: rgba(16,185,129,0.05); }
-.agent-mini-dot { width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0; }
-.agent-mini.active .agent-mini-dot { background:var(--green); animation: pulse-dot 1.5s ease-in-out infinite; }
+/* ── ORBITAL HUD ────────────────────────────────────────────────────────── */
+.orbital-hud { position:relative;width:255px;height:255px;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.o-ring { position:absolute;border-radius:50%;border:1px solid;animation:o-spin linear infinite; }
+.o-ring:nth-child(1) { width:255px;height:255px;border-color:rgba(124,58,237,.15);animation-duration:22s; }
+.o-ring:nth-child(2) { width:215px;height:215px;border-color:rgba(124,58,237,.25);border-style:dashed;animation-duration:15s;animation-direction:reverse; }
+.o-ring:nth-child(3) { width:175px;height:175px;border-color:rgba(6,182,212,.2);animation-duration:9s; }
+.o-ring:nth-child(4) { width:125px;height:125px;border-color:rgba(124,58,237,.4);border-width:2px;animation-duration:5s;animation-direction:reverse; }
+@keyframes o-spin { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
 
-canvas.chart-canvas {
-  width: 100% !important;
-  display: block;
+/* Zero-size wrapper orbital pattern */
+.o-wrap { position:absolute;top:50%;left:50%;width:0;height:0;animation:o-spin linear infinite; }
+.o-dot  { position:absolute;border-radius:50%;transform:translateY(-50%); }
+.o-wrap-1 { animation-duration:15s;animation-direction:reverse; }
+.o-wrap-1 .o-dot { width:8px;height:8px;left:106px;background:var(--nx-cyan);box-shadow:0 0 8px var(--nx-cyan); }
+.o-wrap-2 { animation-duration:9s; }
+.o-wrap-2 .o-dot { width:6px;height:6px;left:86px;background:var(--nx-violet);box-shadow:0 0 6px var(--nx-violet); }
+.o-wrap-3 { animation-duration:22s;animation-direction:reverse; }
+.o-wrap-3 .o-dot { width:5px;height:5px;left:125px;background:#10b981;box-shadow:0 0 6px #10b981; }
+.o-wrap-4 { animation-duration:5s; }
+.o-wrap-4 .o-dot { width:7px;height:7px;left:61px;background:#f59e0b;box-shadow:0 0 6px #f59e0b; }
+
+/* Nexus core */
+.nx-core {
+  width:78px;height:78px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  background:radial-gradient(circle,rgba(124,58,237,.5) 0%,rgba(124,58,237,.15) 50%,transparent 100%);
+  box-shadow:0 0 40px rgba(124,58,237,.6),0 0 80px rgba(124,58,237,.3);
+  animation:core-breathe 3s ease-in-out infinite;z-index:2;
 }
+@keyframes core-breathe {
+  0%,100%{ box-shadow:0 0 40px rgba(124,58,237,.6),0 0 80px rgba(124,58,237,.3);transform:scale(1); }
+  50%    { box-shadow:0 0 60px rgba(124,58,237,.9),0 0 120px rgba(124,58,237,.5),0 0 160px rgba(6,182,212,.2);transform:scale(1.05); }
+}
+.nx-core-label { font-family:var(--font-mono);font-size:7px;letter-spacing:.15em;color:var(--nx-violet);text-align:center;line-height:1.3; }
+
+/* ── ACTION BUTTONS ─────────────────────────────────────────────────────── */
+.nx-actions { display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px;z-index:2; }
+.nx-btn {
+  font-family:var(--font-mono);font-size:8px;letter-spacing:.12em;
+  padding:6px 14px;
+  border:1px solid var(--nx-border);background:rgba(124,58,237,.08);
+  color:var(--nx-violet);cursor:pointer;text-decoration:none;display:inline-block;
+  transition:all .2s;
+  clip-path:polygon(6px 0%,calc(100% - 6px) 0%,100% 6px,100% calc(100% - 6px),calc(100% - 6px) 100%,6px 100%,0% calc(100% - 6px),0% 6px);
+}
+.nx-btn:hover { background:rgba(124,58,237,.25);border-color:var(--nx-purple);color:#fff;box-shadow:inset 0 0 20px rgba(124,58,237,.3); }
+
+/* ── METRICS ────────────────────────────────────────────────────────────── */
+.nx-metric { padding:8px 12px;margin-bottom:6px;border-left:2px solid var(--nx-border);background:rgba(124,58,237,.04); }
+.nx-metric.green { border-left-color:#10b981; }
+.nx-metric.amber { border-left-color:#f59e0b; }
+.nx-metric-label { font-family:var(--font-mono);font-size:8px;color:rgba(255,255,255,.3);letter-spacing:.1em; }
+.nx-metric-val   { font-size:14px;font-weight:700;color:var(--nx-violet);margin-top:2px; }
+.nx-metric.green .nx-metric-val { color:#10b981; }
+.nx-metric.amber .nx-metric-val { color:#f59e0b; }
+
+/* ── COMMAND TERMINAL ───────────────────────────────────────────────────── */
+.nx-terminal {
+  height:100%;display:flex;flex-direction:column;
+  background:rgba(3,7,18,.85);border:1px solid var(--nx-border);
+  position:relative;overflow:hidden;
+}
+.nx-terminal::after {
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);
+  z-index:0;
+}
+.nx-term-header {
+  padding:6px 14px;border-bottom:1px solid var(--nx-border);
+  background:rgba(124,58,237,.05);
+  display:flex;justify-content:space-between;align-items:center;
+  position:relative;z-index:1;
+}
+.nx-term-dots { display:flex;gap:5px; }
+.nx-term-dot  { width:7px;height:7px;border-radius:50%; }
+.nx-term-dot.r{ background:#ef4444; }
+.nx-term-dot.y{ background:#f59e0b; }
+.nx-term-dot.g{ background:#10b981; }
+.nx-log {
+  flex:1;overflow-y:auto;padding:8px 14px;
+  font-family:var(--font-mono);font-size:11px;line-height:1.9;
+  position:relative;z-index:1;
+  scrollbar-width:thin;scrollbar-color:rgba(124,58,237,.3) transparent;
+}
+.nx-log-line { display:flex;gap:10px; }
+.nx-log-ts   { color:rgba(124,58,237,.4);min-width:62px;flex-shrink:0; }
+.nx-log-msg.info    { color:rgba(167,139,250,.9); }
+.nx-log-msg.success { color:#10b981; }
+.nx-log-msg.error   { color:#ef4444; }
+.nx-log-msg.warning { color:#f59e0b; }
+.nx-log-msg.cmd     { color:var(--nx-cyan); }
+.nx-input-row {
+  padding:7px 14px;border-top:1px solid var(--nx-border);
+  display:flex;gap:8px;align-items:center;
+  background:rgba(124,58,237,.03);position:relative;z-index:1;
+}
+.nx-prompt { font-family:var(--font-mono);font-size:12px;color:var(--nx-cyan); }
+.nx-input  { flex:1;background:transparent;border:none;outline:none;color:#fff;font-family:var(--font-mono);font-size:12px;caret-color:var(--nx-cyan); }
+.nx-ticker-wrap { overflow:hidden;white-space:nowrap;padding:5px 0;border-top:1px solid var(--nx-border);position:relative;z-index:1; }
+.nx-ticker { display:inline-block;animation:nx-tick 55s linear infinite;font-family:var(--font-mono);font-size:9px;color:rgba(124,58,237,.5); }
+@keyframes nx-tick { from{transform:translateX(100vw)}to{transform:translateX(-100%)} }
+canvas.chart-canvas { width:100% !important;display:block; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="page-header" style="margin-bottom:12px">
+<div class="nx-bg" aria-hidden="true">
+  <div class="nx-grid-bg"></div>
+  <div class="nx-glow-a"></div>
+  <div class="nx-glow-b"></div>
+</div>
+
+<div class="page-header" style="margin-bottom:10px;position:relative;z-index:1">
   <div>
-    <div class="page-title">NEURAL COMMAND INTERFACE</div>
-    <div class="page-subtitle">ALL SYSTEMS ONLINE · MAJD v3.0 ACTIVE</div>
+    <div class="page-title" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:18px;letter-spacing:.2em">MAJD NEXUS</div>
+    <div class="page-subtitle" style="color:rgba(124,58,237,.6)">MISSION CONTROL · ALL SYSTEMS NOMINAL</div>
   </div>
   <div class="page-actions">
-    <span class="badge badge-green" style="animation:badge-pulse 1.5s infinite;font-size:11px">◉ NEURAL LINK ACTIVE</span>
+    <span class="badge badge-green" style="font-size:10px">◉ NEXUS ONLINE</span>
+    <span class="text-mono text-xs text-muted" id="nx-clock" style="margin-left:12px">--:--:--</span>
   </div>
 </div>
 
-<div class="cmd-shell">
+<div class="nx-shell">
 
-  <!-- LEFT: Agent Status + Radar -->
-  <div class="cmd-left flex flex-col gap-12">
-    <div class="hud-panel" style="flex:0 0 auto">
-      <div class="hud-panel-header">
-        <span class="hud-panel-title">AGENT SWARM</span>
-        <span class="badge badge-blue" id="cmd-agents-online">5 / 5</span>
+  <!-- ════ LEFT ════ -->
+  <div class="nx-left">
+
+    <div class="holo" style="flex:0 0 auto">
+      <div class="holo-header">
+        <span class="holo-title">AGENT SWARM</span>
+        <span class="badge badge-blue" id="nx-agents-online" style="font-size:8px">5/5 ONLINE</span>
       </div>
-      <div class="hud-panel-body" style="padding:8px">
-        <div id="cmd-agent-list">
-          <div class="agent-mini" id="ami-spy" onclick="pingAgent('spy')">
-            <div class="agent-mini-dot"></div>
-            <div style="flex:1">
-              <div class="text-hud" style="font-size:10px">CHANNEL SPY</div>
-              <div class="text-muted text-mono" style="font-size:9px" id="ami-spy-status">STANDBY</div>
+      <div class="holo-body" style="padding:8px">
+        <div class="hex-grid">
+          <div class="hex-card active" id="hc-spy" onclick="pingAgent('spy')">
+            <span class="hex-num">01</span>
+            <div class="hex-dot"></div>
+            <div>
+              <div class="hex-label">CHANNEL SPY</div>
+              <div class="hex-status" id="hs-spy">READY</div>
             </div>
-            <span class="badge badge-blue" style="font-size:8px">01</span>
           </div>
-          <div class="agent-mini" id="ami-trends" onclick="pingAgent('trends')">
-            <div class="agent-mini-dot"></div>
-            <div style="flex:1">
-              <div class="text-hud" style="font-size:10px">TREND MINER</div>
-              <div class="text-muted text-mono" style="font-size:9px" id="ami-trends-status">STANDBY</div>
+          <div class="hex-card" id="hc-trends" onclick="pingAgent('trends')">
+            <span class="hex-num">02</span>
+            <div class="hex-dot"></div>
+            <div>
+              <div class="hex-label">TREND MINER</div>
+              <div class="hex-status" id="hs-trends">STANDBY</div>
             </div>
-            <span class="badge badge-blue" style="font-size:8px">02</span>
           </div>
-          <div class="agent-mini" id="ami-factory" onclick="pingAgent('factory')">
-            <div class="agent-mini-dot"></div>
-            <div style="flex:1">
-              <div class="text-hud" style="font-size:10px">CONTENT FACTORY</div>
-              <div class="text-muted text-mono" style="font-size:9px" id="ami-factory-status">STANDBY</div>
+          <div class="hex-card" id="hc-factory" onclick="pingAgent('factory')">
+            <span class="hex-num">03</span>
+            <div class="hex-dot"></div>
+            <div>
+              <div class="hex-label">CONTENT FACTORY</div>
+              <div class="hex-status" id="hs-factory">STANDBY</div>
             </div>
-            <span class="badge badge-blue" style="font-size:8px">03</span>
           </div>
-          <div class="agent-mini" id="ami-money" onclick="pingAgent('money')">
-            <div class="agent-mini-dot"></div>
-            <div style="flex:1">
-              <div class="text-hud" style="font-size:10px">MONEY INTEL</div>
-              <div class="text-muted text-mono" style="font-size:9px" id="ami-money-status">STANDBY</div>
+          <div class="hex-card" id="hc-money" onclick="pingAgent('money')">
+            <span class="hex-num">04</span>
+            <div class="hex-dot"></div>
+            <div>
+              <div class="hex-label">MONEY INTEL</div>
+              <div class="hex-status" id="hs-money">STANDBY</div>
             </div>
-            <span class="badge badge-blue" style="font-size:8px">04</span>
           </div>
-          <div class="agent-mini" id="ami-director" onclick="pingAgent('director')">
-            <div class="agent-mini-dot"></div>
-            <div style="flex:1">
-              <div class="text-hud" style="font-size:10px">CINEMA DIRECTOR</div>
-              <div class="text-muted text-mono" style="font-size:9px" id="ami-director-status">STANDBY</div>
+          <div class="hex-card" id="hc-director" onclick="pingAgent('director')">
+            <span class="hex-num">05</span>
+            <div class="hex-dot"></div>
+            <div>
+              <div class="hex-label">CINEMA DIRECTOR</div>
+              <div class="hex-status" id="hs-director">STANDBY</div>
             </div>
-            <span class="badge badge-blue" style="font-size:8px">05</span>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="hud-panel" style="flex:1">
-      <div class="hud-panel-header"><span class="hud-panel-title">OPPORTUNITY RADAR</span></div>
-      <div class="hud-panel-body" style="padding:4px">
-        <canvas id="radar-canvas" class="chart-canvas" style="height:200px"></canvas>
+    <div class="holo" style="flex:1">
+      <div class="holo-header"><span class="holo-title">OPPORTUNITY RADAR</span></div>
+      <div class="holo-body" style="padding:4px">
+        <canvas id="radar-canvas" class="chart-canvas" style="height:190px"></canvas>
       </div>
     </div>
 
-    <div class="hud-panel" style="flex:0 0 auto">
-      <div class="hud-panel-header"><span class="hud-panel-title">SYSTEM</span></div>
-      <div class="hud-panel-body" style="padding:8px">
-        <div class="metric-tile">
-          <div class="text-mono text-xs text-muted">CPU</div>
-          <div class="text-hud text-blue" id="cmd-cpu">--</div>
+    <div class="holo" style="flex:0 0 auto">
+      <div class="holo-header"><span class="holo-title">SYSTEM STATUS</span></div>
+      <div class="holo-body" style="padding:8px">
+        <div class="nx-metric">
+          <div class="nx-metric-label">OLLAMA ENGINE</div>
+          <div class="nx-metric-val" id="nx-ollama">ONLINE</div>
         </div>
-        <div class="metric-tile green">
-          <div class="text-mono text-xs text-muted">OLLAMA</div>
-          <div class="text-hud text-green" id="cmd-ollama">ONLINE</div>
+        <div class="nx-metric green">
+          <div class="nx-metric-label">REVENUE / MO</div>
+          <div class="nx-metric-val" id="nx-revenue">$12,500</div>
         </div>
-        <div class="metric-tile yellow">
-          <div class="text-mono text-xs text-muted">REVENUE / MONTH</div>
-          <div class="text-hud text-yellow" id="cmd-revenue">$12,500</div>
+        <div class="nx-metric amber">
+          <div class="nx-metric-label">NEXT PEAK TREND</div>
+          <div class="nx-metric-val" id="nx-trend" style="font-size:11px">AI Tools</div>
         </div>
       </div>
     </div>
+
   </div>
 
-  <!-- CENTER: Arc Reactor + Stats -->
-  <div class="cmd-center">
-    <div class="hud-hex"></div>
+  <!-- ════ CENTER ════ -->
+  <div class="nx-center">
 
-    <!-- Live KPIs floating -->
-    <div style="position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:24px">
-      <div style="text-align:center">
-        <div class="text-hud text-green" style="font-size:24px;font-weight:700" id="kpi-videos">0</div>
-        <div class="text-mono text-xs text-muted">VIDEOS</div>
+    <div class="nx-kpi-strip">
+      <div class="nx-kpi">
+        <div class="nx-kpi-val" id="kpi-videos">0</div>
+        <div class="nx-kpi-label">VIDEOS</div>
       </div>
-      <div style="text-align:center">
-        <div class="text-hud text-blue" style="font-size:24px;font-weight:700" id="kpi-channels">0</div>
-        <div class="text-mono text-xs text-muted">CHANNELS</div>
+      <div class="nx-kpi">
+        <div class="nx-kpi-val" id="kpi-channels">0</div>
+        <div class="nx-kpi-label">CHANNELS</div>
       </div>
-      <div style="text-align:center">
-        <div class="text-hud text-yellow" style="font-size:24px;font-weight:700" id="kpi-trends">0</div>
-        <div class="text-mono text-xs text-muted">TRENDS</div>
+      <div class="nx-kpi">
+        <div class="nx-kpi-val" id="kpi-trends">0</div>
+        <div class="nx-kpi-label">TRENDS</div>
+      </div>
+      <div class="nx-kpi">
+        <div class="nx-kpi-val" id="kpi-scripts">0</div>
+        <div class="nx-kpi-label">SCRIPTS</div>
       </div>
     </div>
 
-    <!-- Arc Reactor -->
-    <div class="arc-main">
-      <div class="arc-ring"></div>
-      <div class="arc-ring"></div>
-      <div class="arc-ring"></div>
-      <div class="arc-ring"></div>
-      <div class="arc-status-ring"></div>
-      <div class="arc-core"></div>
+    <div class="orbital-hud">
+      <div class="o-ring"></div>
+      <div class="o-ring"></div>
+      <div class="o-ring"></div>
+      <div class="o-ring"></div>
+
+      <div class="o-wrap o-wrap-1"><div class="o-dot"></div></div>
+      <div class="o-wrap o-wrap-2"><div class="o-dot"></div></div>
+      <div class="o-wrap o-wrap-3"><div class="o-dot"></div></div>
+      <div class="o-wrap o-wrap-4"><div class="o-dot"></div></div>
+
+      <div class="nx-core">
+        <div class="nx-core-label">MAJD<br>NEXUS</div>
+      </div>
     </div>
 
-    <!-- Neural network canvas below reactor -->
-    <div style="width:100%;margin-top:20px">
-      <canvas id="neural-canvas" class="chart-canvas" style="height:160px"></canvas>
+    <div style="width:100%;margin-top:14px">
+      <canvas id="neural-canvas" class="chart-canvas" style="height:125px"></canvas>
+    </div>
+    <div style="width:100%;margin-top:6px">
+      <canvas id="wave-canvas" class="chart-canvas" style="height:38px"></canvas>
     </div>
 
-    <!-- Waveform -->
-    <div style="width:100%;margin-top:8px">
-      <canvas id="wave-canvas" class="chart-canvas" style="height:50px"></canvas>
+    <div class="nx-actions">
+      <a href="/spy"     class="nx-btn">SPY CHANNEL</a>
+      <a href="/trends"  class="nx-btn">MINE TRENDS</a>
+      <a href="/factory" class="nx-btn">GENERATE</a>
+      <a href="/revenue" class="nx-btn">REVENUE MAP</a>
+      <a href="/pipeline" class="nx-btn">PIPELINE</a>
     </div>
 
-    <!-- Quick actions -->
-    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;justify-content:center">
-      <a href="/spy" class="btn btn-primary" style="font-size:9px;padding:6px 14px"><span>SPY CHANNEL</span></a>
-      <a href="/trends" class="btn btn-primary" style="font-size:9px;padding:6px 14px"><span>MINE TRENDS</span></a>
-      <a href="/factory" class="btn btn-primary" style="font-size:9px;padding:6px 14px"><span>GENERATE</span></a>
-      <a href="/revenue" class="btn btn-primary" style="font-size:9px;padding:6px 14px"><span>REVENUE MAP</span></a>
-      <a href="/pipeline" class="btn btn-primary" style="font-size:9px;padding:6px 14px"><span>PIPELINE</span></a>
-    </div>
   </div>
 
-  <!-- RIGHT: Revenue + Neural Graph -->
-  <div class="cmd-right flex flex-col gap-12">
-    <div class="hud-panel" style="flex:1">
-      <div class="hud-panel-header">
-        <span class="hud-panel-title">REVENUE STREAM</span>
-        <span class="badge badge-green">LIVE</span>
+  <!-- ════ RIGHT ════ -->
+  <div class="nx-right">
+
+    <div class="holo" style="flex:1">
+      <div class="holo-header">
+        <span class="holo-title">REVENUE STREAM</span>
+        <span class="badge badge-green" style="font-size:8px">LIVE</span>
       </div>
-      <div class="hud-panel-body" style="padding:4px">
-        <canvas id="donut-canvas" class="chart-canvas" style="height:180px"></canvas>
+      <div class="holo-body" style="padding:4px">
+        <canvas id="donut-canvas" class="chart-canvas" style="height:170px"></canvas>
       </div>
     </div>
 
-    <div class="hud-panel" style="flex:1">
-      <div class="hud-panel-header"><span class="hud-panel-title">TREND VELOCITY</span></div>
-      <div class="hud-panel-body" style="padding:4px">
-        <canvas id="bar-canvas" class="chart-canvas" style="height:160px"></canvas>
+    <div class="holo" style="flex:1">
+      <div class="holo-header"><span class="holo-title">TREND VELOCITY</span></div>
+      <div class="holo-body" style="padding:4px">
+        <canvas id="bar-canvas" class="chart-canvas" style="height:140px"></canvas>
       </div>
     </div>
 
-    <div class="hud-panel" style="flex:0 0 auto">
-      <div class="hud-panel-header"><span class="hud-panel-title">INTEL FEED</span></div>
-      <div class="hud-panel-body" style="padding:8px">
-        <div class="metric-tile">
-          <div class="text-mono text-xs text-muted">NEXT PEAK TREND</div>
-          <div class="text-hud text-blue" style="font-size:11px" id="cmd-next-trend">AI Tools Niche</div>
+    <div class="holo" style="flex:0 0 auto">
+      <div class="holo-header"><span class="holo-title">INTEL FEED</span></div>
+      <div class="holo-body" style="padding:8px">
+        <div class="nx-metric green">
+          <div class="nx-metric-label">BEST CPM TODAY</div>
+          <div class="nx-metric-val" id="nx-best-cpm">$12.40</div>
         </div>
-        <div class="metric-tile green">
-          <div class="text-mono text-xs text-muted">BEST CPM TODAY</div>
-          <div class="text-hud text-green" id="cmd-best-cpm">$12.40</div>
-        </div>
-        <div class="metric-tile yellow">
-          <div class="text-mono text-xs text-muted">SCRIPTS READY</div>
-          <div class="text-hud text-yellow" id="cmd-scripts">0</div>
+        <div class="nx-metric amber">
+          <div class="nx-metric-label">SCRIPTS READY</div>
+          <div class="nx-metric-val" id="nx-scripts-ready">0</div>
         </div>
       </div>
     </div>
+
   </div>
 
-  <!-- BOTTOM: Command Terminal -->
-  <div class="cmd-bottom">
-    <div class="cmd-terminal">
-      <div class="cmd-terminal-header">
-        <span class="text-mono text-xs text-muted">MAJD COMMAND INTERFACE</span>
-        <span class="text-mono text-xs text-muted" id="cmd-time">--:--:--</span>
+  <!-- ════ BOTTOM — COMMAND TERMINAL ════ -->
+  <div class="nx-bottom">
+    <div class="nx-terminal">
+      <div class="nx-term-header">
+        <div class="nx-term-dots">
+          <div class="nx-term-dot r"></div>
+          <div class="nx-term-dot y"></div>
+          <div class="nx-term-dot g"></div>
+        </div>
+        <span class="text-mono" style="font-size:9px;color:rgba(124,58,237,.6);letter-spacing:.15em">MAJD NEXUS COMMAND INTERFACE</span>
+        <span class="text-mono text-xs text-muted" id="nx-term-time">--:--:--</span>
       </div>
-      <div class="cmd-log" id="cmd-log"></div>
-      <div class="ticker-wrap">
-        <div class="ticker-inner" id="cmd-ticker">
-          ◈ TRENDING: AI TOOLS · SHORT-FORM VIDEO · CRYPTO TRADING · PASSIVE INCOME · DROPSHIPPING · AFFILIATE MARKETING · CONTENT AUTOMATION ·
+      <div class="nx-log" id="nx-log" role="log" aria-live="polite"></div>
+      <div class="nx-ticker-wrap">
+        <div class="nx-ticker">
+          ◈ TRENDING: AI TOOLS · SHORT-FORM VIDEO · CRYPTO TRADING · PASSIVE INCOME · DROPSHIPPING · AFFILIATE · CONTENT AUTOMATION ·
           ◈ TOP CPM: FINANCE $18.20 · TECH $14.50 · FITNESS $9.80 · GAMING $6.20 · COOKING $7.40 ·
-          ◈ MAJD NEURAL NET ACTIVE · ALL 9 AGENTS ONLINE · OLLAMA CONNECTED ·
+          ◈ MAJD NEXUS ONLINE · 5 AGENTS ACTIVE · OLLAMA CONNECTED · NEURAL LINK ESTABLISHED ·
         </div>
       </div>
-      <div class="cmd-input-row">
-        <span class="cmd-prompt">MAJD❯</span>
-        <input class="cmd-input" id="cmd-input" placeholder="Type a command… (try: scan, trends, revenue, help)" autocomplete="off"/>
+      <div class="nx-input-row">
+        <span class="nx-prompt">NEXUS❯</span>
+        <input class="nx-input" id="nx-input" placeholder="Type a command… (try: scan, trends, revenue, status, help)  · Press / to focus" autocomplete="off" aria-label="Command input"/>
       </div>
     </div>
   </div>
@@ -383,34 +429,31 @@ canvas.chart-canvas {
 {% block scripts %}
 <script src="/static/js/charts.js"></script>
 <script>
-// ── Charts ──────────────────────────────────────────────────────────────────
+// ── Charts ────────────────────────────────────────────────────────────────
 const radar = new JarvisCharts.RadarSweep('radar-canvas', [
-  { label: 'YouTube',   value: 0.82, color: '#ef4444' },
-  { label: 'TikTok',    value: 0.91, color: '#f59e0b' },
+  { label: 'YouTube',   value: 0.82, color: '#7c3aed' },
+  { label: 'TikTok',    value: 0.91, color: '#a78bfa' },
   { label: 'Finance',   value: 0.75, color: '#10b981' },
-  { label: 'Tech',      value: 0.88, color: '#00d4ff' },
+  { label: 'Tech',      value: 0.88, color: '#06b6d4' },
   { label: 'Instagram', value: 0.68, color: '#a78bfa' },
-  { label: 'Twitter',   value: 0.55, color: '#3b82f6' },
+  { label: 'Twitter',   value: 0.55, color: '#6366f1' },
 ]);
-
 const donut = new JarvisCharts.DonutChart('donut-canvas', [
-  { label: 'AdSense',  value: 2500, color: '#00d4ff' },
-  { label: 'Sponsor',  value: 4000, color: '#10b981' },
-  { label: 'Affiliate',value: 3000, color: '#f59e0b' },
-  { label: 'Merch',    value: 1500, color: '#a78bfa' },
-  { label: 'Members',  value: 800,  color: '#3b82f6' },
+  { label: 'AdSense',   value: 2500, color: '#7c3aed' },
+  { label: 'Sponsor',   value: 4000, color: '#10b981' },
+  { label: 'Affiliate', value: 3000, color: '#f59e0b' },
+  { label: 'Merch',     value: 1500, color: '#a78bfa' },
+  { label: 'Members',   value: 800,  color: '#06b6d4' },
 ]);
-
 const bars = new JarvisCharts.BarChart('bar-canvas', [
-  { label: 'AI Tools',  value: 9400, color: '#00d4ff' },
-  { label: 'Finance',   value: 7800, color: '#10b981' },
-  { label: 'Fitness',   value: 6200, color: '#f59e0b' },
-  { label: 'Crypto',    value: 8100, color: '#a78bfa' },
-  { label: 'Passive',   value: 5400, color: '#3b82f6' },
+  { label: 'AI Tools', value: 9400, color: '#7c3aed' },
+  { label: 'Finance',  value: 7800, color: '#a78bfa' },
+  { label: 'Fitness',  value: 6200, color: '#06b6d4' },
+  { label: 'Crypto',   value: 8100, color: '#10b981' },
+  { label: 'Passive',  value: 5400, color: '#6366f1' },
 ]);
-
 const neural = new JarvisCharts.NeuralGraph('neural-canvas', [
-  { label: 'Scout',    color: '#00d4ff', size: 8 },
+  { label: 'Scout',    color: '#7c3aed', size: 8 },
   { label: 'Miner',   color: '#f59e0b', size: 7 },
   { label: 'Factory', color: '#10b981', size: 8 },
   { label: 'Intel',   color: '#a78bfa', size: 7 },
@@ -419,88 +462,108 @@ const neural = new JarvisCharts.NeuralGraph('neural-canvas', [
   { label: 'TikTok',  color: '#f59e0b', size: 5 },
   { label: 'IG',      color: '#a78bfa', size: 5 },
   { label: 'Revenue', color: '#10b981', size: 10 },
-  { label: 'Script',  color: '#00d4ff', size: 5 },
-  { label: 'Video',   color: '#3b82f6', size: 6 },
+  { label: 'Script',  color: '#06b6d4', size: 5 },
+  { label: 'Video',   color: '#6366f1', size: 6 },
 ]);
-
 const wave = new JarvisCharts.Waveform('wave-canvas');
 
-// ── Clock ───────────────────────────────────────────────────────────────────
-setInterval(() => {
-  const el = document.getElementById('cmd-time');
-  if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
-}, 1000);
+// ── Clock ─────────────────────────────────────────────────────────────────
+function updateClock() {
+  const t = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const c1 = document.getElementById('nx-clock');
+  const c2 = document.getElementById('nx-term-time');
+  if (c1) c1.textContent = t;
+  if (c2) c2.textContent = t;
+}
+setInterval(updateClock, 1000);
+updateClock();
 
-// ── Command Interpreter ─────────────────────────────────────────────────────
-const COMMANDS = {
-  help: () => [
-    'Available commands:',
-    '  scan <url>     — Spy a channel',
-    '  trends <niche> — Mine trending topics',
-    '  revenue <niche>— Revenue intelligence',
-    '  status         — Agent status',
-    '  clear          — Clear terminal',
-  ].join('\n'),
-
-  status: async () => {
-    const data = await api('/api/system/stats');
-    return `CPU: ${data.cpu}%  MEM: ${data.mem}%  OLLAMA: ${data.ollama_ok ? 'ONLINE' : 'OFFLINE'}`;
-  },
-
-  clear: () => { document.getElementById('cmd-log').textContent = ''; return ''; },
-};
-
-function jarvisLog(text, level = 'info') {
-  const log  = document.getElementById('cmd-log');
+// ── Terminal log ──────────────────────────────────────────────────────────
+function nxLog(text, level) {
+  level = level || 'info';
+  const log  = document.getElementById('nx-log');
   const line = document.createElement('div');
-  line.className = 'line';
+  line.className = 'nx-log-line';
   const ts = document.createElement('span');
-  ts.className = 'ts';
+  ts.className = 'nx-log-ts';
   ts.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
   const msg = document.createElement('span');
-  msg.className = 'lvl-' + level;
+  msg.className = 'nx-log-msg ' + level;
   msg.textContent = text;
-  line.appendChild(ts); line.appendChild(msg);
+  line.appendChild(ts);
+  line.appendChild(msg);
   log.appendChild(line);
   log.scrollTop = log.scrollHeight;
-  while (log.children.length > 100) log.removeChild(log.firstChild);
+  while (log.children.length > 120) log.removeChild(log.firstChild);
 }
+
+// ── Commands ──────────────────────────────────────────────────────────────
+const COMMANDS = {
+  help: function() {
+    return [
+      '┌─ MAJD NEXUS COMMAND REFERENCE ─────────────────────┐',
+      '│  scan <url>       Spy a YouTube channel            │',
+      '│  trends <niche>   Mine trending topics             │',
+      '│  revenue <niche>  Revenue intelligence scan        │',
+      '│  status           Agent + system status            │',
+      '│  clear            Clear terminal output            │',
+      '└────────────────────────────────────────────────────┘',
+    ].join('\n');
+  },
+
+  status: async function() {
+    const data = await api('/api/system/stats');
+    if (!data) return 'Status fetch failed — is JARVIS running?';
+    return 'CPU: ' + data.cpu + '%  MEM: ' + data.mem + '%  OLLAMA: ' + (data.ollama_ok ? 'ONLINE' : 'OFFLINE');
+  },
+
+  clear: function() {
+    const l = document.getElementById('nx-log');
+    while (l.firstChild) l.removeChild(l.firstChild);
+    return null;
+  },
+};
 
 async function processCommand(raw) {
   const parts = raw.trim().split(/\s+/);
   const cmd   = parts[0].toLowerCase();
   const args  = parts.slice(1).join(' ');
-  jarvisLog('❯ ' + raw, 'info');
+  nxLog('❯ ' + raw, 'cmd');
 
   if (cmd === 'scan' && args) {
-    jarvisLog('Initiating channel scan: ' + args, 'info');
+    nxLog('Initiating channel scan: ' + args, 'info');
     const r = await api('/api/agents/spy/run', 'POST', { url: args, platform: 'youtube' });
-    if (r && r.data) jarvisLog(`FOUND: ${r.data.name} — ${r.data.subscribers} subs — Est $${r.data.revenue_est}/mo`, 'success');
+    if (r && r.data) nxLog('FOUND: ' + r.data.name + ' — ' + r.data.subscribers + ' subs — Est $' + r.data.revenue_est + '/mo', 'success');
+    else nxLog('No data returned. Check the URL format.', 'warning');
     return;
   }
   if (cmd === 'trends' && args) {
-    jarvisLog('Mining trends for: ' + args, 'info');
+    nxLog('Mining trends for: ' + args, 'info');
     const r = await api('/api/agents/trends/run', 'POST', { query: args, platform: 'youtube', window: '7d' });
     if (r && r.data) {
-      const top = (r.data.trends || []).slice(0, 3);
-      top.forEach(t => jarvisLog(`[${t.score}] ${t.title} — ${t.velocity.toUpperCase()}`, 'success'));
+      (r.data.trends || []).slice(0, 3).forEach(function(t) {
+        nxLog('[' + t.score + '] ' + t.title + ' — ' + t.velocity.toUpperCase(), 'success');
+      });
     }
     return;
   }
   if (cmd === 'revenue' && args) {
-    jarvisLog('Running revenue intelligence: ' + args, 'info');
+    nxLog('Running revenue intelligence: ' + args, 'info');
     const r = await api('/api/agents/money/run', 'POST', { niche: args, views: '1m' });
-    if (r && r.data) jarvisLog(`EST MONTHLY: $${r.data.total_monthly?.toLocaleString()} — CPM: $${r.data.best_cpm}`, 'success');
+    if (r && r.data) nxLog('EST MONTHLY: $' + (r.data.total_monthly || 0).toLocaleString() + ' — CPM: $' + r.data.best_cpm, 'success');
     return;
   }
 
   const fn = COMMANDS[cmd];
-  if (!fn) { jarvisLog(`Unknown command: "${cmd}". Type "help" for commands.`, 'warning'); return; }
+  if (!fn) {
+    nxLog('Unknown: "' + cmd + '". Type "help" for commands.', 'warning');
+    return;
+  }
   const out = await fn(args);
-  if (out) out.split('\n').forEach(l => jarvisLog(l, 'info'));
+  if (out) out.split('\n').forEach(function(l) { nxLog(l, 'info'); });
 }
 
-document.getElementById('cmd-input').addEventListener('keydown', async (e) => {
+document.getElementById('nx-input').addEventListener('keydown', async function(e) {
   if (e.key !== 'Enter') return;
   const val = e.target.value.trim();
   if (!val) return;
@@ -508,44 +571,66 @@ document.getElementById('cmd-input').addEventListener('keydown', async (e) => {
   await processCommand(val);
 });
 
-// ── Agent mini status sync ──────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if (e.key === '/' && document.activeElement !== document.getElementById('nx-input')) {
+    e.preventDefault();
+    document.getElementById('nx-input').focus();
+  }
+});
+
+// ── Agent ping ────────────────────────────────────────────────────────────
 function pingAgent(name) {
-  const el = document.getElementById('ami-' + name);
-  if (el) { el.classList.add('active'); setTimeout(() => el.classList.remove('active'), 3000); }
-  jarvisLog(`Pinging agent: ${name.toUpperCase()}`, 'info');
+  const card = document.getElementById('hc-' + name);
+  const statusEl = document.getElementById('hs-' + name);
+  if (card) {
+    card.classList.add('active');
+    if (statusEl) statusEl.textContent = 'ACTIVE';
+    setTimeout(function() {
+      card.classList.remove('active');
+      if (statusEl) statusEl.textContent = 'STANDBY';
+    }, 3000);
+  }
+  nxLog('Pinging agent: ' + name.toUpperCase(), 'info');
 }
 
-// ── Stats refresh ───────────────────────────────────────────────────────────
+// ── Stats refresh ─────────────────────────────────────────────────────────
+function setEl(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
 async function refreshStats() {
   const stats = await api('/api/system/stats');
-  if (stats) {
-    document.getElementById('cmd-cpu').textContent     = stats.cpu + '%';
-    document.getElementById('cmd-ollama').textContent  = stats.ollama_ok ? 'ONLINE' : 'OFFLINE';
-  }
+  if (stats) setEl('nx-ollama', stats.ollama_ok ? 'ONLINE' : 'OFFLINE');
+
   const metrics = await api('/api/dashboard/metrics');
   if (metrics) {
-    document.getElementById('kpi-videos').textContent   = metrics.videos_generated;
-    document.getElementById('kpi-channels').textContent = metrics.channels_analyzed;
-    document.getElementById('kpi-trends').textContent   = metrics.trends_found;
-    document.getElementById('cmd-scripts').textContent  = metrics.videos_generated;
+    setEl('kpi-videos',   metrics.videos_generated);
+    setEl('kpi-channels', metrics.channels_analyzed);
+    setEl('kpi-trends',   metrics.trends_found);
+    setEl('kpi-scripts',  metrics.videos_generated);
+    setEl('nx-scripts-ready', metrics.videos_generated);
   }
 }
 
-// ── Boot sequence ───────────────────────────────────────────────────────────
+// ── Boot sequence ─────────────────────────────────────────────────────────
 async function boot() {
   const lines = [
-    ['MAJD v3.0 — Neural Content OS — ONLINE', 'success'],
-    ['Initializing agent swarm… 9/9 online', 'info'],
+    ['MAJD NEXUS v3.0 — Mission Control OS — INITIALIZING', 'info'],
+    ['Loading neural substrate… ████████████ 100%', 'info'],
+    ['Agent swarm: 5/5 units confirmed online', 'success'],
     ['Ollama neural engine: CONNECTED', 'success'],
-    ['Revenue streams: ACTIVE', 'success'],
-    ['All systems nominal. Awaiting commands.', 'info'],
+    ['Orbital HUD: CALIBRATED', 'info'],
+    ['Revenue streams: MONITORING', 'success'],
+    ['Trend radar: SWEEPING 360°', 'info'],
+    ['Content factory: ARMED', 'success'],
+    ['Cinema director: STANDBY', 'info'],
+    ['Channel spy: ACTIVE', 'success'],
+    ['━━━━ ALL SYSTEMS NOMINAL — NEXUS ONLINE ━━━━', 'success'],
   ];
-  for (const [txt, lvl] of lines) {
-    await new Promise(r => setTimeout(r, 400));
-    jarvisLog(txt, lvl);
+  for (var i = 0; i < lines.length; i++) {
+    await new Promise(function(r) { setTimeout(r, 260); });
+    nxLog(lines[i][0], lines[i][1]);
   }
   refreshStats();
-  setInterval(refreshStats, 8000);
+  setInterval(refreshStats, 10000);
 }
 
 document.addEventListener('DOMContentLoaded', boot);

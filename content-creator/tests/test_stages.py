@@ -11,6 +11,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from agents.trend_miner import run as trend_miner_run, generate_blueprint
 from agents.content_factory import run as content_factory_run
 
+# These tests hit live services (Ollama, YouTube RSS). Skip in CI / offline.
+pytestmark = pytest.mark.network
+
 
 @pytest.mark.asyncio
 async def test_stage1_topic_discovery():

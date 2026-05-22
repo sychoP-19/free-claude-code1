@@ -31,6 +31,7 @@ _load_env()
 
 import psutil
 import httpx
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -60,6 +61,7 @@ from pipelines import story_video as p_story
 from pipelines import auto_video as p_auto_video
 from pipelines import reel_production as p_reel
 from pipelines import reel_production as p_reel_prod
+from ddd.api.reel_routes import router as ddd_reel_router
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 BASE      = Path(__file__).parent
@@ -89,7 +91,26 @@ _autosave_enabled = True
 _autosave_interval = 1200  # 20 min
 
 # ── App ────────────────────────────────────────────────────────────────────
-app = FastAPI(title="JARVIS Content Intelligence", version="2.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _autosave_task
+    _autosave_task = asyncio.create_task(_autosave_loop())
+    try:
+        jdb.init_schema()
+        jsched.start()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("v3 init failed: %s", e)
+    yield
+    if _autosave_task:
+        _autosave_task.cancel()
+    try:
+        jsched.shutdown()
+    except Exception:
+        pass
+
+
+app = FastAPI(title="JARVIS Content Intelligence", version="2.0", lifespan=lifespan)
 app.mount("/static",  StaticFiles(directory=BASE / "static"),  name="static")
 app.mount("/outputs", StaticFiles(directory=BASE / "outputs"), name="outputs")
 templates = Jinja2Templates(directory=BASE / "templates")
@@ -109,7 +130,7 @@ def _metrics() -> dict:
         "videos_today": 0,
         "channels_today": 0,
         "trending_now": 0,
-        "revenue_potential": "12,500",
+        "revenue_potential": 12500,
         "downloads": len(list(DOWNLOADS.iterdir())) if DOWNLOADS.exists() else 0,
     }
 
@@ -192,28 +213,6 @@ def _list_sessions() -> list:
         })
     return sessions
 
-
-# ── Startup / Shutdown ─────────────────────────────────────────────────────
-@app.on_event("startup")
-async def startup():
-    global _autosave_task
-    _autosave_task = asyncio.create_task(_autosave_loop())
-    try:
-        jdb.init_schema()
-        jsched.start()
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("v3 init failed: %s", e)
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    if _autosave_task:
-        _autosave_task.cancel()
-    try:
-        jsched.shutdown()
-    except Exception:
-        pass
 
 
 # ── WebSocket ──────────────────────────────────────────────────────────────
@@ -736,7 +735,7 @@ async def media_analyze(request: Request):
     body  = await request.json()
     text  = str(body.get("text", ""))
     task  = str(body.get("task", "virality"))
-    model = str(body.get("model", "llama3.1:latest"))
+    model = str(body.get("model", "llama3.1:8b"))
     if not text:
         return JSONResponse({"status": "error", "message": "text required"}, status_code=400)
     try:
@@ -761,7 +760,7 @@ async def ollama_models_list():
 async def ollama_chat(request: Request):
     body    = await request.json()
     message = str(body.get("message", ""))
-    model   = str(body.get("model", "llama3.1:latest"))
+    model   = str(body.get("model", "llama3.1:8b"))
     history = body.get("history", [])
     system  = body.get("system", None)
     if not message:
@@ -946,6 +945,11 @@ async def skills_page(request: Request):
     return templates.TemplateResponse("skills.html", {"request": request, "active": "skills"})
 
 
+@app.get("/empire")
+async def empire_page(request: Request):
+    return templates.TemplateResponse("empire.html", {"request": request, "active": "empire"})
+
+
 @app.get("/reel-producer")
 async def reel_producer_page(request: Request):
     return templates.TemplateResponse("reel-producer.html", {"request": request, "active": "reel-producer"})
@@ -994,7 +998,7 @@ async def topic_discovery_get(niche: str = "", limit: int = 10):
 async def auto_shorts(request: Request):
     body  = await request.json()
     topic = str(body.get("topic", "")).strip()
-    model = str(body.get("model", "llama3"))
+    model = str(body.get("model", "llama3.1:8b"))
     if not topic:
         return JSONResponse({"status": "error", "message": "topic required"}, status_code=400)
     try:
@@ -1330,15 +1334,26 @@ async def reel_select_topics(request: Request):
 async def reel_start(request: Request):
     """Start pipeline with reel_production.run().
 
-    Usage: POST /api/reel/start {"topic_id": "topic_001", "topic_title": "My Topic", "platforms": ["youtube", "tiktok"]}
+    Accepts either:
+      {"topic_id": "topic_001", "topic_title": "My Topic", "platforms": [...]}
+      {"topics": [{"id": "topic_001", "title": "My Topic"}, ...], "platforms": [...]}
     """
     body = await request.json()
-    topic_id = str(body.get("topic_id", ""))
-    topic_title = str(body.get("topic_title", ""))
+
+    # Support both legacy single-topic and new array format from reel-producer.html
+    topics_arr = body.get("topics", [])
+    if topics_arr and isinstance(topics_arr[0], dict):
+        first = topics_arr[0]
+        topic_id = str(first.get("id", first.get("topic_id", "")))
+        topic_title = str(first.get("title", first.get("topic_title", "")))
+    else:
+        topic_id = str(body.get("topic_id", topics_arr[0] if topics_arr else ""))
+        topic_title = str(body.get("topic_title", ""))
+
     platforms = body.get("platforms", ["youtube"])
 
     if not topic_id:
-        return JSONResponse({"status": "error", "message": "topic_id required"}, status_code=400)
+        return JSONResponse({"ok": False, "error": "topic_id required"}, status_code=400)
 
     try:
         from core import db as jdb
@@ -1376,9 +1391,9 @@ async def reel_start(request: Request):
             except Exception:
                 pass
 
-        return {"status": "ok", **result}
+        return {"ok": True, "job_id": topic_id, **result}
     except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 @app.post("/api/reel/approve-script")
@@ -1550,10 +1565,93 @@ async def _do_reject_script(payload: dict):
     await manager.log(f"Script {script_id} rejected", "warning")
 
 
-
-
+@app.post("/api/reel/regenerate-scene")
+async def api_reel_regenerate_scene(req: Request):
+    """Re-generate Pollinations image for a single scene."""
     body = await req.json()
-    return await _run_pipeline(p_reel_prod.run, body)
+    topic_id = body.get("topic_id", "reel")
+    scene_idx = int(body.get("scene_idx", 0))
+    description = body.get("description", "cinematic scene")
+
+    import httpx as _httpx
+    from agents.asset_generator import POLLINATIONS_BASE, ASSETS_BASE, _encode_prompt, _make_safe_filename
+
+    encoded = _encode_prompt(description)
+    seed = scene_idx * 1000 + int(time.time()) % 1000
+    url = (
+        f"{POLLINATIONS_BASE}/{encoded}"
+        f"?model=flux&width=1080&height=1920&seed={seed}&nologo=true&enhance=true"
+    )
+    try:
+        async with _httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
+            r = await client.get(url)
+        if r.status_code == 200 and len(r.content) > 1024:
+            fname = f"{_make_safe_filename(topic_id)}_scene{scene_idx}_regen_{seed}.jpg"
+            path = ASSETS_BASE / fname
+            ASSETS_BASE.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(r.content)
+            return {"ok": True, "asset_path": str(path), "url": f"/outputs/assets/{fname}"}
+        return JSONResponse({"ok": False, "error": f"Pollinations HTTP {r.status_code}"}, status_code=502)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/reel/export/{fmt}")
+async def api_reel_export_format(fmt: str, req: Request):
+    """Re-export master video in a specific platform format."""
+    ALLOWED = {"youtube", "tiktok", "instagram", "square"}
+    if fmt not in ALLOWED:
+        return JSONResponse({"ok": False, "error": f"format must be one of {ALLOWED}"}, status_code=400)
+    body = await req.json()
+    topic_id = body.get("topic_id", "reel")
+    master_path = body.get("master_path", "")
+    if not master_path or not Path(master_path).exists():
+        return JSONResponse({"ok": False, "error": "master_path not found"}, status_code=400)
+    try:
+        from agents.platform_exporter import run as _pexp
+        result = await _pexp(
+            master_video=master_path,
+            script_metadata={"topic": topic_id},
+            topic_id=topic_id,
+            platforms=[fmt],
+        )
+        exports = result.get("exports", [])
+        url = exports[0].get("url") if exports else None
+        return {"ok": True, "url": url, "format": fmt, "result": result}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/reel/caption")
+async def api_reel_caption(req: Request):
+    """Generate caption and hashtags for a reel topic."""
+    body = await req.json()
+    topic = body.get("topic", "")
+    style = body.get("style", "viral")
+    platforms = body.get("platforms", ["youtube", "tiktok"])
+
+    if not topic:
+        return JSONResponse({"ok": False, "error": "topic required"}, status_code=400)
+
+    try:
+        from core.llm import llm_complete
+        platforms_str = ", ".join(platforms)
+        prompt = (
+            f"Write a {style} social media caption and 10 hashtags for: {topic}\n"
+            f"Platforms: {platforms_str}\n"
+            "Return ONLY JSON: {\"caption\": \"...\", \"hashtags\": [\"#tag1\", ...]}"
+        )
+        reply = await llm_complete(prompt)
+        import re as _re
+        m = _re.search(r"\{.*\}", reply, _re.DOTALL)
+        if m:
+            import json as _json
+            data = _json.loads(m.group())
+            return {"ok": True, "caption": data.get("caption", ""), "hashtags": data.get("hashtags", [])}
+        # Fallback if LLM returns plain text
+        return {"ok": True, "caption": reply[:300], "hashtags": [f"#{topic.replace(' ','')}", "#viral", "#trending"]}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 @app.get("/api/research/trending")
@@ -1906,34 +2004,63 @@ def _cg_save_jobs(jobs: dict):
     _CINEGEN_JOBS_FILE.parent.mkdir(parents=True, exist_ok=True)
     _CINEGEN_JOBS_FILE.write_text(json.dumps(jobs, indent=2))
 
+_CINEGEN_TIMEOUT = 120  # seconds
+
+async def _cinegen_emit(job_id: str, progress: int, message: str):
+    """Broadcast WebSocket progress event for a CineGen job."""
+    await manager.broadcast({
+        "type": "cinegen_progress",
+        "job_id": job_id,
+        "progress": progress,
+        "message": message,
+    })
+
 async def _cinegen_run_job(job_id: str, prompt: str, style: str, num_scenes: int):
-    """Background task: run auto_video pipeline and update job status."""
+    """Background task: run auto_video pipeline with timeout and WS progress events."""
     jobs = _cg_load_jobs()
     jobs[job_id]["status"] = "running"
+    jobs[job_id]["progress"] = 0
     _cg_save_jobs(jobs)
+    await _cinegen_emit(job_id, 5, f"Scene planning for: {prompt[:50]}")
+
     try:
         from pipelines.auto_video import AutoVideoPipeline
-        result = await AutoVideoPipeline({
-            "topic": prompt, "num_scenes": num_scenes,
-            "style": style,
+        await _cinegen_emit(job_id, 15, f"Generating {num_scenes} scenes (style: {style})")
+
+        pipeline_coro = AutoVideoPipeline({
+            "topic": prompt, "num_scenes": num_scenes, "style": style,
         }).run()
+        await _cinegen_emit(job_id, 30, "LLM script generation in progress…")
+
+        try:
+            result = await asyncio.wait_for(pipeline_coro, timeout=_CINEGEN_TIMEOUT)
+        except asyncio.TimeoutError:
+            await _cinegen_emit(job_id, 0, f"Timed out after {_CINEGEN_TIMEOUT}s")
+            jobs = _cg_load_jobs()
+            jobs[job_id].update({"status": "error", "error": f"Timed out after {_CINEGEN_TIMEOUT}s"})
+            _cg_save_jobs(jobs)
+            return
+
+        await _cinegen_emit(job_id, 70, "Pipeline complete — copying output…")
         jobs = _cg_load_jobs()
         if result.ok:
-            # Copy output to videos/ with job_id name for easy retrieval
             import shutil
             dest = _VIDEOS_OUT / f"{job_id}.mp4"
             shutil.copy2(result.output_path, dest)
             size = dest.stat().st_size
             jobs[job_id].update({
-                "status": "done", "output_path": str(dest),
+                "status": "done", "progress": 100, "output_path": str(dest),
                 "url": f"/outputs/videos/{job_id}.mp4",
                 "size_bytes": size, "completed_at": datetime.utcnow().isoformat(),
             })
+            await _cinegen_emit(job_id, 100, f"Done — {size // 1024} KB saved")
         else:
             jobs[job_id].update({"status": "error", "error": result.error})
+            await _cinegen_emit(job_id, 0, f"Pipeline error: {result.error}")
     except Exception as e:
         jobs = _cg_load_jobs()
         jobs[job_id].update({"status": "error", "error": str(e)})
+        await _cinegen_emit(job_id, 0, f"Unexpected error: {e}")
     _cg_save_jobs(jobs)
 
 
@@ -2026,9 +2153,37 @@ def _pq_save(queue: list):
     _PUBLISH_QUEUE_FILE.write_text(json.dumps(queue, indent=2))
 
 
+_EXPORTS_DIR = Path(__file__).parent / "outputs" / "exports"
+_EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@app.post("/api/publish/export")
+async def api_publish_export(req: Request):
+    """Copy a generated file to outputs/exports/ and return the saved path."""
+    body = await req.json()
+    file_path = str(body.get("file_path", "")).strip()
+    title = str(body.get("title", "export")).strip()
+    if not file_path:
+        return JSONResponse({"ok": False, "error": "file_path required"}, status_code=400)
+    src = Path(file_path)
+    if not src.exists():
+        # Try relative to content-creator dir
+        src = Path(__file__).parent / file_path.lstrip("/")
+    if not src.exists():
+        return JSONResponse({"ok": False, "error": f"File not found: {file_path}"}, status_code=404)
+    import shutil, re
+    slug = re.sub(r"[^\w\-]", "_", title)[:40]
+    dest = _EXPORTS_DIR / f"{slug}_{int(time.time())}{src.suffix}"
+    shutil.copy2(src, dest)
+    rel = str(dest.relative_to(Path(__file__).parent)).replace("\\", "/")
+    return {"ok": True, "export_path": str(dest), "url": f"/{rel}",
+            "size_bytes": dest.stat().st_size,
+            "message": f"Saved to outputs/exports/{dest.name}"}
+
+
 @app.post("/api/publish/now")
 async def api_publish_now(req: Request):
-    """Add content to publish queue (marked as 'queued' for manual publish)."""
+    """Add content to the export queue (manual-publish workflow — no platform OAuth)."""
     body = await req.json()
     title = str(body.get("title", "")).strip()
     caption = str(body.get("caption", "")).strip()
@@ -2037,19 +2192,31 @@ async def api_publish_now(req: Request):
     file_path = str(body.get("file_path", "")).strip()
     if not title:
         return JSONResponse({"ok": False, "error": "title required"}, status_code=400)
+
+    export_url = None
+    if file_path:
+        # Auto-export the file to outputs/exports/
+        src = Path(file_path) if Path(file_path).exists() else Path(__file__).parent / file_path.lstrip("/")
+        if src.exists():
+            import shutil, re
+            slug = re.sub(r"[^\w\-]", "_", title)[:40]
+            dest = _EXPORTS_DIR / f"{slug}_{int(time.time())}{src.suffix}"
+            shutil.copy2(src, dest)
+            export_url = f"/outputs/exports/{dest.name}"
+
     queue = _pq_load()
     item = {
         "id": f"pub-{int(time.time() * 1000)}",
         "title": title, "caption": caption, "hashtags": hashtags,
         "platforms": platforms if isinstance(platforms, list) else [platforms],
-        "file_path": file_path, "status": "queued",
+        "file_path": file_path, "export_url": export_url, "status": "queued",
         "created_at": datetime.utcnow().isoformat(), "scheduled_at": None,
     }
     queue.append(item)
     _pq_save(queue)
-    return {"ok": True, "id": item["id"], "status": "queued",
-            "message": "Added to publish queue. Connect platform OAuth to enable auto-publish.",
-            "item": item}
+    msg = f"Saved to outputs/exports/ — publish manually when ready." if export_url else "Added to queue. Provide file_path to auto-export."
+    return {"ok": True, "id": item["id"], "status": "queued", "export_url": export_url,
+            "message": msg, "item": item}
 
 
 @app.post("/api/publish/schedule")
@@ -2074,6 +2241,30 @@ async def api_publish_schedule(req: Request):
     }
     queue.append(item)
     _pq_save(queue)
+
+    # If APScheduler is available, mark item ready_to_export at scheduled_at
+    if scheduled_at:
+        try:
+            from apscheduler.schedulers.asyncio import AsyncIOScheduler
+            from apscheduler.triggers.date import DateTrigger
+            _sched = getattr(app.state, "_pq_scheduler", None)
+            if _sched is None:
+                _sched = AsyncIOScheduler()
+                _sched.start()
+                app.state._pq_scheduler = _sched
+
+            def _mark_ready(item_id: str):
+                q = _pq_load()
+                for i in q:
+                    if i.get("id") == item_id and i.get("status") == "scheduled":
+                        i["status"] = "ready_to_export"
+                _pq_save(q)
+
+            _sched.add_job(_mark_ready, trigger=DateTrigger(run_date=scheduled_at),
+                           args=[item["id"]], id=item["id"], replace_existing=True)
+        except Exception:
+            pass  # APScheduler optional
+
     return {"ok": True, "id": item["id"], "status": "scheduled",
             "scheduled_at": item["scheduled_at"], "item": item}
 
@@ -2110,6 +2301,10 @@ async def api_publish_analytics():
             "reach": len(published) * 2500, "engagement": round(len(published) * 3.2, 1),
             "platforms": platform_counts}
 
+@app.get("/command-center")
+async def get_command_center(request: Request):
+    return templates.TemplateResponse("command_center.html", {"request": request})
+
 
 # ── Orchestrator fan-all ──────────────────────────────────────────────────
 @app.post("/api/orchestrator/fan-all")
@@ -2141,9 +2336,9 @@ async def api_orchestrator_fan_all(req: Request):
 
     async def _topic_metrics():
         try:
-            from agents.topic_discovery import get_topics
-            data = await get_topics(topic)
-            return {"ok": True, **data}
+            from agents.topic_discovery import discover_topics
+            data = await discover_topics(limit=10, niche=topic)
+            return {"ok": True, "topics": data}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
@@ -2167,6 +2362,10 @@ async def api_orchestrator_fan_all(req: Request):
         "timestamp": datetime.utcnow().isoformat(),
     }
 
+
+@app.get("/command-center")
+async def get_command_center(request: Request):
+    return templates.TemplateResponse("command_center.html", {"request": request})
 
 if __name__ == "__main__":
     import uvicorn

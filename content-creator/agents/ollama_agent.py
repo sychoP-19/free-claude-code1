@@ -27,7 +27,7 @@ async def list_models() -> list[dict]:
 
 async def chat(
     message: str,
-    model: str = "llama3.1:latest",
+    model: str = "llama3.1:8b",
     history: Optional[list] = None,
     system: Optional[str] = None,
 ) -> dict:
@@ -54,7 +54,7 @@ async def chat(
 
 async def stream_chat(
     message: str,
-    model: str = "llama3.1:latest",
+    model: str = "llama3.1:8b",
     history: Optional[list] = None,
     system: Optional[str] = None,
 ) -> AsyncIterator[str]:

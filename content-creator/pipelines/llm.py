@@ -22,7 +22,7 @@ from core import db
 PROXY_URL  = os.environ.get("JARVIS_PROXY_URL", "http://localhost:8082/v1/messages")
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 DEFAULT_PROXY_MODEL  = os.environ.get("JARVIS_PROXY_MODEL",  "nvidia_nim/meta/llama-3.3-70b-instruct")
-DEFAULT_OLLAMA_MODEL = os.environ.get("JARVIS_OLLAMA_MODEL", "llama3.1:latest")
+DEFAULT_OLLAMA_MODEL = os.environ.get("JARVIS_OLLAMA_MODEL", "llama3.1:8b")
 # Auth for the local free-claude-code proxy. Falls back to "freecc" which is
 # the default token shipped with the proxy's example .env.
 PROXY_API_KEY = (

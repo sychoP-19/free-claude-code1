@@ -85,6 +85,19 @@ def is_suggestion_mode_request(request_data: MessagesRequest) -> bool:
     return False
 
 
+def is_prompt_rebuild_request(request_data: MessagesRequest) -> bool:
+    """Check if this is a prompt rebuild request.
+
+    Rebuild requests start with "REBUILD:".
+    """
+    for msg in request_data.messages:
+        if msg.role == "user":
+            text = extract_text_from_content(msg.content)
+            if text.strip().upper().startswith("REBUILD:"):
+                return True
+    return False
+
+
 def is_filepath_extraction_request(
     request_data: MessagesRequest,
 ) -> tuple[bool, str, str]:

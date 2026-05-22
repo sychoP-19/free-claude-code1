@@ -1,10 +1,9 @@
-import re
 import json
 from datetime import datetime
 from pathlib import Path
-from core import ollama_client as ollama
+from core.llm import llm_json
+from agents.competitor_analyzer import CompetitorAnalyzer
 
-# Output directories
 SCRIPTS_DIR = Path(__file__).parent.parent / "outputs" / "scripts"
 SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -18,43 +17,34 @@ STYLE_NOTES = {
 }
 
 TONE_NOTES = {
-    "viral":     "extremely catchy, controversial, pattern-interrupting",
-    "edu":       "educational but entertaining, simplify complex topics",
-    "story":     "personal story, emotional, relatable struggles",
-    "listicle":  "numbered list, each point builds on the last",
+    "viral":    "extremely catchy, controversial, pattern-interrupting",
+    "edu":      "educational but entertaining, simplify complex topics",
+    "story":    "personal story, emotional, relatable struggles",
+    "listicle": "numbered list, each point builds on the last",
 }
 
 
-async def run(topic: str, style: str, tone: str, gen_script: bool = True,
-              gen_thumbnail: bool = True, gen_hashtags: bool = True,
-              topic_id: str = None, output_file: bool = True) -> dict:
-    """
-    Generate a complete content package from a selected topic (Stage 2).
+class ContentFactory:
+    def __init__(self):
+        self.analyzer = CompetitorAnalyzer()
 
-    Args:
-        topic: Selected topic/title from Stage 1
-        style: Content style (shorts, tiktok, reel, longform)
-        tone: Content tone (viral, edu, story, listicle)
-        gen_script: Whether to generate script
-        gen_thumbnail: Whether to generate thumbnail prompts
-        gen_hashtags: Whether to generate platform-specific hashtags
-        topic_id: Topic identifier from Stage 1
-        output_file: If True, write to outputs/scripts/{topic_id}.json
+    async def run(self, topic: str, style: str, tone: str, gen_script: bool = True,
+                  gen_thumbnail: bool = True, gen_hashtags: bool = True,
+                  topic_id: str = None, output_file: bool = True, arbitrage: bool = False) -> dict:
+        """Generate a complete content package (proxy → Ollama → offline fallback)."""
+        arbitrage_context = ""
+        if arbitrage:
+            intel = await self.analyzer.analyze_velocity(topic, ["youtube", "tiktok"])
+            arbitrage_context = f"\nCompetitor Intel: {json.dumps(intel)[:500]}"
 
-    Returns:
-        Dict with script, scenes, hashtags, thumbnail prompts
-    """
-    models = await ollama.list_models()
-    model = ollama.pick_model(models, ["mistral:7b", "llama3:8b", "phi3:mini"])
+        style_desc = STYLE_NOTES.get(style, style)
+        tone_desc = TONE_NOTES.get(tone, tone)
 
-    style_desc = STYLE_NOTES.get(style, style)
-    tone_desc  = TONE_NOTES.get(tone, tone)
+        prompt = f"""Create a 60-second viral content package for: "{topic}"
+{arbitrage_context}
+Format: {style_desc} | Tone: {tone_desc}
 
-    prompt = f"""Create a complete 60-second short-form video content package for: "{topic}"
-Format: {style_desc}
-Tone: {tone_desc}
-
-Return JSON with this exact structure:
+Return JSON:
 {{
   "topic_id": "{topic_id or 'manual'}",
   "topic": "{topic}",
@@ -62,62 +52,45 @@ Return JSON with this exact structure:
   "tone": "{tone}",
   "duration_seconds": 60,
   "script": {{
-    "hook": "0-3s attention grabber text",
+    "hook": "0-3s attention grabber",
     "body": "3-45s main content with 3 key points",
-    "cta": "45-60s call to action text"
+    "cta": "45-60s call to action"
   }},
   "scenes": [
-    {{"scene_number": 1, "description": "visual description", "timing": "0-8s", "text_overlay": "on-screen text"}},
-    {{"scene_number": 2, "description": "visual description", "timing": "8-18s", "text_overlay": "on-screen text"}},
-    {{"scene_number": 3, "description": "visual description", "timing": "18-28s", "text_overlay": "on-screen text"}},
-    {{"scene_number": 4, "description": "visual description", "timing": "28-38s", "text_overlay": "on-screen text"}},
-    {{"scene_number": 5, "description": "visual description", "timing": "38-48s", "text_overlay": "on-screen text"}},
-    {{"scene_number": 6, "description": "visual description", "timing": "48-60s", "text_overlay": "on-screen text"}}
+    {{"scene_number": 1, "description": "visual", "timing": "0-10s", "text_overlay": "text"}},
+    {{"scene_number": 2, "description": "visual", "timing": "10-25s", "text_overlay": "text"}},
+    {{"scene_number": 3, "description": "visual", "timing": "25-40s", "text_overlay": "text"}},
+    {{"scene_number": 4, "description": "visual", "timing": "40-50s", "text_overlay": "text"}},
+    {{"scene_number": 5, "description": "visual", "timing": "50-60s", "text_overlay": "text"}}
   ],
   "hashtags": {{
-    "youtube": ["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8","#tag9","#tag10"],
-    "tiktok": ["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8","#tag9","#tag10"],
-    "instagram": ["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8","#tag9","#tag10"]
+    "youtube": ["#tag1","#tag2","#tag3","#tag4","#tag5"],
+    "tiktok": ["#tag1","#tag2","#tag3","#tag4","#tag5"],
+    "instagram": ["#tag1","#tag2","#tag3","#tag4","#tag5"]
   }},
   "thumbnail_prompts": [
-    "prompt for AI image generation - concept 1",
-    "prompt for AI image generation - concept 2",
-    "prompt for AI image generation - concept 3"
+    "cinematic close-up of {topic}, dramatic lighting, 8K",
+    "minimalist flat design {topic} concept, bold typography",
+    "person reacting to {topic}, shocked expression, studio lighting"
   ]
-}}
+}}"""
 
-Return only JSON, no additional text."""
+        result = await llm_json(prompt, system=SYSTEM_PROMPT)
+        if not result or not result.get("script"):
+            result = _fallback(topic, style, tone, topic_id)
 
-    try:
-        response = await ollama.generate(model, prompt, system=SYSTEM_PROMPT)
-        match = re.search(r'\{.*\}', response, re.DOTALL)
-        if match:
-            result = json.loads(match.group())
+        if output_file:
+            file_id = topic_id or f"script_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            output_path = SCRIPTS_DIR / f"{file_id}.json"
+            result["_output_path"] = str(output_path)
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(result, f, indent=2, ensure_ascii=False)
 
-            # Write to file if requested
-            if output_file:
-                file_id = topic_id or f"script_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                output_path = SCRIPTS_DIR / f"{file_id}.json"
-                result["_output_path"] = str(output_path)
-                with open(output_path, "w", encoding="utf-8") as f:
-                    json.dump(result, f, indent=2, ensure_ascii=False)
+        return result
 
-            return result
-    except Exception as e:
-        print(f"Content factory Ollama error: {e}")
-        pass
 
-    result = _fallback(topic, style, tone, topic_id)
-
-    # Write fallback to file if requested
-    if output_file:
-        file_id = topic_id or f"script_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        output_path = SCRIPTS_DIR / f"{file_id}.json"
-        result["_output_path"] = str(output_path)
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=2, ensure_ascii=False)
-
-    return result
+async def run(topic: str, style: str, tone: str, **kwargs) -> dict:
+    return await ContentFactory().run(topic, style, tone, **kwargs)
 
 
 def _fallback(topic: str, style: str, tone: str, topic_id: str = None) -> dict:

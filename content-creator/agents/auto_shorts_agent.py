@@ -20,7 +20,7 @@ _OUTPUTS = Path(__file__).parent.parent / "outputs"
 _OBAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
 
-async def generate(topic: str, model: str = "llama3") -> dict:
+async def generate(topic: str, model: str = "llama3.1:8b") -> dict:
     """Topic → Ollama script → Pollinations images → gTTS audio → moviepy MP4.
 
     Returns a structured result with ok/error fields so the UI surfaces failures
@@ -156,6 +156,8 @@ async def _ollama_script(topic: str, model: str) -> dict:
 def _split_scenes(script: str, n: int = 5) -> list[str]:
     sentences = [s.strip() for s in script.replace("\n", " ").split(".") if s.strip()]
     if not sentences:
+        if not script.strip():
+            return []
         sentences = [script]
     step = max(1, len(sentences) // n)
     return [sentences[i] for i in range(0, min(len(sentences), n * step), step)][:n]
