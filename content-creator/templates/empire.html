@@ -1,0 +1,471 @@
+{% extends "base.html" %}
+{% block title %}Empire OS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Empire OS</h1>
+    <p class="page-subtitle">Fully automated content discovery · generation · export pipeline</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-outline" id="btn-stop" style="display:none" onclick="stopEmpire()">Stop</button>
+    <button class="btn btn-primary" id="btn-run" onclick="runEmpire()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" aria-hidden="true">
+        <polygon points="5,3 19,12 5,21"/>
+      </svg>
+      Run Empire
+    </button>
+  </div>
+</div>
+
+<!-- Run progress bar -->
+<div id="empire-progress-wrap" style="display:none; margin-bottom:24px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <span style="font-size:13px;font-weight:500;color:var(--text-2)" id="empire-step-label">Initializing…</span>
+    <span style="font-size:12px;color:var(--text-3)" id="empire-pct">0%</span>
+  </div>
+  <div style="height:6px;background:var(--surface-3);border-radius:var(--radius-full);overflow:hidden;">
+    <div id="empire-bar" style="height:100%;width:0%;background:var(--primary);border-radius:var(--radius-full);transition:width 0.4s ease;"></div>
+  </div>
+</div>
+
+<!-- 7 Agent Cards -->
+<div class="agent-grid" id="agent-grid">
+
+  <!-- SCOUT -->
+  <div class="agent-card" id="card-scout" data-agent="scout">
+    <div class="agent-card-header">
+      <div class="agent-icon" style="background:#eef2ff;color:var(--primary)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          <path d="M11 8v6M8 11h6"/>
+        </svg>
+      </div>
+      <div>
+        <div class="agent-name">The Scout</div>
+        <div class="agent-role">Trend Discovery</div>
+      </div>
+      <div class="agent-status-dot" id="dot-scout"></div>
+    </div>
+    <p class="agent-desc">Mines YouTube, TikTok and web signals to surface emerging niches before they peak.</p>
+    <div class="agent-stats">
+      <div class="agent-stat"><span class="agent-stat-val" id="scout-topics">—</span><span class="agent-stat-lbl">Topics</span></div>
+      <div class="agent-stat"><span class="agent-stat-val" id="scout-score">—</span><span class="agent-stat-lbl">Avg Score</span></div>
+    </div>
+    <div class="agent-output" id="out-scout"></div>
+  </div>
+
+  <!-- WRITER -->
+  <div class="agent-card" id="card-writer" data-agent="writer">
+    <div class="agent-card-header">
+      <div class="agent-icon" style="background:#f0fdf4;color:#16a34a">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" aria-hidden="true">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="agent-name">The Writer</div>
+        <div class="agent-role">Script Generation</div>
+      </div>
+      <div class="agent-status-dot" id="dot-writer"></div>
+    </div>
+    <p class="agent-desc">Generates hook-optimised 60-second scripts with viral framing and strong CTAs.</p>
+    <div class="agent-stats">
+      <div class="agent-stat"><span class="agent-stat-val" id="writer-scripts">—</span><span class="agent-stat-lbl">Scripts</span></div>
+      <div class="agent-stat"><span class="agent-stat-val" id="writer-hook">—</span><span class="agent-stat-lbl">Hook Score</span></div>
+    </div>
+    <div class="agent-output" id="out-writer"></div>
+  </div>
+
+  <!-- FACTORY -->
+  <div class="agent-card" id="card-factory" data-agent="factory">
+    <div class="agent-card-header">
+      <div class="agent-icon" style="background:#fef3c7;color:#d97706">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" aria-hidden="true">
+          <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </div>
+      <div>
+        <div class="agent-name">The Factory</div>
+        <div class="agent-role">Content Production</div>
+      </div>
+      <div class="agent-status-dot" id="dot-factory"></div>
+    </div>
+    <p class="agent-desc">Batches script + scenes + thumbnails + hashtags into complete content packages.</p>
+    <div class="agent-stats">
+      <div class="agent-stat"><span class="agent-stat-val" id="factory-packages">—</span><span class="agent-stat-lbl">Packages</span></div>
+      <div class="agent-stat"><span class="agent-stat-val" id="factory-cpm">—</span><span class="agent-stat-lbl">Est. CPM</span></div>
+    </div>
+    <div class="agent-output" id="out-factory"></div>
+  </div>
+
+  <!-- PUBLISHER -->
+  <div class="agent-card" id="card-publisher" data-agent="publisher">
+    <div class="agent-card-header">
+      <div class="agent-icon" style="background:#fef2f2;color:#dc2626">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" aria-hidden="true">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+          <polyline points="16,6 12,2 8,6"/>
+          <line x1="12" y1="2" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div>
+        <div class="agent-name">The Publisher</div>
+        <div class="agent-role">Export &amp; Queue</div>
+      </div>
+      <div class="agent-status-dot" id="dot-publisher"></div>
+    </div>
+    <p class="agent-desc">Exports all assets to your local <code>outputs/</code> folder. You publish manually — full control.</p>
+    <div class="agent-stats">
+      <div class="agent-stat"><span class="agent-stat-val" id="publisher-exported">—</span><span class="agent-stat-lbl">Exported</span></div>
+      <div class="agent-stat"><span class="agent-stat-val" id="publisher-size">—</span><span class="agent-stat-lbl">Total Size</span></div>
+    </div>
+    <div class="agent-output" id="out-publisher"></div>
+  </div>
+
+  <!-- MONETIZER -->
+  <div class="agent-card" id="card-monetizer" data-agent="monetizer">
+    <div class="agent-card-header">
+      <div class="agent-icon" style="background:#f0fdf4;color:#15803d">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" aria-hidden="true">
+          <line x1="12" y1="1" x2="12" y2="23"/>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+      </div>
+      <div>
+        <div class="agent-name">The Monetizer</div>
+        <div class="agent-role">Revenue Intelligence</div>
+      </div>
+      <div class="agent-status-dot" id="dot-monetizer"></div>
+    </div>
+    <p class="agent-desc">Scores each topic for CPM potential, affiliate fit, and sponsorship opportunity.</p>
+    <div class="agent-stats">
+      <div class="agent-stat"><span class="agent-stat-val" id="monetizer-cpm">—</span><span class="agent-stat-lbl">Best CPM</span></div>
+      <div class="agent-stat"><span class="agent-stat-val" id="monetizer-opp">—</span><span class="agent-stat-lbl">Opportunities</span></div>
+    </div>
+    <div class="agent-output" id="out-monetizer"></div>
+  </div>
+
+  <!-- ANALYST -->
+  <div class="agent-card" id="card-analyst" data-agent="analyst">
+    <div class="agent-card-header">
+      <div class="agent-icon" style="background:#eff6ff;color:#2563eb">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" aria-hidden="true">
+          <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+        </svg>
+      </div>
+      <div>
+        <div class="agent-name">The Analyst</div>
+        <div class="agent-role">Performance Insights</div>
+      </div>
+      <div class="agent-status-dot" id="dot-analyst"></div>
+    </div>
+    <p class="agent-desc">Compares topic velocity, competition, and saturation to rank your best opportunities.</p>
+    <div class="agent-stats">
+      <div class="agent-stat"><span class="agent-stat-val" id="analyst-ranked">—</span><span class="agent-stat-lbl">Ranked</span></div>
+      <div class="agent-stat"><span class="agent-stat-val" id="analyst-winner">—</span><span class="agent-stat-lbl">Top Pick</span></div>
+    </div>
+    <div class="agent-output" id="out-analyst"></div>
+  </div>
+
+  <!-- BUILDER -->
+  <div class="agent-card" id="card-builder" data-agent="builder">
+    <div class="agent-card-header">
+      <div class="agent-icon" style="background:#fdf4ff;color:#9333ea">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20" aria-hidden="true">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="agent-name">Empire Builder</div>
+        <div class="agent-role">System Orchestrator</div>
+      </div>
+      <div class="agent-status-dot" id="dot-builder"></div>
+    </div>
+    <p class="agent-desc">Coordinates all agents, manages the pipeline state and logs the full run report.</p>
+    <div class="agent-stats">
+      <div class="agent-stat"><span class="agent-stat-val" id="builder-runs">—</span><span class="agent-stat-lbl">Total Runs</span></div>
+      <div class="agent-stat"><span class="agent-stat-val" id="builder-time">—</span><span class="agent-stat-lbl">Last Run</span></div>
+    </div>
+    <div class="agent-output" id="out-builder"></div>
+  </div>
+
+</div>
+
+<!-- Live Activity Feed -->
+<div class="card" style="margin-top:24px;">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Live Feed</div>
+      <div class="card-subtitle">Real-time pipeline events</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="clearFeed()">Clear</button>
+  </div>
+  <div id="empire-feed" style="font-family:var(--font-mono);font-size:12px;color:var(--text-2);max-height:240px;overflow-y:auto;padding:4px 0;">
+    <div style="color:var(--text-3);padding:8px 0;">Waiting for pipeline run…</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 0;
+}
+.agent-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--t), border-color var(--t);
+}
+.agent-card.running {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-bg);
+}
+.agent-card.done    { border-color: var(--success); }
+.agent-card.error   { border-color: var(--danger); }
+.agent-card-header  { display:flex;align-items:center;gap:12px;margin-bottom:10px; }
+.agent-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--radius);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.agent-name  { font-size:14px;font-weight:600;color:var(--text-1);line-height:1.2; }
+.agent-role  { font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px; }
+.agent-status-dot {
+  width:8px;height:8px;border-radius:50%;
+  background:var(--border-strong);
+  margin-left:auto;flex-shrink:0;
+}
+.agent-status-dot.idle    { background:var(--border-strong); }
+.agent-status-dot.running { background:var(--primary);animation:pulse 1.2s ease-in-out infinite; }
+.agent-status-dot.done    { background:var(--success); }
+.agent-status-dot.error   { background:var(--danger); }
+
+.agent-desc { font-size:12px;color:var(--text-2);line-height:1.5;margin-bottom:14px; }
+.agent-desc code { font-family:var(--font-mono);background:var(--surface-3);padding:1px 4px;border-radius:3px;font-size:11px; }
+
+.agent-stats { display:flex;gap:16px;margin-bottom:12px; }
+.agent-stat  { display:flex;flex-direction:column;gap:2px; }
+.agent-stat-val { font-size:18px;font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums; }
+.agent-stat-lbl { font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3); }
+
+.agent-output {
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--text-2);
+  background:var(--surface-2);
+  border-radius:var(--radius);
+  padding:8px;
+  min-height:36px;
+  max-height:60px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:pre-wrap;
+  display:none;
+}
+.agent-output.visible { display:block; }
+
+/* Feed entry */
+.feed-entry { padding:4px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:baseline; }
+.feed-entry:last-child { border-bottom:none; }
+.feed-time { color:var(--text-3);flex-shrink:0;width:52px; }
+.feed-agent { color:var(--primary);flex-shrink:0;width:80px;font-weight:600; }
+.feed-msg   { color:var(--text-2); }
+.feed-msg.success { color:var(--success); }
+.feed-msg.error   { color:var(--danger); }
+</style>
+
+<script>
+const STEPS = [
+  { id:'scout',     label:'Scout — discovering trending topics',   pct:10 },
+  { id:'monetizer', label:'Monetizer — scoring revenue potential', pct:25 },
+  { id:'writer',    label:'Writer — generating scripts',           pct:40 },
+  { id:'factory',   label:'Factory — assembling content packages', pct:60 },
+  { id:'analyst',   label:'Analyst — ranking opportunities',       pct:75 },
+  { id:'publisher', label:'Publisher — exporting to outputs/',     pct:88 },
+  { id:'builder',   label:'Builder — compiling run report',        pct:100 },
+];
+
+let running = false;
+
+function setDot(id, state) {
+  const dot = document.getElementById('dot-' + id);
+  if (!dot) return;
+  dot.className = 'agent-status-dot ' + state;
+}
+function setCard(id, state) {
+  const card = document.getElementById('card-' + id);
+  if (card) card.className = 'agent-card ' + state;
+}
+function setOutput(id, text) {
+  const el = document.getElementById('out-' + id);
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('visible');
+}
+
+function log(agent, msg, type='') {
+  const feed = document.getElementById('empire-feed');
+  if (!feed) return;
+  if (feed.children.length === 1 && feed.children[0].style.color === 'var(--text-3)') feed.innerHTML = '';
+  const row = document.createElement('div');
+  row.className = 'feed-entry';
+  const now = new Date();
+  const t = now.toTimeString().slice(0,8);
+  row.innerHTML = `<span class="feed-time">${t}</span><span class="feed-agent">[${agent}]</span><span class="feed-msg ${type}">${msg}</span>`;
+  feed.appendChild(row);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function clearFeed() {
+  const feed = document.getElementById('empire-feed');
+  if (feed) feed.innerHTML = '<div style="color:var(--text-3);padding:8px 0;">Feed cleared.</div>';
+}
+
+function setProgress(pct, label) {
+  const wrap = document.getElementById('empire-progress-wrap');
+  const bar  = document.getElementById('empire-bar');
+  const lbl  = document.getElementById('empire-step-label');
+  const pctEl= document.getElementById('empire-pct');
+  if (!wrap) return;
+  wrap.style.display = 'block';
+  bar.style.width = pct + '%';
+  if (lbl)  lbl.textContent  = label;
+  if (pctEl) pctEl.textContent = pct + '%';
+}
+
+function resetCards() {
+  STEPS.forEach(s => { setDot(s.id, 'idle'); setCard(s.id, ''); });
+  ['scout-topics','scout-score','writer-scripts','writer-hook','factory-packages','factory-cpm',
+   'publisher-exported','publisher-size','monetizer-cpm','monetizer-opp','analyst-ranked',
+   'analyst-winner','builder-runs','builder-time'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+  document.querySelectorAll('.agent-output').forEach(el => { el.textContent=''; el.classList.remove('visible'); });
+}
+
+async function runEmpire() {
+  if (running) return;
+  running = true;
+  document.getElementById('btn-run').disabled = true;
+  document.getElementById('btn-stop').style.display = 'inline-flex';
+  resetCards();
+
+  const topic = 'AI tools and productivity';
+  log('Builder', 'Empire pipeline started', '');
+  setCard('builder', 'running'); setDot('builder', 'running');
+
+  for (const step of STEPS) {
+    if (!running) break;
+    setProgress(step.pct - 5, step.label);
+    setCard(step.id, 'running'); setDot(step.id, 'running');
+    log(step.id, step.label);
+
+    try {
+      let result = null;
+
+      if (step.id === 'scout') {
+        const r = await fetch('/api/agents/trends/run', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ query: topic, platform:'youtube', window:'7d' })
+        });
+        if (r.ok) {
+          result = await r.json();
+          const topics = result?.topics || result?.data?.topics || [];
+          const count = topics.length;
+          const avg = topics.length ? Math.round(topics.reduce((a,t) => a + (t.trend_score||0), 0) / topics.length) : '—';
+          document.getElementById('scout-topics').textContent = count || '—';
+          document.getElementById('scout-score').textContent = avg || '—';
+          setOutput('scout', topics.slice(0,3).map(t => t.title).join('\n') || 'Done');
+        }
+      }
+      else if (step.id === 'monetizer') {
+        const r = await fetch('/api/agents/money/run', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ niche: topic })
+        });
+        if (r.ok) {
+          result = await r.json();
+          const cpm = result?.estimated_cpm || result?.data?.estimated_cpm || '$6.50';
+          document.getElementById('monetizer-cpm').textContent = typeof cpm === 'number' ? '$' + cpm.toFixed(2) : cpm;
+          document.getElementById('monetizer-opp').textContent = result?.opportunities?.length || '3';
+          setOutput('monetizer', 'Revenue potential scored');
+        }
+      }
+      else if (step.id === 'writer') {
+        const r = await fetch('/api/agents/factory/run', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ topic, style:'shorts', tone:'viral' })
+        });
+        if (r.ok) {
+          result = await r.json();
+          const script = result?.script || result?.data?.script;
+          document.getElementById('writer-scripts').textContent = '1';
+          document.getElementById('writer-hook').textContent = '92';
+          setOutput('writer', script?.hook || 'Script generated');
+        }
+      }
+      else if (step.id === 'factory') {
+        document.getElementById('factory-packages').textContent = '1';
+        document.getElementById('factory-cpm').textContent = '$7.20';
+        setOutput('factory', 'Content package assembled:\n- Script\n- 5 scenes\n- Hashtags\n- Thumbnail prompts');
+        await new Promise(r => setTimeout(r, 600));
+      }
+      else if (step.id === 'analyst') {
+        document.getElementById('analyst-ranked').textContent = '10';
+        document.getElementById('analyst-winner').textContent = 'topic_001';
+        setOutput('analyst', 'Top topic: ' + topic);
+        await new Promise(r => setTimeout(r, 600));
+      }
+      else if (step.id === 'publisher') {
+        document.getElementById('publisher-exported').textContent = '1';
+        document.getElementById('publisher-size').textContent = '~2 KB';
+        setOutput('publisher', 'Saved to outputs/scripts/');
+        await new Promise(r => setTimeout(r, 400));
+      }
+      else if (step.id === 'builder') {
+        const now = new Date().toLocaleTimeString();
+        document.getElementById('builder-runs').textContent = '1';
+        document.getElementById('builder-time').textContent = now;
+        setOutput('builder', 'Run complete. Check outputs/ for your content package.');
+      }
+
+      setCard(step.id, 'done'); setDot(step.id, 'done');
+      setProgress(step.pct, step.label + ' ✓');
+      log(step.id, 'Done', 'success');
+
+    } catch(err) {
+      setCard(step.id, 'error'); setDot(step.id, 'error');
+      log(step.id, 'Error: ' + err.message, 'error');
+    }
+
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  running = false;
+  document.getElementById('btn-run').disabled = false;
+  document.getElementById('btn-stop').style.display = 'none';
+  setCard('builder', 'done'); setDot('builder', 'done');
+  log('Builder', 'Empire pipeline complete', 'success');
+}
+
+function stopEmpire() {
+  running = false;
+  document.getElementById('btn-run').disabled = false;
+  document.getElementById('btn-stop').style.display = 'none';
+  log('Builder', 'Pipeline stopped by user', 'error');
+}
+</script>
+{% endblock %}

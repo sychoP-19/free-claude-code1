@@ -1,14 +1,68 @@
-__pycache__
-.claude
-.cursor
-.pytest_cache
-.ruff_cache
-.serena
-.venv
-agent_workspace
-.env
-server.log
-debug-*.log
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
 .coverage
-llama_cache
-.smoke-results
+htmlcov/
+
+# ── Environments ───────────────────────────────────────────────────────
+.env
+.venv/
+venv/
+
+# ── IDE / Tool configs ─────────────────────────────────────────────────
+.claude/
+.cursor/
+.serena/
+.codegraph/
+.scratch/
+.gemini/
+.claude-plugin/
+
+# ── Trellis workspace ─────────────────────────────────────────────────
+.trellis/
+
+# ── Runtime artifacts ──────────────────────────────────────────────────
+agent_workspace/
+server.log
+server.*.log
+debug-*.log
+llama_cache/
+.smoke-results/
+
+# ── Database runtime files ─────────────────────────────────────────────
+*.db-wal
+*.db-shm
+
+# ── Generated media outputs (too large for git) ───────────────────────
+content-creator/outputs/ready-to-publish/**/*.mp4
+content-creator/outputs/videos/
+content-creator/outputs/auto_video/
+content-creator/outputs/audio/
+content-creator/outputs/carousel/
+content-creator/outputs/assets/
+content-creator/outputs/exports/
+content-creator/data/cinegen_jobs.json
+content-creator/data/publish_queue.json
+content-creator/data/voices.json
+
+# ── Backup files ───────────────────────────────────────────────────────
+*.bak
+*.bak2
+
+# ── Standalone HTML dashboards (not templates) ────────────────────────
+prompt-rebuilder-dashboard.html
+prompt-rebuilder-guide.html
+
+# ── OS / junk files ────────────────────────────────────────────────────
+Thumbs.db
+.DS_Store
+*.tmp
+ruvector.db
+simo.db
+
+# ── Node (if ever added at root) ──────────────────────────────────────
+node_modules/
+package-lock.json

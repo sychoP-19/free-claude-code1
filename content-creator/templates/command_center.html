@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reel-Maker Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-blue-400">Reel-Maker Command Center</h1>
+        
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
+            <label class="block text-sm font-medium mb-2">Story Premise</label>
+            <textarea id="premise" class="w-full h-32 bg-gray-700 rounded p-4 mb-4" placeholder="Enter story premise..."></textarea>
+            <button onclick="startPipeline()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded font-bold">Start Pipeline</button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+            <div id="step-script" class="p-4 bg-gray-800 rounded opacity-50">1. Script</div>
+            <div id="step-assets" class="p-4 bg-gray-800 rounded opacity-50">2. Assets</div>
+            <div id="step-assemble" class="p-4 bg-gray-800 rounded opacity-50">3. Assemble</div>
+        </div>
+
+        <div id="console" class="bg-black text-green-400 p-4 rounded font-mono text-sm h-48 overflow-y-auto">
+            Ready...
+        </div>
+    </div>
+
+    <script>
+        async function startPipeline() {
+            const premise = document.getElementById('premise').value;
+            const log = document.getElementById('console');
+            
+            // Generate a topic ID (for demo, using timestamp)
+            const topicId = "master_" + Date.now();
+            
+            log.innerHTML += `\nStarting pipeline for: ${premise.substring(0, 20)}...`;
+            
+            try {
+                const response = await fetch('/api/reel/transition', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        topic_id: topicId,
+                        target_stage: 'scripting',
+                        action: 'approve'
+                    })
+                });
+                const data = await response.json();
+                log.innerHTML += `\nResult: ${JSON.stringify(data)}`;
+            } catch (err) {
+                log.innerHTML += `\nError: ${err.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
