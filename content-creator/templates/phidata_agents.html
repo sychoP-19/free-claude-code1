@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% set active = "phidata" %}
+{% block title %}Phidata Agents{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">PHIDATA AGENTS</div>
+    <div class="page-subtitle">BUILD PRODUCTION AI AGENTS WITH MEMORY + TOOLS IN 10 LINES</div>
+  </div>
+  <div class="ph-impact" style="padding:8px 14px;border-radius:6px;background:rgba(20,184,166,0.08);border:1px solid rgba(20,184,166,0.25);font-size:11px;color:#14b8a6;max-width:480px;line-height:1.5;">
+    PHIDATA IMPACT: Build production AI agents with memory + tools in 10 lines. Auto-generates system prompts. Multi-agent orchestration.
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;">
+
+  <!-- Agent Builder -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Agent Builder</span>
+      <span class="badge" style="background:rgba(20,184,166,0.15);color:#14b8a6;">PHIDATA</span>
+    </div>
+    <div class="hud-panel-body">
+      <div class="ph-form-row">
+        <label class="form-label">Agent Name</label>
+        <input id="ph-agent-name" class="form-control" value="ResearchAgent" placeholder="Agent name"/>
+      </div>
+      <div class="ph-form-row" style="margin-top:8px;">
+        <label class="form-label">Role</label>
+        <input id="ph-agent-role" class="form-control" value="You are a research assistant that finds and summarizes information." placeholder="Agent role description"/>
+      </div>
+      <div class="ph-form-row" style="margin-top:8px;">
+        <label class="form-label">Model</label>
+        <select id="ph-agent-model" class="form-control">
+          <option value="gpt-4o">GPT-4o</option>
+          <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+          <option value="gpt-4o-mini">GPT-4o Mini</option>
+          <option value="llama3.1:8b">Llama 3.1 8B</option>
+        </select>
+      </div>
+      <div class="ph-form-row" style="margin-top:8px;">
+        <label class="form-label">Tools</label>
+        <select id="ph-agent-tools" class="form-control" multiple style="height:72px;">
+          <option value="DuckDuckGo" selected>DuckDuckGo Search</option>
+          <option value="PythonTools">Python Interpreter</option>
+          <option value="FileTools">File Manager</option>
+          <option value="Calculator">Calculator</option>
+          <option value="SQLTools">SQL Database</option>
+          <option value="CSVTools">CSV Reader</option>
+        </select>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button class="btn" style="background:rgba(20,184,166,0.15);border:1px solid rgba(20,184,166,0.4);color:#14b8a6;" onclick="createAgent()">CREATE AGENT</button>
+      </div>
+      <div id="ph-agent-status" style="margin-top:10px;font-size:11px;color:var(--text-muted);"></div>
+    </div>
+  </div>
+
+  <!-- Tool Registry -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Tool Registry</span>
+      <span class="badge" style="background:rgba(20,184,166,0.15);color:#14b8a6;">12 TOOLS</span>
+    </div>
+    <div class="hud-panel-body" id="ph-tools-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    </div>
+    <div style="padding:0 16px 12px;">
+      <button class="btn" style="background:rgba(20,184,166,0.15);border:1px solid rgba(20,184,166,0.4);color:#14b8a6;font-size:11px;" onclick="listTools()">REFRESH TOOLS</button>
+    </div>
+  </div>
+
+  <!-- Workflow Designer -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Workflow Designer</span>
+      <span class="badge" style="background:rgba(20,184,166,0.15);color:#14b8a6;">MULTI-AGENT</span>
+    </div>
+    <div class="hud-panel-body">
+      <div class="ph-form-row">
+        <label class="form-label">Workflow Name</label>
+        <input id="ph-wf-name" class="form-control" value="Research Pipeline" placeholder="Workflow name"/>
+      </div>
+      <div class="ph-form-row" style="margin-top:8px;">
+        <label class="form-label">Agent Sequence</label>
+        <input id="ph-wf-sequence" class="form-control" value="ResearchAgent,WriterAgent,ReviewAgent" placeholder="Comma-separated agent names"/>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button class="btn" style="background:rgba(20,184,166,0.15);border:1px solid rgba(20,184,166,0.4);color:#14b8a6;" onclick="runWorkflow()">RUN WORKFLOW</button>
+      </div>
+      <div id="ph-wf-status" style="margin-top:10px;font-size:11px;color:var(--text-muted);"></div>
+      <div id="ph-wf-log" style="margin-top:8px;max-height:140px;overflow-y:auto;font-family:var(--font-data);font-size:10px;color:var(--text-dim);line-height:1.6;"></div>
+    </div>
+  </div>
+
+  <!-- Agent Memory -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Agent Memory</span>
+      <span class="badge" style="background:rgba(20,184,166,0.15);color:#14b8a6;">STORAGE</span>
+    </div>
+    <div class="hud-panel-body" id="ph-memory-list" style="max-height:220px;overflow-y:auto;">
+    </div>
+  </div>
+
+  <!-- Autonomous Tasks -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Autonomous Tasks</span>
+      <span class="badge" style="background:rgba(20,184,166,0.15);color:#14b8a6;">ACTIVE</span>
+    </div>
+    <div class="hud-panel-body">
+      <div class="ph-form-row">
+        <label class="form-label">Task Description</label>
+        <input id="ph-task-desc" class="form-control" value="Research top 5 AI frameworks and compare features" placeholder="Describe the autonomous task"/>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn" style="background:rgba(20,184,166,0.15);border:1px solid rgba(20,184,166,0.4);color:#14b8a6;" onclick="runAutonomousTask()">DEPLOY TASK</button>
+      </div>
+      <div id="ph-task-status" style="margin-top:10px;font-size:11px;color:var(--text-muted);"></div>
+      <div id="ph-task-list" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- Debug Console -->
+  <div class="hud-panel" style="grid-column:1/-1;">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Debug Console</span>
+      <span class="badge" style="background:rgba(20,184,166,0.15);color:#14b8a6;">LIVE</span>
+    </div>
+    <div class="hud-panel-body">
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <select id="ph-debug-agent" class="form-control" style="max-width:180px;">
+          <option>ResearchAgent</option>
+          <option>WriterAgent</option>
+          <option>ReviewAgent</option>
+        </select>
+        <button class="btn" style="background:rgba(20,184,166,0.15);border:1px solid rgba(20,184,166,0.4);color:#14b8a6;font-size:11px;" onclick="debugAgent()">INSPECT</button>
+        <button class="btn" style="background:rgba(20,184,166,0.08);border:1px solid rgba(20,184,166,0.2);color:#14b8a6;font-size:11px;" onclick="clearDebug()">CLEAR</button>
+      </div>
+      <div id="ph-debug-output" style="background:rgba(0,20,50,0.5);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:var(--font-data);font-size:11px;color:var(--cyan);max-height:200px;overflow-y:auto;line-height:1.7;white-space:pre-wrap;"></div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.ph-form-row .form-label { display:block;margin-bottom:4px;font-size:10px;letter-spacing:0.06em;color:var(--text-muted);text-transform:uppercase; }
+:root{--yellow:#f59e0b;}
+.ph-form-row .form-control { width:100%; }
+.ph-tool-card { padding:10px;border-radius:6px;border:1px solid rgba(20,184,166,0.15);background:rgba(20,184,166,0.04);transition:border-color 0.2s; }
+.ph-tool-card:hover { border-color:rgba(20,184,166,0.4); }
+.ph-tool-name { font-size:12px;font-weight:600;color:#14b8a6; }
+.ph-tool-desc { font-size:10px;color:var(--text-muted);margin-top:4px; }
+.ph-memory-item { padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px; }
+.ph-memory-key { color:#14b8a6;font-weight:600; }
+.ph-memory-val { color:var(--text-muted);margin-top:2px;font-size:10px; }
+.ph-task-item { padding:8px 10px;border-radius:4px;background:rgba(20,184,166,0.04);border:1px solid rgba(20,184,166,0.12);margin-bottom:6px;font-size:11px;display:flex;justify-content:space-between;align-items:center; }
+.ph-task-status { font-family:var(--font-data);font-size:10px;padding:2px 8px;border-radius:3px; }
+.ph-task-running { background:rgba(20,184,166,0.15);color:#14b8a6; }
+.ph-task-done { background:rgba(16,217,132,0.12);color:#10d984; }
+</style>
+<script>
+/* Mock data */
+const PH_TOOLS = [
+  {name:'DuckDuckGo',desc:'Web search for real-time information'},
+  {name:'PythonTools',desc:'Execute Python code safely'},
+  {name:'FileTools',desc:'Read, write, and manage files'},
+  {name:'Calculator',desc:'Mathematical computations'},
+  {name:'SQLTools',desc:'Query SQL databases'},
+  {name:'CSVTools',desc:'Parse and analyze CSV data'},
+  {name:'YFinanceTools',desc:'Stock and financial data'},
+  {name:'Newspaper4kTools',desc:'Web article scraping'},
+  {name:'PubMedTools',desc:'Medical literature search'},
+  {name:'ArxivTools',desc:'Academic paper search'},
+  {name:'GitHubTools',desc:'Repo and issue management'},
+  {name:'SlackTools',desc:'Send Slack messages'}
+];
+
+const PH_MEMORY = [
+  {key:'research_topic_2025',val:'AI agent frameworks comparison — stored 2h ago'},
+  {key:'user_preferences',val:'prefers concise summaries, English, max 500 words — stored 1d ago'},
+  {key:'last_search_results',val:'5 papers on RAG optimization retrieved — stored 45m ago'},
+  {key:'workflow_state_v3',val:'ResearchAgent → WriterAgent → complete — stored 3h ago'},
+  {key:'api_usage_quotas',val:'DuckDuckGo: 847/1000, PubMed: 12/100 — stored 10m ago'}
+];
+
+let phTasks = [];
+let phTaskId = 0;
+
+function _log(el,text,color){
+  const d=document.createElement('div');
+  d.style.color=color||'var(--text-muted)';
+  d.textContent='[ '+new Date().toLocaleTimeString()+' ] '+text;
+  el.appendChild(d);
+  el.scrollTop=el.scrollHeight;
+}
+
+function createAgent(){
+  const name=document.getElementById('ph-agent-name').value.trim();
+  const role=document.getElementById('ph-agent-role').value.trim();
+  const model=document.getElementById('ph-agent-model').value;
+  const status=document.getElementById('ph-agent-status');
+  if(!name){status.textContent='Agent name required.';status.style.color='var(--red)';return;}
+  status.textContent='Creating agent "'+name+'" with '+model+'...';
+  status.style.color='#14b8a6';
+  setTimeout(()=>{
+    const code='from phi.agent import Agent\nfrom phi.model import OpenAI\nfrom phi.tools.duckduckgo import DuckDuckGo\n\nagent = Agent(\n  name="'+name+'",\n  role="'+role+'",\n  model=OpenAI(id="'+model+'"),\n  tools=[DuckDuckGo()],\n  memory=true\n)\nagent.print_response("Hello")';
+    const out=document.getElementById('ph-debug-output');
+    _log(out,'Agent "'+name+'" created successfully','#14b8a6');
+    _log(out,'Generated code:\n'+code,'var(--text-dim)');
+    status.textContent='Agent "'+name+'" created. '+code.split('\n').length+' lines generated.';
+    status.style.color='#10d984';
+  },800);
+}
+
+function listTools(){
+  const grid=document.getElementById('ph-tools-grid');
+  grid.textContent='';
+  PH_TOOLS.forEach(t=>{
+    const card=document.createElement('div');
+    card.className='ph-tool-card';
+    const n=document.createElement('div');n.className='ph-tool-name';n.textContent=t.name;card.appendChild(n);
+    const d=document.createElement('div');d.className='ph-tool-desc';d.textContent=t.desc;card.appendChild(d);
+    grid.appendChild(card);
+  });
+}
+
+function runWorkflow(){
+  const name=document.getElementById('ph-wf-name').value.trim();
+  const seq=document.getElementById('ph-wf-sequence').value.trim();
+  const status=document.getElementById('ph-wf-status');
+  const log=document.getElementById('ph-wf-log');
+  log.textContent='';
+  status.textContent='Starting workflow "'+name+'"...';
+  status.style.color='#14b8a6';
+  const agents=seq.split(',').map(a=>a.trim()).filter(Boolean);
+  agents.forEach((a,i)=>{
+    setTimeout(()=>{
+      _log(log,a+': initializing...','var(--text-muted)');
+      setTimeout(()=>{
+        _log(log,a+': processing task...','#14b8a6');
+        setTimeout(()=>{
+          _log(log,a+': completed ✓','#10d984');
+          if(i===agents.length-1){
+            status.textContent='Workflow "'+name+'" completed. '+agents.length+' agents ran.';
+            status.style.color='#10d984';
+          }
+        },400);
+      },300);
+    },i*900);
+  });
+}
+
+function debugAgent(){
+  const sel=document.getElementById('ph-debug-agent').value;
+  const out=document.getElementById('ph-debug-output');
+  _log(out,'Inspecting '+sel+'...','var(--text-muted)');
+  setTimeout(()=>{
+    _log(out,'Agent: '+sel,'#14b8a6');
+    _log(out,'State: idle | Memory: 42 entries | Tools: 3 active','var(--text-muted)');
+    _log(out,'Last run: '+new Date(Date.now()-3600000).toISOString(),'var(--text-dim)');
+    _log(out,'Token usage: 1,247 prompt / 892 completion','var(--text-dim)');
+    _log(out,'Status: ready','var(--green)');
+  },300);
+}
+
+function clearDebug(){
+  document.getElementById('ph-debug-output').textContent='';
+}
+
+function runAutonomousTask(){
+  const desc=document.getElementById('ph-task-desc').value.trim();
+  const status=document.getElementById('ph-task-status');
+  if(!desc){status.textContent='Task description required.';status.style.color='var(--red)';return;}
+  const id=++phTaskId;
+  const task={id,desc,running:true};
+  phTasks.push(task);
+  status.textContent='Tasks: '+phTasks.length+' running, '+phTasks.filter(t=>!t.running).length+' done.';
+  status.style.color='#14b8a6';
+  setTimeout(()=>{
+    task.running=false;
+    _renderTasks();
+    status.textContent='Tasks: '+phTasks.filter(t=>t.running).length+' running, '+phTasks.filter(t=>!t.running).length+' done.';
+    status.style.color='#10d984';
+  },3000+Math.random()*2000);
+  _renderTasks();
+  _log(document.getElementById('ph-debug-output'),'Autonomous task deployed: '+desc,'var(--yellow)');
+}
+
+function _renderTasks(){
+  const el=document.getElementById('ph-task-list');
+  el.textContent='';
+  phTasks.forEach(t=>{
+    const item=document.createElement('div');
+    item.className='ph-task-item';
+    const txt=document.createElement('span');
+    txt.textContent='#'+t.id+' '+t.desc;
+    item.appendChild(txt);
+    const badge=document.createElement('span');
+    badge.className='ph-task-status '+(t.running?'ph-task-running':'ph-task-done');
+    badge.textContent=t.running?'RUNNING':'DONE';
+    item.appendChild(badge);
+    el.appendChild(item);
+  });
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  listTools();
+  const mem=document.getElementById('ph-memory-list');
+  PH_MEMORY.forEach(m=>{
+    const item=document.createElement('div');
+    item.className='ph-memory-item';
+    const k=document.createElement('div');k.className='ph-memory-key';k.textContent=m.key;item.appendChild(k);
+    const v=document.createElement('div');v.className='ph-memory-val';v.textContent=m.val;item.appendChild(v);
+    mem.appendChild(item);
+  });
+  const out=document.getElementById('ph-debug-output');
+  _log(out,'Phidata Agents module loaded. 12 tools registered, 3 agents active.','var(--text-muted)');
+fetch('/api/phidata/status').then(r=>r.json()).then(d=>{if(d.status==='ok'){_log(out,'Live status: '+d.agents_active+' agents active, '+d.tasks_completed+' tasks completed, avg '+d.avg_time_s+'s','var(--cyan)');}}).catch(()=>{});
+fetch('/api/phidata/agents').then(r=>r.json()).then(d=>{if(d.agents){d.agents.forEach(a=>{_log(out,'→ '+a.name+': '+a.status+' ('+a.tasks+' tasks, '+a.model+')','var(--text-muted)');});}}).catch(()=>{});
+});
+</script>
+{% endblock %}

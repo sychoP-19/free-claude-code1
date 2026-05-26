@@ -6,290 +6,660 @@
 <div class="page-header">
   <div>
     <div class="page-title" style="background:linear-gradient(135deg,#00d4ff 0%,#ff2ec3 70%);-webkit-background-clip:text;background-clip:text;color:transparent;">MISSION CONTROL</div>
-    <div class="page-subtitle">LIVE MULTI-AGENT FEED · RESEARCHER · STRATEGIST · WRITER · DESIGNER · PUBLISHER</div>
+    <div class="page-subtitle">SYSTEM STATUS · AGENT COMMAND · LIVE FEED</div>
   </div>
   <div class="page-actions">
-    <input id="mc-goal" class="hud-input" placeholder="State your goal (e.g. 'YouTube package on AI history')" style="min-width:340px;"/>
-    <button class="btn btn-primary" onclick="mcDispatch()"><span>DISPATCH</span></button>
+    <button class="btn btn-primary" onclick="refreshAll()" style="margin-right:8px;">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+      REFRESH
+    </button>
+    <button class="btn" onclick="toggleAutoRefresh(this)" id="btn-auto">
+      AUTO: OFF
+    </button>
   </div>
 </div>
 
-<!-- STATS BAR -->
-<div id="mc-stats-bar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;">
-  <div class="mc-stat-tile">
-    <div class="mc-stat-label">RUNS TODAY</div>
-    <div class="mc-stat-val" id="stat-runs">—</div>
+<!-- ROW 1: Stats + System Health + Service Status -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+
+  <!-- System Health -->
+  <div class="mc-glass-panel">
+    <div class="mc-panel-head">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>
+      SYSTEM HEALTH
+    </div>
+    <div id="mc-health-bars" style="padding:12px 16px;">
+      <!-- CPU -->
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="color:rgba(255,255,255,0.6);font-size:11px;letter-spacing:1px;">CPU</span>
+          <span id="health-cpu-val" style="color:#00d4ff;font-family:var(--font-data,monospace);font-size:12px;">—</span>
+        </div>
+        <div class="mc-bar-track"><div id="health-cpu-bar" class="mc-bar-fill" style="width:0%;background:linear-gradient(90deg,#00d4ff,#3b82f6);"></div></div>
+      </div>
+      <!-- RAM -->
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="color:rgba(255,255,255,0.6);font-size:11px;letter-spacing:1px;">RAM</span>
+          <span id="health-ram-val" style="color:#a78bfa;font-family:var(--font-data,monospace);font-size:12px;">—</span>
+        </div>
+        <div class="mc-bar-track"><div id="health-ram-bar" class="mc-bar-fill" style="width:0%;background:linear-gradient(90deg,#a78bfa,#7c3aed);"></div></div>
+      </div>
+      <!-- Disk -->
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="color:rgba(255,255,255,0.6);font-size:11px;letter-spacing:1px;">DISK</span>
+          <span id="health-disk-val" style="color:#2effb5;font-family:var(--font-data,monospace);font-size:12px;">—</span>
+        </div>
+        <div class="mc-bar-track"><div id="health-disk-bar" class="mc-bar-fill" style="width:0%;background:linear-gradient(90deg,#2effb5,#10b981);"></div></div>
+      </div>
+      <!-- Ollama indicator -->
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+        <span id="health-ollama-dot" class="mc-svc-dot mc-svc-dot--off"></span>
+        <span style="color:rgba(255,255,255,0.5);font-size:10px;">OLLAMA</span>
+      </div>
+    </div>
   </div>
-  <div class="mc-stat-tile">
-    <div class="mc-stat-label">ASSETS GENERATED</div>
-    <div class="mc-stat-val" id="stat-assets">—</div>
+
+  <!-- Service Status -->
+  <div class="mc-glass-panel">
+    <div class="mc-panel-head">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      SERVICE STATUS
+    </div>
+    <div id="mc-services-list" style="padding:10px 16px;">
+      <!-- populated by JS -->
+    </div>
   </div>
-  <div class="mc-stat-tile">
-    <div class="mc-stat-label">IDEAS RANKED</div>
-    <div class="mc-stat-val" id="stat-ideas">—</div>
-  </div>
-  <div class="mc-stat-tile">
-    <div class="mc-stat-label">COST ESTIMATE</div>
-    <div class="mc-stat-val" id="stat-cost">—</div>
+
+  <!-- Quick Stats -->
+  <div class="mc-glass-panel">
+    <div class="mc-panel-head">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      QUICK STATS
+    </div>
+    <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="mc-mini-stat">
+        <div class="mc-mini-val" id="stat-runs">—</div>
+        <div class="mc-mini-label">RUNS TODAY</div>
+      </div>
+      <div class="mc-mini-stat">
+        <div class="mc-mini-val" id="stat-assets">—</div>
+        <div class="mc-mini-label">ASSETS GEN</div>
+      </div>
+      <div class="mc-mini-stat">
+        <div class="mc-mini-val" id="stat-ideas">—</div>
+        <div class="mc-mini-label">IDEAS RANKED</div>
+      </div>
+      <div class="mc-mini-stat">
+        <div class="mc-mini-val" id="stat-cost">—</div>
+        <div class="mc-mini-label">COST EST</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- QUICK LAUNCH PANEL -->
-<div id="mc-quick-launch" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;">
-  <div class="mc-launch-card" data-pipeline="shorts">
-    <div class="mc-launch-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-        <rect x="2" y="4" width="15" height="16" rx="2"/>
-        <path d="M17 8l4 2-4 2"/>
-      </svg>
+<!-- ROW 2: Agent Status + Quick Launch + Activity Feed -->
+<div style="display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:14px;margin-bottom:16px;">
+
+  <!-- Active Agents -->
+  <div class="mc-glass-panel">
+    <div class="mc-panel-head">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      ACTIVE AGENTS
     </div>
-    <div class="mc-launch-name">SHORTS</div>
-    <input class="mc-launch-input" placeholder="YouTube URL…" data-key="youtube_url"/>
-    <button class="mc-launch-btn" onclick="quickLaunch('shorts',this)">RUN</button>
-    <div class="mc-launch-status"></div>
+    <div id="mc-agents-grid" style="padding:10px 16px;">
+      <!-- populated by JS -->
+    </div>
   </div>
-  <div class="mc-launch-card" data-pipeline="longform">
-    <div class="mc-launch-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-        <rect x="3" y="4" width="18" height="14" rx="2"/><polygon points="10,9 15,12 10,15"/>
-      </svg>
+
+  <!-- Quick Launch Grid -->
+  <div class="mc-glass-panel">
+    <div class="mc-panel-head">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      QUICK LAUNCH
     </div>
-    <div class="mc-launch-name">AUTO VIDEO</div>
-    <input class="mc-launch-input" placeholder="Topic…" data-key="topic"/>
-    <button class="mc-launch-btn" onclick="quickLaunch('longform',this)">RUN</button>
-    <div class="mc-launch-status"></div>
+    <div style="padding:10px 16px;">
+      <div id="mc-launch-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        <!-- populated by JS -->
+      </div>
+      <!-- Goal dispatch at bottom -->
+      <div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
+        <input id="mc-goal" class="mc-launch-input" placeholder="State your goal (e.g. 'AI history YouTube package')" style="flex:1;min-width:0;"/>
+        <button class="mc-launch-btn" onclick="mcDispatch()" style="white-space:nowrap;">DISPATCH GOAL</button>
+      </div>
+    </div>
   </div>
-  <div class="mc-launch-card" data-pipeline="blog">
-    <div class="mc-launch-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
-      </svg>
+
+  <!-- Activity Feed -->
+  <div class="mc-glass-panel">
+    <div class="mc-panel-head">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      RECENT ACTIVITY
     </div>
-    <div class="mc-launch-name">BLOG</div>
-    <input class="mc-launch-input" placeholder="Topic…" data-key="topic"/>
-    <button class="mc-launch-btn" onclick="quickLaunch('blog',this)">RUN</button>
-    <div class="mc-launch-status"></div>
-  </div>
-  <div class="mc-launch-card" data-pipeline="research">
-    <div class="mc-launch-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-      </svg>
+    <div id="mc-activity-feed" style="padding:8px 16px;max-height:340px;overflow-y:auto;">
+      <!-- populated by JS -->
     </div>
-    <div class="mc-launch-name">RESEARCH</div>
-    <input class="mc-launch-input" placeholder="Topic…" data-key="topic"/>
-    <button class="mc-launch-btn" onclick="quickLaunch('research',this)">RUN</button>
-    <div class="mc-launch-status"></div>
-  </div>
-  <div class="mc-launch-card" data-pipeline="podcast">
-    <div class="mc-launch-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-        <rect x="9" y="2" width="6" height="12" rx="3"/>
-        <path d="M5 10v2a7 7 0 0 0 14 0v-2"/>
-        <line x1="12" y1="19" x2="12" y2="23"/>
-      </svg>
-    </div>
-    <div class="mc-launch-name">PODCAST</div>
-    <input class="mc-launch-input" placeholder="Topic…" data-key="topic"/>
-    <button class="mc-launch-btn" onclick="quickLaunch('podcast',this)">RUN</button>
-    <div class="mc-launch-status"></div>
   </div>
 </div>
 
-<!-- REVENUE HUNTER QUICK ACCESS -->
-<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;">
-  <a href="/voice-lab" style="text-decoration:none">
-    <div class="mc-launch-card" style="border-color:rgba(167,139,250,0.4);cursor:pointer">
-      <div class="mc-launch-icon" style="color:#a78bfa">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-          <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2"/>
-        </svg>
-      </div>
-      <div class="mc-launch-name" style="color:#a78bfa">VOICE LAB</div>
-      <div style="font-size:9px;color:var(--muted);margin-top:4px;letter-spacing:1px">GPT-SoVITS · F5-TTS</div>
-      <div class="mc-launch-status" style="color:#a78bfa">→ OPEN</div>
-    </div>
+<!-- ROW 3: Navigation Links -->
+<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px;">
+  <a href="/voice-lab" class="mc-nav-card" style="border-color:rgba(167,139,250,0.4);color:#a78bfa;">
+    <div class="mc-nav-name">VOICE LAB</div>
+    <div class="mc-nav-sub">GPT-SoVITS</div>
   </a>
-  <a href="/cinegen" style="text-decoration:none">
-    <div class="mc-launch-card" style="border-color:rgba(124,58,237,0.4);cursor:pointer">
-      <div class="mc-launch-icon" style="color:#7c3aed">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-          <path d="M2 8h4l3-3h6l3 3h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z"/>
-          <circle cx="12" cy="15" r="4"/>
-        </svg>
-      </div>
-      <div class="mc-launch-name" style="color:#7c3aed">CINEGEN AI</div>
-      <div style="font-size:9px;color:var(--muted);margin-top:4px;letter-spacing:1px">CogVideoX · T2V</div>
-      <div class="mc-launch-status" style="color:#7c3aed">→ OPEN</div>
-    </div>
+  <a href="/cinegen" class="mc-nav-card" style="border-color:rgba(124,58,237,0.4);color:#7c3aed;">
+    <div class="mc-nav-name">CINEGEN AI</div>
+    <div class="mc-nav-sub">CogVideoX</div>
   </a>
-  <a href="/reel-producer" style="text-decoration:none">
-    <div class="mc-launch-card" style="border-color:rgba(239,68,68,0.4);cursor:pointer">
-      <div class="mc-launch-icon" style="color:#ef4444">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-          <circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/>
-        </svg>
-      </div>
-      <div class="mc-launch-name" style="color:#ef4444">REEL MACHINE</div>
-      <div style="font-size:9px;color:var(--muted);margin-top:4px;letter-spacing:1px">Auto Pipeline</div>
-      <div class="mc-launch-status" style="color:#ef4444">→ OPEN</div>
-    </div>
+  <a href="/reel-producer" class="mc-nav-card" style="border-color:rgba(239,68,68,0.4);color:#ef4444;">
+    <div class="mc-nav-name">REEL MACHINE</div>
+    <div class="mc-nav-sub">Auto Pipeline</div>
   </a>
-  <a href="/publish-hub" style="text-decoration:none">
-    <div class="mc-launch-card" style="border-color:rgba(16,185,129,0.4);cursor:pointer">
-      <div class="mc-launch-icon" style="color:#10b981">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-          <polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/>
-          <path d="M20 16v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/>
-        </svg>
-      </div>
-      <div class="mc-launch-name" style="color:#10b981">PUBLISH HUB</div>
-      <div style="font-size:9px;color:var(--muted);margin-top:4px;letter-spacing:1px">6 Platforms</div>
-      <div class="mc-launch-status" style="color:#10b981">→ OPEN</div>
-    </div>
+  <a href="/publish-hub" class="mc-nav-card" style="border-color:rgba(16,185,129,0.4);color:#10b981;">
+    <div class="mc-nav-name">PUBLISH HUB</div>
+    <div class="mc-nav-sub">6 Platforms</div>
   </a>
-  <a href="/money" style="text-decoration:none">
-    <div class="mc-launch-card" style="border-color:rgba(255,107,53,0.4);cursor:pointer">
-      <div class="mc-launch-icon" style="color:#ff6b35">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-        </svg>
-      </div>
-      <div class="mc-launch-name" style="color:#ff6b35">REVENUE INTEL</div>
-      <div style="font-size:9px;color:var(--muted);margin-top:4px;letter-spacing:1px">CPM · Affiliate</div>
-      <div class="mc-launch-status" style="color:#ff6b35">→ OPEN</div>
-    </div>
+  <a href="/money" class="mc-nav-card" style="border-color:rgba(255,107,53,0.4);color:#ff6b35;">
+    <div class="mc-nav-name">REVENUE</div>
+    <div class="mc-nav-sub">CPM &middot; Affiliate</div>
   </a>
-</div>
-
-<!-- MAIN 3-COLUMN GRID -->
-<div id="mc-grid" class="mc-grid">
-  <!-- LEFT: Researcher -->
-  <div class="mc-col holo-border">
-    <div id="mc-head-researcher" class="bento-tile-label mc-agent-head" data-active="0">
-      <span class="mc-agent-dot"></span>Researcher
-    </div>
-    <div id="mc-col-researcher" class="mc-event-stream"></div>
-  </div>
-
-  <!-- CENTER: Reactor + Strategist/Writer/Publisher -->
-  <div class="mc-col scanline" style="text-align:center;">
-    <!-- Arc-reactor SVG (responds to active agent count) -->
-    <div id="mc-reactor" class="mc-reactor" data-active="0">
-      <!-- Outer rings -->
-      <svg class="mc-reactor-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"
-           style="position:absolute;inset:0;width:100%;height:100%;">
-        <circle cx="100" cy="100" r="96" stroke="#00d4ff" stroke-width="1" stroke-opacity="0.25"/>
-        <circle cx="100" cy="100" r="78" stroke="#00d4ff" stroke-width="1.5" stroke-opacity="0.4"/>
-        <circle cx="100" cy="100" r="58" stroke="#3b82f6" stroke-width="1" stroke-opacity="0.3"/>
-        <!-- Spokes -->
-        <line x1="100" y1="4"   x2="100" y2="22"  stroke="#00d4ff" stroke-width="1.5" stroke-opacity="0.6"/>
-        <line x1="100" y1="178" x2="100" y2="196" stroke="#00d4ff" stroke-width="1.5" stroke-opacity="0.6"/>
-        <line x1="4"   y1="100" x2="22"  y2="100" stroke="#00d4ff" stroke-width="1.5" stroke-opacity="0.6"/>
-        <line x1="178" y1="100" x2="196" y2="100" stroke="#00d4ff" stroke-width="1.5" stroke-opacity="0.6"/>
-        <line x1="27"  y1="27"  x2="41"  y2="41"  stroke="#3b82f6" stroke-width="1"   stroke-opacity="0.4"/>
-        <line x1="173" y1="173" x2="159" y2="159" stroke="#3b82f6" stroke-width="1"   stroke-opacity="0.4"/>
-        <line x1="173" y1="27"  x2="159" y2="41"  stroke="#3b82f6" stroke-width="1"   stroke-opacity="0.4"/>
-        <line x1="27"  y1="173" x2="41"  y2="159" stroke="#3b82f6" stroke-width="1"   stroke-opacity="0.4"/>
-      </svg>
-      <div class="mc-reactor__inner"></div>
-      <div class="mc-reactor__label" id="mc-reactor-label">CORE ONLINE</div>
-    </div>
-
-    <div class="bento-tile-label" style="margin-top:36px;">Strategist</div>
-    <div id="mc-head-strategist" class="mc-agent-head" data-active="0" style="display:none;"></div>
-    <div id="mc-col-strategist" class="mc-event-stream" style="text-align:left;"></div>
-
-    <div class="bento-tile-label" style="margin-top:12px;">Writer</div>
-    <div id="mc-head-writer" class="mc-agent-head" data-active="0" style="display:none;"></div>
-    <div id="mc-col-writer" class="mc-event-stream" style="text-align:left;"></div>
-
-    <div class="bento-tile-label" style="margin-top:12px;">Publisher</div>
-    <div id="mc-head-publisher" class="mc-agent-head" data-active="0" style="display:none;"></div>
-    <div id="mc-col-publisher" class="mc-event-stream" style="text-align:left;"></div>
-  </div>
-
-  <!-- RIGHT: Designer -->
-  <div class="mc-col holo-border">
-    <div id="mc-head-designer" class="bento-tile-label mc-agent-head" data-active="0">
-      <span class="mc-agent-dot"></span>Designer
-    </div>
-    <div id="mc-col-designer" class="mc-event-stream"></div>
-  </div>
+  <a href="/repos" class="mc-nav-card" style="border-color:rgba(0,212,255,0.4);color:#00d4ff;">
+    <div class="mc-nav-name">REPO HUB</div>
+    <div class="mc-nav-sub">AI Repos</div>
+  </a>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// ── Stats bar ───────────────────────────────────────────────────────────────
-async function loadMcStats() {
+// ── Agent definitions ────────────────────────────────────────────────────
+const AGENTS = [
+  { key: "spy",      name: "Channel Spy",     route: "/api/agents/spy/run",      inputKey: "url",      inputPlaceholder: "Channel URL…" },
+  { key: "trends",   name: "Trend Miner",     route: "/api/agents/trends/run",   inputKey: "query",    inputPlaceholder: "Topic…" },
+  { key: "factory",  name: "Content Factory", route: "/api/agents/factory/run",  inputKey: "topic",    inputPlaceholder: "Topic…" },
+  { key: "money",    name: "Monetization",    route: "/api/agents/money/run",    inputKey: "channel",  inputPlaceholder: "Channel…" },
+  { key: "director", name: "Cinema Director", route: "/api/agents/director/run", inputKey: "prompt",   inputPlaceholder: "Prompt…" },
+  { key: "shorts",   name: "Shorts Gen",      route: "/api/agents/shorts/run",   inputKey: "youtube_url", inputPlaceholder: "YouTube URL…" },
+];
+
+let _autoInterval = null;
+
+// ── Fetch helpers ────────────────────────────────────────────────────────
+async function fetchJSON(url) {
   try {
-    const r = await fetch('/api/mc/stats', { cache: 'no-store' });
-    const j = await r.json();
-    document.getElementById('stat-runs').textContent   = j.runs_today   ?? '—';
-    document.getElementById('stat-assets').textContent = j.assets_generated ?? '—';
-    document.getElementById('stat-ideas').textContent  = j.ideas_ranked  ?? '—';
-    const cost = j.cost_usd != null ? '$' + j.cost_usd.toFixed(4) : '—';
-    document.getElementById('stat-cost').textContent   = cost;
-  } catch (e) {
-    // ignore
+    const r = await fetch(url, { cache: "no-store" });
+    return await r.json();
+  } catch (_) {
+    return null;
   }
 }
-loadMcStats();
-setInterval(loadMcStats, 15000);
 
-// ── Quick Launch ─────────────────────────────────────────────────────────────
-async function quickLaunch(pipeline, btn) {
-  const card   = btn.closest('[data-pipeline]');
-  const input  = card.querySelector('.mc-launch-input');
-  const status = card.querySelector('.mc-launch-status');
-  const key    = input.dataset.key;
-  const val    = input.value.trim();
-  if (!val) { status.textContent = 'Enter a value'; return; }
+// ── System Health ────────────────────────────────────────────────────────
+function renderHealthBar(id, val) {
+  const bar = document.getElementById(id + "-bar");
+  const label = document.getElementById(id + "-val");
+  const pct = Math.min(val, 100);
+  bar.style.width = pct + "%";
+  label.textContent = pct + "%";
+  if (pct > 80) {
+    bar.style.background = "linear-gradient(90deg,#ff3d6e,#ff2ec3)";
+  }
+}
+
+async function loadHealth() {
+  const d = await fetchJSON("/api/system/stats");
+  if (!d) return;
+  renderHealthBar("health-cpu", d.cpu);
+  renderHealthBar("health-ram", d.mem);
+  renderHealthBar("health-disk", d.disk);
+  const dot = document.getElementById("health-ollama-dot");
+  dot.className = "mc-svc-dot " + (d.ollama_ok ? "mc-svc-dot--on" : "mc-svc-dot--off");
+}
+
+// ── Service Status ───────────────────────────────────────────────────────
+function renderServices(data) {
+  const container = document.getElementById("mc-services-list");
+  // clear
+  while (container.firstChild) container.removeChild(container.firstChild);
+  if (!data || !data.services) {
+    const em = document.createElement("em");
+    em.textContent = "Loading services…";
+    em.style.cssText = "color:rgba(255,255,255,0.3);font-size:11px;";
+    container.appendChild(em);
+    return;
+  }
+  const svcNames = Object.keys(data.services);
+  svcNames.forEach(function(name) {
+    const svc = data.services[name];
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);";
+
+    const left = document.createElement("div");
+    left.style.cssText = "display:flex;align-items:center;gap:8px;";
+    const dot = document.createElement("span");
+    dot.className = "mc-svc-dot " + (svc.up ? "mc-svc-dot--on" : "mc-svc-dot--off");
+    const label = document.createElement("span");
+    label.textContent = name;
+    label.style.cssText = "color:rgba(255,255,255,0.75);font-size:12px;";
+    left.appendChild(dot);
+    left.appendChild(label);
+
+    const right = document.createElement("span");
+    right.textContent = svc.up ? "ONLINE" : "OFFLINE";
+    right.style.cssText = "font-size:10px;letter-spacing:1px;font-family:var(--font-data,monospace);" +
+      "color:" + (svc.up ? "#2effb5" : "#ff3d6e") + ";";
+
+    row.appendChild(left);
+    row.appendChild(right);
+    container.appendChild(row);
+  });
+
+  // Repo counts if present
+  if (data.repos_present != null) {
+    const sub = document.createElement("div");
+    sub.style.cssText = "margin-top:8px;font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.5px;";
+    sub.textContent = "Repos: " + data.repos_present + "/" + data.total_repos + " present, " + (data.repos_running || 0) + " running";
+    container.appendChild(sub);
+  }
+}
+
+async function loadServices() {
+  const d = await fetchJSON("/api/repos/services");
+  renderServices(d);
+}
+
+// ── Quick Stats ──────────────────────────────────────────────────────────
+async function loadStats() {
+  const d = await fetchJSON("/api/mc/stats");
+  if (!d) return;
+  document.getElementById("stat-runs").textContent = d.runs_today ?? "—";
+  document.getElementById("stat-assets").textContent = d.assets_generated ?? "—";
+  document.getElementById("stat-ideas").textContent = d.ideas_ranked ?? "—";
+  document.getElementById("stat-cost").textContent = d.cost_usd != null ? ("$" + d.cost_usd.toFixed(4)) : "—";
+}
+
+// ── Agent Status + Quick Launch ──────────────────────────────────────────
+function renderAgents(data) {
+  const grid = document.getElementById("mc-agents-grid");
+  while (grid.firstChild) grid.removeChild(grid.firstChild);
+
+  AGENTS.forEach(function(agent) {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04);";
+
+    const left = document.createElement("div");
+    left.style.cssText = "display:flex;align-items:center;gap:8px;";
+    const dot = document.createElement("span");
+    const info = (data && data[agent.key]) || { active: false, status: "STANDBY" };
+    dot.className = "mc-svc-dot " + (info.active ? "mc-svc-dot--pulse" : (info.status === "COMPLETE" ? "mc-svc-dot--on" : "mc-svc-dot--off"));
+    const nameEl = document.createElement("span");
+    nameEl.textContent = agent.name;
+    nameEl.style.cssText = "color:rgba(255,255,255,0.8);font-size:12px;";
+    left.appendChild(dot);
+    left.appendChild(nameEl);
+
+    const right = document.createElement("span");
+    right.textContent = info.status || "STANDBY";
+    right.style.cssText = "font-size:10px;letter-spacing:0.8px;font-family:var(--font-data,monospace);" +
+      "color:" + (info.active ? "#00d4ff" : (info.status === "COMPLETE" ? "#2effb5" : (info.status === "ERROR" ? "#ff3d6e" : "rgba(255,255,255,0.35)"))) + ";";
+
+    row.appendChild(left);
+    row.appendChild(right);
+    grid.appendChild(row);
+  });
+}
+
+function renderLaunchGrid() {
+  const grid = document.getElementById("mc-launch-grid");
+  while (grid.firstChild) grid.removeChild(grid.firstChild);
+
+  AGENTS.forEach(function(agent) {
+    const card = document.createElement("div");
+    card.className = "mc-launch-tile";
+    card.setAttribute("data-agent", agent.key);
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "mc-launch-tile-name";
+    nameEl.textContent = agent.name;
+
+    const input = document.createElement("input");
+    input.className = "mc-launch-input";
+    input.placeholder = agent.inputPlaceholder;
+    input.setAttribute("data-key", agent.inputKey);
+    input.style.cssText = "width:100%;margin:4px 0;";
+
+    const btn = document.createElement("button");
+    btn.className = "mc-launch-btn";
+    btn.textContent = "RUN";
+    btn.style.cssText = "width:100%;";
+
+    const status = document.createElement("div");
+    status.className = "mc-launch-status";
+    status.style.cssText = "font-size:9px;margin-top:4px;min-height:14px;";
+
+    btn.addEventListener("click", function() { quickLaunch(agent, card, btn, status); });
+
+    card.appendChild(nameEl);
+    card.appendChild(input);
+    card.appendChild(btn);
+    card.appendChild(status);
+    grid.appendChild(card);
+  });
+}
+
+async function loadAgents() {
+  const d = await fetchJSON("/api/mission/status");
+  renderAgents(d ? d.agents : null);
+}
+
+// ── Quick Launch ─────────────────────────────────────────────────────────
+async function quickLaunch(agent, card, btn, statusEl) {
+  const input = card.querySelector(".mc-launch-input");
+  const key = input.getAttribute("data-key");
+  const val = input.value.trim();
+  if (!val) { statusEl.textContent = "Enter a value"; statusEl.style.color = "#ff3d6e"; return; }
 
   btn.disabled = true;
-  status.textContent = 'Launching…';
+  statusEl.textContent = "Launching…";
+  statusEl.style.color = "#00d4ff";
 
   const body = {};
   body[key] = val;
 
   try {
-    const r = await fetch('/api/pipelines/' + pipeline + '/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const r = await fetch(agent.route, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     const j = await r.json();
-    status.textContent = j.ok ? 'Done' : ('Error: ' + (j.error || 'failed'));
-    if (j.ok) {
-      input.value = '';
-      loadMcStats();
+    if (j.status === "ok" || j.ok) {
+      statusEl.textContent = "Done";
+      statusEl.style.color = "#2effb5";
+      input.value = "";
+      loadAgents();
+      loadActivity();
+    } else {
+      statusEl.textContent = "Error: " + (j.message || j.error || "failed");
+      statusEl.style.color = "#ff3d6e";
     }
   } catch (e) {
-    status.textContent = 'Network error';
+    statusEl.textContent = "Network error";
+    statusEl.style.color = "#ff3d6e";
   } finally {
     btn.disabled = false;
+    setTimeout(function() { statusEl.textContent = ""; }, 5000);
   }
 }
 
-// ── Goal dispatch ────────────────────────────────────────────────────────────
+// ── Activity Feed ────────────────────────────────────────────────────────
+async function loadActivity() {
+  const container = document.getElementById("mc-activity-feed");
+  while (container.firstChild) container.removeChild(container.firstChild);
+
+  // Try agent events first, then fall back to output files
+  let items = [];
+  const eventsData = await fetchJSON("/api/agents/events?limit=10");
+  if (eventsData && eventsData.events && eventsData.events.length > 0) {
+    items = eventsData.events.slice(0, 10);
+  } else {
+    const outputsData = await fetchJSON("/api/outputs/list");
+    if (outputsData && outputsData.files) {
+      items = outputsData.files.slice(0, 10).map(function(f) {
+        return { ts: f.created || "", msg: f.title || f.name || "output", type: "output" };
+      });
+    }
+  }
+
+  if (items.length === 0) {
+    const em = document.createElement("div");
+    em.textContent = "No recent activity";
+    em.style.cssText = "color:rgba(255,255,255,0.25);font-size:11px;text-align:center;padding:20px 0;";
+    container.appendChild(em);
+    return;
+  }
+
+  items.forEach(function(item) {
+    const row = document.createElement("div");
+    row.className = "mc-activity-row";
+
+    const ts = document.createElement("span");
+    ts.className = "mc-activity-ts";
+    ts.textContent = item.ts || item.timestamp || item.created || "";
+
+    let typeClass = "mc-activity-type--info";
+    let typeLabel = "EVENT";
+    if (item.type === "error" || item.level === "error") { typeClass = "mc-activity-type--error"; typeLabel = "ERROR"; }
+    else if (item.type === "success" || item.level === "success") { typeClass = "mc-activity-type--ok"; typeLabel = "OK"; }
+    else if (item.type === "info" || item.level === "info") { typeClass = "mc-activity-type--info"; typeLabel = "INFO"; }
+    else if (item.type === "output") { typeClass = "mc-activity-type--output"; typeLabel = "FILE"; }
+    else if (item.status === "COMPLETE") { typeClass = "mc-activity-type--ok"; typeLabel = "DONE"; }
+    else if (item.status === "RUNNING") { typeClass = "mc-activity-type--info"; typeLabel = "RUN"; }
+    else if (item.status === "ERROR") { typeClass = "mc-activity-type--error"; typeLabel = "ERR"; }
+
+    const typeEl = document.createElement("span");
+    typeEl.className = "mc-activity-type " + typeClass;
+    typeEl.textContent = typeLabel;
+
+    const msg = document.createElement("span");
+    msg.className = "mc-activity-msg";
+    msg.textContent = item.msg || item.message || item.title || item.name || JSON.stringify(item).slice(0, 80);
+
+    row.appendChild(ts);
+    row.appendChild(typeEl);
+    row.appendChild(msg);
+    container.appendChild(row);
+  });
+}
+
+// ── Goal dispatch ────────────────────────────────────────────────────────
 async function mcDispatch() {
-  const goal = document.getElementById('mc-goal').value.trim();
-  if (!goal) { toast({text:'Enter a goal first', level:'warn'}); return; }
-  toast({text:'Goal dispatched: ' + goal, level:'ok'});
+  const goal = document.getElementById("mc-goal").value.trim();
+  if (!goal) { toast({ text: "Enter a goal first", level: "warn" }); return; }
+  toast({ text: "Goal dispatched: " + goal, level: "ok" });
   try {
-    const r = await fetch('/api/orchestrator/run', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({goal}),
+    const r = await fetch("/api/orchestrator/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal: goal }),
     });
     const j = await r.json();
-    toast({text: j.ok ? 'Goal complete' : 'Goal failed: ' + (j.error||''), level: j.ok?'ok':'err'});
-    loadMcStats();
+    toast({ text: j.ok ? "Goal complete" : "Goal failed: " + (j.error || ""), level: j.ok ? "ok" : "err" });
+    loadStats();
+    loadActivity();
   } catch (e) {
-    toast({text:'Dispatch failed: '+e.message, level:'err'});
+    toast({ text: "Dispatch failed: " + e.message, level: "err" });
   }
 }
+
+// ── Refresh ──────────────────────────────────────────────────────────────
+async function refreshAll() {
+  await Promise.all([loadHealth(), loadServices(), loadStats(), loadAgents(), loadActivity()]);
+}
+
+function toggleAutoRefresh(btn) {
+  if (_autoInterval) {
+    clearInterval(_autoInterval);
+    _autoInterval = null;
+    btn.textContent = "AUTO: OFF";
+    btn.style.color = "rgba(255,255,255,0.5)";
+  } else {
+    _autoInterval = setInterval(refreshAll, 10000);
+    btn.textContent = "AUTO: 10s";
+    btn.style.color = "#00d4ff";
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+renderLaunchGrid();
+renderAgents(null); // placeholder until data loads
+refreshAll();
 </script>
+
+<style>
+/* Glass panels */
+.mc-glass-panel {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+.mc-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.55);
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 600;
+}
+
+/* Health bars */
+.mc-bar-track {
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.mc-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease, background 0.3s ease;
+}
+
+/* Service dots */
+.mc-svc-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mc-svc-dot--on  { background: #2effb5; box-shadow: 0 0 6px rgba(46,255,181,0.5); }
+.mc-svc-dot--off { background: rgba(255,255,255,0.15); }
+.mc-svc-dot--pulse {
+  background: #00d4ff;
+  box-shadow: 0 0 8px rgba(0,212,255,0.6);
+  animation: mc-pulse 1.4s infinite;
+}
+@keyframes mc-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Mini stats */
+.mc-mini-stat {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+.mc-mini-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: #00d4ff;
+  font-family: var(--font-data, monospace);
+}
+.mc-mini-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.35);
+  margin-top: 4px;
+}
+
+/* Launch tiles */
+.mc-launch-tile {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 10px;
+  transition: border-color 0.2s;
+}
+.mc-launch-tile:hover {
+  border-color: rgba(0,212,255,0.25);
+}
+.mc-launch-tile-name {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: rgba(0,212,255,0.8);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* Activity feed */
+.mc-activity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.mc-activity-ts {
+  font-family: var(--font-data, monospace);
+  font-size: 9px;
+  color: rgba(255,255,255,0.25);
+  white-space: nowrap;
+  min-width: 90px;
+}
+.mc-activity-type {
+  font-size: 8px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.mc-activity-type--info   { background: rgba(0,212,255,0.12); color: #00d4ff; }
+.mc-activity-type--ok     { background: rgba(46,255,181,0.12); color: #2effb5; }
+.mc-activity-type--error  { background: rgba(255,61,110,0.12); color: #ff3d6e; }
+.mc-activity-type--output { background: rgba(167,139,250,0.12); color: #a78bfa; }
+.mc-activity-msg {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+/* Nav cards */
+.mc-nav-card {
+  display: block;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  background: rgba(255,255,255,0.02);
+  backdrop-filter: blur(8px);
+  transition: border-color 0.2s, transform 0.15s;
+}
+.mc-nav-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255,255,255,0.15);
+}
+.mc-nav-name {
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+.mc-nav-sub {
+  font-size: 9px;
+  margin-top: 4px;
+  opacity: 0.4;
+}
+
+/* Scrollbar for activity feed */
+#mc-activity-feed::-webkit-scrollbar { width: 4px; }
+#mc-activity-feed::-webkit-scrollbar-track { background: transparent; }
+#mc-activity-feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* Existing mc-launch classes still work for inputs/buttons */
+</style>
 {% endblock %}

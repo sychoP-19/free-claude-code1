@@ -154,13 +154,36 @@ class Settings(BaseSettings):
     # ==================== Model ====================
     # All Claude model requests are mapped to this single model (fallback)
     # Format: provider_type/model/name
-    model: str = "nvidia_nim/meta/llama-3.3-70b-instruct"
+    model: str = "nvidia_nim/deepseek-ai/deepseek-v4-pro"
 
     # Per-model overrides (optional, falls back to MODEL)
     # Each can use a different provider
-    model_opus: str | None = Field(default=None, validation_alias="MODEL_OPUS")
-    model_sonnet: str | None = Field(default=None, validation_alias="MODEL_SONNET")
-    model_haiku: str | None = Field(default=None, validation_alias="MODEL_HAIKU")
+    model_opus: str | None = Field(
+        default="nvidia_nim/deepseek-ai/deepseek-v4-pro",
+        validation_alias="MODEL_OPUS",
+    )
+    model_sonnet: str | None = Field(
+        default="nvidia_nim/qwen/qwen3-coder-480b-a35b-instruct",
+        validation_alias="MODEL_SONNET",
+    )
+    model_haiku: str | None = Field(
+        default="nvidia_nim/qwen/qwen3.5-122b-a10b",
+        validation_alias="MODEL_HAIKU",
+    )
+
+    # ==================== Fallback Models (when primary provider rate-limited) ====================
+    model_opus_fallback: str | None = Field(
+        default="open_router/deepseek/deepseek-v4-flash:free",
+        validation_alias="MODEL_OPUS_FALLBACK",
+    )
+    model_sonnet_fallback: str | None = Field(
+        default="open_router/qwen/qwen3-coder:free",
+        validation_alias="MODEL_SONNET_FALLBACK",
+    )
+    model_haiku_fallback: str | None = Field(
+        default="open_router/nvidia/nemotron-3-super-120b-a12b:free",
+        validation_alias="MODEL_HAIKU_FALLBACK",
+    )
 
     # ==================== Per-Provider Proxy ====================
     nvidia_nim_proxy: str = Field(default="", validation_alias="NVIDIA_NIM_PROXY")
@@ -176,7 +199,7 @@ class Settings(BaseSettings):
         default=60, validation_alias="PROVIDER_RATE_WINDOW"
     )
     provider_max_concurrency: int = Field(
-        default=5, validation_alias="PROVIDER_MAX_CONCURRENCY"
+        default=8, validation_alias="PROVIDER_MAX_CONCURRENCY"
     )
     enable_model_thinking: bool = Field(
         default=True, validation_alias="ENABLE_MODEL_THINKING"
@@ -326,6 +349,9 @@ class Settings(BaseSettings):
         "model_opus",
         "model_sonnet",
         "model_haiku",
+        "model_opus_fallback",
+        "model_sonnet_fallback",
+        "model_haiku_fallback",
         "enable_opus_thinking",
         "enable_sonnet_thinking",
         "enable_haiku_thinking",
@@ -401,7 +427,15 @@ class Settings(BaseSettings):
             )
         return v
 
-    @field_validator("model", "model_opus", "model_sonnet", "model_haiku")
+    @field_validator(
+        "model",
+        "model_opus",
+        "model_sonnet",
+        "model_haiku",
+        "model_opus_fallback",
+        "model_sonnet_fallback",
+        "model_haiku_fallback",
+    )
     @classmethod
     def validate_model_format(cls, v: str | None) -> str | None:
         if v is None:
@@ -455,13 +489,23 @@ class Settings(BaseSettings):
         """Extract the actual model name from the default model string."""
         return Settings.parse_model_name(self.model)
 
-    def resolve_model(self, claude_model_name: str) -> str:
+    def resolve_model(self, claude_model_name: str, use_fallback: bool = False) -> str:
         """Resolve a Claude model name to the configured provider/model string.
 
         Classifies the incoming Claude model (opus/sonnet/haiku) and
         returns the model-specific override if configured, otherwise the fallback MODEL.
+        When *use_fallback* is True, returns the free-tier fallback model
+        (e.g. when the primary provider returned 429).
         """
         name_lower = claude_model_name.lower()
+        if use_fallback:
+            if "opus" in name_lower and self.model_opus_fallback is not None:
+                return self.model_opus_fallback
+            if "haiku" in name_lower and self.model_haiku_fallback is not None:
+                return self.model_haiku_fallback
+            if "sonnet" in name_lower and self.model_sonnet_fallback is not None:
+                return self.model_sonnet_fallback
+            return self.model
         if "opus" in name_lower and self.model_opus is not None:
             return self.model_opus
         if "haiku" in name_lower and self.model_haiku is not None:
@@ -477,6 +521,9 @@ class Settings(BaseSettings):
             ("MODEL_OPUS", self.model_opus),
             ("MODEL_SONNET", self.model_sonnet),
             ("MODEL_HAIKU", self.model_haiku),
+            ("MODEL_OPUS_FALLBACK", self.model_opus_fallback),
+            ("MODEL_SONNET_FALLBACK", self.model_sonnet_fallback),
+            ("MODEL_HAIKU_FALLBACK", self.model_haiku_fallback),
         )
         sources_by_ref: dict[str, list[str]] = {}
         for source, model_ref in candidates:

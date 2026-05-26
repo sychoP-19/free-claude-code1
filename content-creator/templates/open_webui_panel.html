@@ -1,0 +1,1083 @@
+{% extends "base.html" %}
+{% set active = "open_webui" %}
+{% block title %}Open WebUI Panel{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">OPEN WEBUI PANEL</div>
+    <div class="page-subtitle">SELF-HOSTED AI CHAT &mdash; FULL PRIVACY, ZERO API COSTS, RAG BUILT-IN</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <span class="badge badge-green">PRIVATE</span>
+    <span id="webui-status" class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444;">OFFLINE</span>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="webui-conn-status" class="webui-status-bar" style="display:none;"></div>
+
+<!-- MAIN GRID -->
+<div class="webui-grid">
+
+  <!-- 1. CHAT INTERFACE -->
+  <section class="hud-panel webui-chat-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Chat Interface</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <select id="webui-model-select" class="webui-model-select" aria-label="Select model">
+          <option value="">Loading models...</option>
+        </select>
+        <button class="webui-btn-sm" onclick="clearChat()" title="Clear chat">Clear</button>
+      </div>
+    </div>
+    <div class="hud-panel-body webui-chat-body">
+      <div id="webui-messages" class="webui-messages" role="log" aria-live="polite" aria-label="Chat messages"></div>
+      <div class="webui-input-row">
+        <input id="webui-chat-input" class="webui-chat-input" type="text"
+               placeholder="Send a message..." aria-label="Chat message input"
+               autocomplete="off"/>
+        <button id="webui-send-btn" class="webui-send-btn" onclick="sendMessage()" aria-label="Send message">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT COLUMN -->
+  <div class="webui-right-col">
+
+    <!-- 2. MODEL GALLERY -->
+    <section class="hud-panel webui-section">
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">Model Gallery</span>
+        <button class="webui-btn-sm" onclick="loadModels()">Refresh</button>
+      </div>
+      <div class="hud-panel-body">
+        <div id="webui-model-grid" class="webui-model-grid">
+          <p style="color:var(--muted);font-size:12px;">Loading models...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. SESSION MANAGER -->
+    <section class="hud-panel webui-section">
+      <div class="hud-panel-header">
+        <span class="hud-panel-title">Session Manager</span>
+        <button class="webui-btn-sm" onclick="loadSessions()">Refresh</button>
+      </div>
+      <div class="hud-panel-body">
+        <div id="webui-sessions-list" class="webui-sessions-list">
+          <p style="color:var(--muted);font-size:12px;">No sessions yet.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- SECOND ROW -->
+<div class="webui-grid webui-grid-bottom">
+
+  <!-- 4. DOCUMENT UPLOAD -->
+  <section class="hud-panel webui-section">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Document Upload</span>
+      <span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981;">RAG</span>
+    </div>
+    <div class="hud-panel-body">
+      <div id="webui-drop-zone" class="webui-drop-zone" role="button" tabindex="0"
+           aria-label="Drag and drop documents here or click to upload">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span class="webui-drop-text">Drop documents here or click to browse</span>
+        <span class="webui-drop-hint">PDF, TXT, MD, CSV &mdash; Max 50MB</span>
+        <input id="webui-file-input" type="file" multiple accept=".pdf,.txt,.md,.csv,.json,.docx" style="display:none;" aria-label="File upload input"/>
+      </div>
+      <div id="webui-upload-list" class="webui-upload-list"></div>
+    </div>
+  </section>
+
+  <!-- 5. MODERATION PANEL -->
+  <section class="hud-panel webui-section">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Moderation Panel</span>
+      <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444;">SAFETY</span>
+    </div>
+    <div class="hud-panel-body">
+      <div class="webui-moderation-grid">
+        <div class="webui-mod-toggle-row">
+          <span class="webui-mod-label">Content Filtering</span>
+          <button id="webui-filter-toggle" class="webui-toggle active" onclick="toggleModFilter()" aria-label="Toggle content filtering" aria-pressed="true">ON</button>
+        </div>
+        <div class="webui-mod-toggle-row">
+          <span class="webui-mod-label">PII Redaction</span>
+          <button id="webui-pii-toggle" class="webui-toggle" onclick="toggleModPii()" aria-label="Toggle PII redaction" aria-pressed="false">OFF</button>
+        </div>
+        <div class="webui-mod-toggle-row">
+          <span class="webui-mod-label">Profanity Block</span>
+          <button id="webui-profanity-toggle" class="webui-toggle active" onclick="toggleModProfanity()" aria-label="Toggle profanity blocking" aria-pressed="true">ON</button>
+        </div>
+        <div class="webui-mod-block">
+          <label class="webui-mod-label" for="webui-blocked-terms">Blocked Terms</label>
+          <textarea id="webui-blocked-terms" class="webui-textarea" rows="3"
+                    placeholder="One term per line..." aria-label="Blocked terms list">violence
+harm
+illegal
+exploit</textarea>
+        </div>
+        <div class="webui-mod-block">
+          <label class="webui-mod-label" for="webui-system-prompt">System Prompt Override</label>
+          <textarea id="webui-system-prompt" class="webui-textarea" rows="3"
+                    placeholder="Custom safety instructions..." aria-label="System prompt override">You are a helpful, safe, and respectful assistant. Refuse any request involving harm, illegal activity, or exploitation.</textarea>
+        </div>
+        <button class="webui-btn" onclick="saveModerationSettings()">Save Settings</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. USER ANALYTICS -->
+  <section class="hud-panel webui-section">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">User Analytics</span>
+      <span class="badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;">LIVE</span>
+    </div>
+    <div class="hud-panel-body">
+      <div class="webui-stats-row">
+        <div class="webui-stat">
+          <span class="webui-stat-value" id="webui-active-users">0</span>
+          <span class="webui-stat-label">Active Users</span>
+        </div>
+        <div class="webui-stat">
+          <span class="webui-stat-value" id="webui-msgs-day">0</span>
+          <span class="webui-stat-label">Messages/Day</span>
+        </div>
+        <div class="webui-stat">
+          <span class="webui-stat-value" id="webui-avg-resp">0ms</span>
+          <span class="webui-stat-label">Avg Response</span>
+        </div>
+      </div>
+      <div class="webui-chart-wrap">
+        <canvas id="webui-analytics-chart" width="400" height="140" aria-label="Messages per day chart" role="img"></canvas>
+      </div>
+      <div class="webui-stats-row" style="margin-top:12px;">
+        <div class="webui-stat">
+          <span class="webui-stat-value" id="webui-total-tokens">0</span>
+          <span class="webui-stat-label">Total Tokens</span>
+        </div>
+        <div class="webui-stat">
+          <span class="webui-stat-value" id="webui-docs-indexed">0</span>
+          <span class="webui-stat-label">Docs Indexed</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* ── Open WebUI Panel — Green/Emerald Accent ── */
+:root {
+  --webui-green: #10b981;
+  --webui-green-dim: rgba(16,185,129,0.15);
+  --webui-green-mid: rgba(16,185,129,0.35);
+  --webui-green-glow: 0 0 12px rgba(16,185,129,0.4);
+}
+
+.webui-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.webui-grid-bottom {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.webui-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.webui-section { min-height: 0; }
+.webui-section .hud-panel-body { max-height: 340px; overflow-y: auto; }
+
+/* Status bar */
+.webui-status-bar {
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: var(--webui-green-dim);
+  border: 1px solid var(--webui-green-mid);
+  font-size: 12px;
+  color: var(--webui-green);
+  margin-bottom: 16px;
+}
+
+/* Chat panel */
+.webui-chat-panel { display: flex; flex-direction: column; }
+.webui-chat-panel .hud-panel-body { display: flex; flex-direction: column; flex: 1; padding: 0; max-height: none; overflow: hidden; }
+.webui-model-select {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--webui-green-mid);
+  background: var(--webui-green-dim);
+  color: var(--webui-green);
+  font-family: var(--font-data, monospace);
+  outline: none;
+  cursor: pointer;
+}
+.webui-model-select:focus { box-shadow: var(--webui-green-glow); }
+.webui-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 280px;
+  max-height: 460px;
+}
+.webui-msg {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.webui-msg-user {
+  align-self: flex-end;
+  background: var(--webui-green-mid);
+  color: #e2f0ff;
+  border-bottom-right-radius: 2px;
+}
+.webui-msg-assistant {
+  align-self: flex-start;
+  background: rgba(10,22,40,0.8);
+  border: 1px solid rgba(16,185,129,0.12);
+  color: #c8e6d8;
+  border-bottom-left-radius: 2px;
+}
+.webui-msg-assistant code, .webui-msg-user code {
+  font-family: var(--font-data, monospace);
+  font-size: 12px;
+  background: rgba(0,0,0,0.3);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.webui-msg-system {
+  align-self: center;
+  font-size: 11px;
+  color: var(--muted);
+  background: transparent;
+  padding: 4px 12px;
+}
+.webui-msg-streaming::after {
+  content: '|';
+  animation: webui-blink 0.8s infinite;
+  color: var(--webui-green);
+}
+@keyframes webui-blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
+.webui-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(16,185,129,0.12);
+  background: rgba(0,10,30,0.5);
+}
+.webui-chat-input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(16,185,129,0.2);
+  background: rgba(0,20,50,0.5);
+  color: #e2f0ff;
+  font-size: 13px;
+  font-family: var(--font-body, sans-serif);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.webui-chat-input:focus { border-color: var(--webui-green-mid); box-shadow: var(--webui-green-glow); }
+.webui-send-btn {
+  width: 36px; height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--webui-green-mid);
+  background: var(--webui-green-dim);
+  color: var(--webui-green);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.webui-send-btn:hover { background: var(--webui-green-mid); }
+.webui-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Buttons */
+.webui-btn-sm {
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(16,185,129,0.3);
+  background: rgba(16,185,129,0.08);
+  color: var(--webui-green);
+  cursor: pointer;
+  font-family: var(--font-hud, monospace);
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+.webui-btn-sm:hover { background: rgba(16,185,129,0.2); }
+.webui-btn {
+  font-size: 11px;
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: 1px solid var(--webui-green-mid);
+  background: var(--webui-green-dim);
+  color: var(--webui-green);
+  cursor: pointer;
+  font-family: var(--font-hud, monospace);
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+.webui-btn:hover { background: var(--webui-green-mid); }
+
+/* Model gallery */
+.webui-model-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.webui-model-card {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(16,185,129,0.12);
+  background: rgba(16,185,129,0.04);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.webui-model-card:hover { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.1); }
+.webui-model-card.selected { border-color: var(--webui-green); background: rgba(16,185,129,0.12); box-shadow: var(--webui-green-glow); }
+.webui-model-name { font-size: 12px; font-weight: 600; color: var(--webui-green); margin-bottom: 4px; font-family: var(--font-data, monospace); }
+.webui-model-meta { font-size: 10px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
+.webui-model-tag {
+  display: inline-block;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(16,185,129,0.1);
+  color: rgba(16,185,129,0.7);
+}
+
+/* Session list */
+.webui-sessions-list { display: flex; flex-direction: column; gap: 6px; }
+.webui-session-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(16,185,129,0.1);
+  background: rgba(16,185,129,0.03);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.webui-session-item:hover { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.08); }
+.webui-session-title { font-size: 12px; color: #c8e6d8; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.webui-session-time { font-size: 10px; color: var(--muted); font-family: var(--font-data, monospace); white-space: nowrap; }
+.webui-session-tokens { font-size: 10px; color: var(--webui-green); font-family: var(--font-data, monospace); }
+
+/* Drop zone */
+.webui-drop-zone {
+  border: 2px dashed rgba(16,185,129,0.25);
+  border-radius: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.webui-drop-zone:hover, .webui-drop-zone.drag-over {
+  border-color: var(--webui-green);
+  background: rgba(16,185,129,0.08);
+}
+.webui-drop-zone.drag-over { box-shadow: var(--webui-green-glow); }
+.webui-drop-text { font-size: 12px; color: var(--webui-green); }
+.webui-drop-hint { font-size: 10px; color: var(--muted); }
+.webui-upload-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.webui-upload-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(16,185,129,0.06);
+  font-size: 11px;
+}
+.webui-upload-name { color: #c8e6d8; }
+.webui-upload-status { color: var(--webui-green); font-family: var(--font-data, monospace); }
+.webui-upload-status.error { color: #ef4444; }
+
+/* Moderation */
+.webui-moderation-grid { display: flex; flex-direction: column; gap: 10px; }
+.webui-mod-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.webui-mod-label { font-size: 12px; color: #c8e6d8; }
+.webui-toggle {
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(239,68,68,0.3);
+  background: rgba(239,68,68,0.08);
+  color: #ef4444;
+  cursor: pointer;
+  font-family: var(--font-hud, monospace);
+  transition: all 0.2s;
+}
+.webui-toggle.active {
+  border-color: rgba(16,185,129,0.4);
+  background: rgba(16,185,129,0.12);
+  color: var(--webui-green);
+}
+.webui-textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(16,185,129,0.15);
+  background: rgba(0,20,50,0.5);
+  color: #c8e6d8;
+  font-size: 11px;
+  font-family: var(--font-data, monospace);
+  resize: vertical;
+  outline: none;
+}
+.webui-textarea:focus { border-color: var(--webui-green-mid); }
+.webui-mod-block { display: flex; flex-direction: column; gap: 4px; }
+
+/* Analytics */
+.webui-stats-row { display: flex; gap: 12px; }
+.webui-stat {
+  flex: 1;
+  text-align: center;
+  padding: 10px 8px;
+  border-radius: 6px;
+  background: rgba(16,185,129,0.06);
+  border: 1px solid rgba(16,185,129,0.1);
+}
+.webui-stat-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--webui-green);
+  font-family: var(--font-hud, monospace);
+}
+.webui-stat-label {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.webui-chart-wrap {
+  margin-top: 12px;
+  background: rgba(16,185,129,0.04);
+  border: 1px solid rgba(16,185,129,0.1);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .webui-grid { grid-template-columns: 1fr; }
+  .webui-grid-bottom { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 720px) {
+  .webui-grid-bottom { grid-template-columns: 1fr; }
+  .webui-model-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<script>
+/* ── Configuration ── */
+const WEBUI_BASE = (window.__WEBUI_URL__ || '').replace(/\/+$/, '') || 'http://localhost:3000';
+const WEBUI_API = WEBUI_BASE + '/api';
+const CHAT_ENDPOINT = '/api/chat/completions';
+
+/* ── State ── */
+let currentModel = '';
+let chatSocket = null;
+let isStreaming = false;
+let streamingMsgEl = null;
+
+/* ── Init ── */
+document.addEventListener('DOMContentLoaded', () => {
+  checkWebUIStatus();
+  loadModels();
+  loadSessions();
+  loadAnalytics();
+  setupChatInput();
+  setupDropZone();
+});
+
+/* ── Status check ── */
+async function checkWebUIStatus() {
+  const pill = document.getElementById('webui-status');
+  try {
+    const r = await fetch(WEBUI_API + '/models', { signal: AbortSignal.timeout(4000) });
+    if (r.ok) {
+      pill.textContent = 'ONLINE';
+      pill.style.background = 'rgba(16,185,129,0.15)';
+      pill.style.color = '#10b981';
+    } else {
+      throw new Error(r.status);
+    }
+  } catch {
+    pill.textContent = 'OFFLINE';
+    pill.style.background = 'rgba(239,68,68,0.15)';
+    pill.style.color = '#ef4444';
+  }
+}
+
+/* ── 1. CHAT ── */
+function setupChatInput() {
+  const input = document.getElementById('webui-chat-input');
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+}
+
+function appendMessage(role, text) {
+  const container = document.getElementById('webui-messages');
+  const div = document.createElement('div');
+  div.className = 'webui-msg webui-msg-' + role;
+  div.textContent = text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('webui-chat-input');
+  const text = input.value.trim();
+  if (!text || isStreaming) return;
+
+  const model = document.getElementById('webui-model-select').value;
+  if (!model) {
+    appendMessage('system', 'Select a model first.');
+    return;
+  }
+
+  input.value = '';
+  appendMessage('user', text);
+  streamingMsgEl = appendMessage('assistant', '');
+  streamingMsgEl.classList.add('webui-msg-streaming');
+  isStreaming = true;
+  document.getElementById('webui-send-btn').disabled = true;
+
+  const sysPrompt = document.getElementById('webui-system-prompt').value.trim();
+
+  try {
+    /* Try WebSocket streaming first */
+    const wsUrl = WEBUI_BASE.replace(/^http/, 'ws') + '/ws/chat';
+    chatSocket = new WebSocket(wsUrl);
+
+    const wsTimeout = setTimeout(() => {
+      if (chatSocket && chatSocket.readyState !== WebSocket.OPEN) {
+        chatSocket.close();
+        fallbackFetchChat(model, text, sysPrompt);
+      }
+    }, 2000);
+
+    chatSocket.onopen = () => {
+      clearTimeout(wsTimeout);
+      chatSocket.send(JSON.stringify({
+        model: model,
+        messages: [
+          ...(sysPrompt ? [{ role: 'system', content: sysPrompt }] : []),
+          { role: 'user', content: text }
+        ],
+        stream: true
+      }));
+    };
+
+    chatSocket.onmessage = (event) => {
+      try {
+        const chunk = JSON.parse(event.data);
+        const delta = chunk.choices?.[0]?.delta?.content || '';
+        if (delta) streamingMsgEl.textContent += delta;
+        if (chunk.choices?.[0]?.finish_reason === 'stop') {
+          finishStreaming();
+        }
+        const container = document.getElementById('webui-messages');
+        container.scrollTop = container.scrollHeight;
+      } catch { /* ignore non-JSON frames */ }
+    };
+
+    chatSocket.onerror = () => {
+      clearTimeout(wsTimeout);
+      chatSocket.close();
+      fallbackFetchChat(model, text, sysPrompt);
+    };
+  } catch {
+    fallbackFetchChat(model, text, sysPrompt);
+  }
+}
+
+/* Fallback: regular fetch with streaming via ReadableStream */
+async function fallbackFetchChat(model, text, sysPrompt) {
+  const messages = [];
+  const sysPromptVal = document.getElementById('webui-system-prompt').value.trim();
+  if (sysPromptVal) messages.push({ role: 'system', content: sysPromptVal });
+  messages.push({ role: 'user', content: text });
+
+  try {
+    const r = await fetch(CHAT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages, stream: true })
+    });
+
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const payload = trimmed.slice(6);
+        if (payload === '[DONE]') { finishStreaming(); return; }
+        try {
+          const parsed = JSON.parse(payload);
+          const delta = parsed.choices?.[0]?.delta?.content || '';
+          if (delta && streamingMsgEl) streamingMsgEl.textContent += delta;
+        } catch { /* skip malformed chunks */ }
+      }
+      const container = document.getElementById('webui-messages');
+      container.scrollTop = container.scrollHeight;
+    }
+    finishStreaming();
+  } catch (e) {
+    if (streamingMsgEl) {
+      streamingMsgEl.textContent = 'Error: ' + e.message;
+      streamingMsgEl.style.color = '#ef4444';
+    }
+    finishStreaming();
+  }
+}
+
+function finishStreaming() {
+  isStreaming = false;
+  document.getElementById('webui-send-btn').disabled = false;
+  if (streamingMsgEl) {
+    streamingMsgEl.classList.remove('webui-msg-streaming');
+  }
+  streamingMsgEl = null;
+  if (chatSocket) {
+    chatSocket.close();
+    chatSocket = null;
+  }
+}
+
+function clearChat() {
+  const container = document.getElementById('webui-messages');
+  container.textContent = '';
+  appendMessage('system', 'Chat cleared. Start a new conversation.');
+}
+
+/* ── 2. MODEL GALLERY ── */
+async function loadModels() {
+  const grid = document.getElementById('webui-model-grid');
+  const select = document.getElementById('webui-model-select');
+  grid.textContent = '';
+  select.textContent = '';
+
+  try {
+    /* Try Open WebUI API, fall back to Ollama */
+    let models = [];
+    try {
+      const r = await fetch(WEBUI_API + '/models', { signal: AbortSignal.timeout(4000) });
+      if (r.ok) {
+        const data = await r.json();
+        models = data.data || data.models || [];
+      }
+    } catch {
+      const r = await fetch('/api/ollama/models', { signal: AbortSignal.timeout(4000) });
+      if (r.ok) {
+        const data = await r.json();
+        models = (data.models || []).map(m => ({ id: m.name || m, name: m.name || m, size: m.size }));
+      }
+    }
+
+    if (!models.length) {
+      const p = document.createElement('p');
+      p.style.cssText = 'color:var(--muted);font-size:12px;grid-column:1/-1;';
+      p.textContent = 'No models found. Ensure Ollama or Open WebUI is running.';
+      grid.appendChild(p);
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No models available';
+      select.appendChild(opt);
+      return;
+    }
+
+    models.forEach(m => {
+      const id = m.id || m.name || m.model || '';
+      const name = m.name || m.id || m.model || '';
+      const size = m.size ? (m.size / 1e9).toFixed(1) + 'GB' : '';
+      const quant = (m.details?.quantization_level || m.quantization_level || '');
+      const family = (m.details?.family || m.family || '');
+
+      /* Select option */
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = name;
+      select.appendChild(opt);
+
+      /* Model card */
+      const card = document.createElement('div');
+      card.className = 'webui-model-card';
+      if (!currentModel && models.indexOf(m) === 0) {
+        card.classList.add('selected');
+        currentModel = id;
+        select.value = id;
+      }
+      card.onclick = () => selectModel(id, card);
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'webui-model-name';
+      nameEl.textContent = name;
+      card.appendChild(nameEl);
+
+      const meta = document.createElement('div');
+      meta.className = 'webui-model-meta';
+      if (size) {
+        const s = document.createElement('span');
+        s.textContent = size;
+        meta.appendChild(s);
+      }
+      if (quant) {
+        const q = document.createElement('span');
+        q.className = 'webui-model-tag';
+        q.textContent = quant;
+        meta.appendChild(q);
+      }
+      if (family) {
+        const f = document.createElement('span');
+        f.className = 'webui-model-tag';
+        f.textContent = family;
+        meta.appendChild(f);
+      }
+      card.appendChild(meta);
+      grid.appendChild(card);
+    });
+
+    select.addEventListener('change', () => {
+      currentModel = select.value;
+      document.querySelectorAll('.webui-model-card').forEach(c => c.classList.remove('selected'));
+    });
+  } catch (e) {
+    const p = document.createElement('p');
+    p.style.cssText = 'color:#ef4444;font-size:12px;grid-column:1/-1;';
+    p.textContent = 'Failed to load models: ' + e.message;
+    grid.appendChild(p);
+  }
+}
+
+function selectModel(id, card) {
+  currentModel = id;
+  document.getElementById('webui-model-select').value = id;
+  document.querySelectorAll('.webui-model-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+}
+
+/* ── 3. SESSION MANAGER ── */
+async function loadSessions() {
+  const list = document.getElementById('webui-sessions-list');
+  list.textContent = '';
+
+  try {
+    const r = await fetch(WEBUI_API + '/chats', { signal: AbortSignal.timeout(4000) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const chats = data.data || data.chats || data || [];
+
+    if (!chats.length) {
+      const p = document.createElement('p');
+      p.style.color = 'var(--muted)';
+      p.style.fontSize = '12px';
+      p.textContent = 'No sessions yet.';
+      list.appendChild(p);
+      return;
+    }
+
+    chats.slice(0, 20).forEach(chat => {
+      const item = document.createElement('div');
+      item.className = 'webui-session-item';
+
+      const left = document.createElement('div');
+      const title = document.createElement('div');
+      title.className = 'webui-session-title';
+      title.textContent = chat.title || chat.name || 'Untitled';
+      left.appendChild(title);
+
+      const time = document.createElement('div');
+      time.className = 'webui-session-time';
+      const ts = chat.updated_at || chat.created_at || chat.timestamp;
+      time.textContent = ts ? new Date(ts * 1000 || ts).toLocaleString() : '';
+      left.appendChild(time);
+      item.appendChild(left);
+
+      if (chat.count || chat.msg_count || chat.tokens) {
+        const tkn = document.createElement('span');
+        tkn.className = 'webui-session-tokens';
+        const count = chat.count || chat.msg_count || 0;
+        tkn.textContent = count + ' msgs';
+        item.appendChild(tkn);
+      }
+
+      list.appendChild(item);
+    });
+  } catch {
+    const p = document.createElement('p');
+    p.style.color = 'var(--muted)';
+    p.style.fontSize = '12px';
+    p.textContent = 'Session list unavailable (Open WebUI offline).';
+    list.appendChild(p);
+  }
+}
+
+/* ── 4. DOCUMENT UPLOAD ── */
+function setupDropZone() {
+  const zone = document.getElementById('webui-drop-zone');
+  const fileInput = document.getElementById('webui-file-input');
+
+  zone.addEventListener('click', () => fileInput.click());
+  zone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    handleFiles(e.dataTransfer.files);
+  });
+
+  fileInput.addEventListener('change', () => {
+    handleFiles(fileInput.files);
+    fileInput.value = '';
+  });
+}
+
+function handleFiles(files) {
+  Array.from(files).forEach(file => uploadDoc(file));
+}
+
+async function uploadDoc(file) {
+  const list = document.getElementById('webui-upload-list');
+  const item = document.createElement('div');
+  item.className = 'webui-upload-item';
+
+  const name = document.createElement('span');
+  name.className = 'webui-upload-name';
+  name.textContent = file.name;
+  item.appendChild(name);
+
+  const status = document.createElement('span');
+  status.className = 'webui-upload-status';
+  status.textContent = 'Uploading...';
+  item.appendChild(status);
+
+  list.appendChild(item);
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const r = await fetch(WEBUI_API + '/documents/upload', {
+      method: 'POST',
+      body: formData,
+      signal: AbortSignal.timeout(60000)
+    });
+
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    status.textContent = 'Indexed';
+  } catch (e) {
+    status.textContent = 'Failed';
+    status.className = 'webui-upload-status error';
+  }
+}
+
+/* ── 5. MODERATION ── */
+function toggleModFilter() { _toggleMod('webui-filter-toggle'); }
+function toggleModPii() { _toggleMod('webui-pii-toggle'); }
+function toggleModProfanity() { _toggleMod('webui-profanity-toggle'); }
+
+function _toggleMod(id) {
+  const btn = document.getElementById(id);
+  const isActive = btn.classList.toggle('active');
+  btn.textContent = isActive ? 'ON' : 'OFF';
+  btn.setAttribute('aria-pressed', isActive.toString());
+}
+
+async function saveModerationSettings() {
+  const settings = {
+    content_filter: document.getElementById('webui-filter-toggle').classList.contains('active'),
+    pii_redaction: document.getElementById('webui-pii-toggle').classList.contains('active'),
+    profanity_block: document.getElementById('webui-profanity-toggle').classList.contains('active'),
+    blocked_terms: document.getElementById('webui-blocked-terms').value.split('\n').map(s => s.trim()).filter(Boolean),
+    system_prompt: document.getElementById('webui-system-prompt').value.trim()
+  };
+
+  try {
+    const r = await fetch(WEBUI_API + '/moderation/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (window.Toast) Toast.success('Moderation settings saved');
+  } catch {
+    /* Store locally when server unavailable */
+    localStorage.setItem('webui-moderation', JSON.stringify(settings));
+    if (window.Toast) Toast.success('Settings saved locally');
+  }
+}
+
+/* ── 6. ANALYTICS ── */
+async function loadAnalytics() {
+  const sevenDays = [];
+  const msgCounts = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    sevenDays.push(d.toLocaleDateString('en', { weekday: 'short' }));
+    msgCounts.push(0);
+  }
+
+  try {
+    const r = await fetch(WEBUI_API + '/analytics', { signal: AbortSignal.timeout(4000) });
+    if (r.ok) {
+      const data = await r.json();
+      document.getElementById('webui-active-users').textContent = data.active_users || 0;
+      document.getElementById('webui-msgs-day').textContent = data.messages_today || 0;
+      document.getElementById('webui-avg-resp').textContent = (data.avg_response_ms || 0) + 'ms';
+      document.getElementById('webui-total-tokens').textContent = (data.total_tokens || 0).toLocaleString();
+      document.getElementById('webui-docs-indexed').textContent = data.docs_indexed || 0;
+
+      if (data.daily_counts) {
+        data.daily_counts.forEach((c, idx) => {
+          if (idx < 7) msgCounts[6 - idx] = c;
+        });
+      }
+    }
+  } catch { /* offline — show stub values */ }
+
+  drawChart(sevenDays, msgCounts);
+}
+
+function drawChart(labels, data) {
+  const canvas = document.getElementById('webui-analytics-chart');
+  if (!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  const pad = { top: 8, right: 12, bottom: 24, left: 36 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+  const maxVal = Math.max(...data, 1);
+
+  ctx.clearRect(0, 0, W, H);
+
+  /* Grid lines */
+  ctx.strokeStyle = 'rgba(16,185,129,0.08)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (plotH / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(W - pad.right, y);
+    ctx.stroke();
+  }
+
+  /* Line + area */
+  if (data.length > 1) {
+    const stepX = plotW / (data.length - 1);
+
+    /* Area fill */
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top + plotH);
+    data.forEach((v, i) => {
+      const x = pad.left + stepX * i;
+      const y = pad.top + plotH - (v / maxVal) * plotH;
+      ctx.lineTo(x, y);
+    });
+    ctx.lineTo(pad.left + stepX * (data.length - 1), pad.top + plotH);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(16,185,129,0.1)';
+    ctx.fill();
+
+    /* Line */
+    ctx.beginPath();
+    data.forEach((v, i) => {
+      const x = pad.left + stepX * i;
+      const y = pad.top + plotH - (v / maxVal) * plotH;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    /* Dots */
+    data.forEach((v, i) => {
+      const x = pad.left + stepX * i;
+      const y = pad.top + plotH - (v / maxVal) * plotH;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#10b981';
+      ctx.fill();
+    });
+  }
+
+  /* X labels */
+  ctx.fillStyle = 'rgba(16,185,129,0.5)';
+  ctx.font = '9px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  const stepX = data.length > 1 ? plotW / (data.length - 1) : plotW;
+  labels.forEach((lbl, i) => {
+    const x = pad.left + stepX * i;
+    ctx.fillText(lbl, x, H - 4);
+  });
+
+  /* Y labels */
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const val = Math.round((maxVal / 4) * (4 - i));
+    const y = pad.top + (plotH / 4) * i + 3;
+    ctx.fillText(val.toString(), pad.left - 6, y);
+  }
+}
+</script>
+{% endblock %}

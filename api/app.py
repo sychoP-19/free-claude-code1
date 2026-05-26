@@ -17,6 +17,7 @@ from providers.exceptions import ProviderError
 
 from .routes import router
 from .runtime import AppRuntime, best_effort, startup_failure_message
+from config.rate_dashboard import router as rate_dashboard_router
 from .validation_log import summarize_request_validation_body
 
 
@@ -102,6 +103,8 @@ def create_app(*, lifespan_enabled: bool = True) -> FastAPI:
 
     # Register routes
     app.include_router(router)
+    # Rate-limit monitoring: /api/rate-limits/*
+    app.include_router(rate_dashboard_router)
 
     # Exception handlers
     @app.exception_handler(RequestValidationError)

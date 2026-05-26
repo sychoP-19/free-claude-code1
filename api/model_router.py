@@ -40,7 +40,7 @@ class ModelRouter:
     def __init__(self, settings: Settings):
         self._settings = settings
 
-    def resolve(self, claude_model_name: str) -> ResolvedModel:
+    def resolve(self, claude_model_name: str, *, use_fallback: bool = False) -> ResolvedModel:
         (
             direct_provider_id,
             direct_provider_model,
@@ -67,8 +67,9 @@ class ModelRouter:
                 thinking_enabled=thinking_enabled,
             )
 
-        provider_model_ref = self._settings.resolve_model(claude_model_name)
-        thinking_enabled = self._settings.resolve_thinking(claude_model_name)
+        provider_model_ref = self._settings.resolve_model(claude_model_name, use_fallback=use_fallback)
+        # Free-tier fallback models typically don't support extended thinking
+        thinking_enabled = False if use_fallback else self._settings.resolve_thinking(claude_model_name)
         provider_id = Settings.parse_provider_type(provider_model_ref)
         provider_model = Settings.parse_model_name(provider_model_ref)
         if provider_model != claude_model_name:
@@ -106,19 +107,19 @@ class ModelRouter:
         return provider_id, provider_model, None
 
     def resolve_messages_request(
-        self, request: MessagesRequest
+        self, request: MessagesRequest, *, use_fallback: bool = False
     ) -> RoutedMessagesRequest:
         """Return an internal routed request context."""
-        resolved = self.resolve(request.model)
+        resolved = self.resolve(request.model, use_fallback=use_fallback)
         routed = request.model_copy(deep=True)
         routed.model = resolved.provider_model
         return RoutedMessagesRequest(request=routed, resolved=resolved)
 
     def resolve_token_count_request(
-        self, request: TokenCountRequest
+        self, request: TokenCountRequest, *, use_fallback: bool = False
     ) -> RoutedTokenCountRequest:
         """Return an internal token-count request context."""
-        resolved = self.resolve(request.model)
+        resolved = self.resolve(request.model, use_fallback=use_fallback)
         routed = request.model_copy(
             update={"model": resolved.provider_model}, deep=True
         )

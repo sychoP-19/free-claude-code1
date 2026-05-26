@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% set active = "langchain" %}
+{% block title %}LangChain Pipeline{% endblock %}
+
+{% block content %}
+<div class="lp-content" x-data="lpInit()">
+<style>
+.lp-content{--lp-accent:#ef4444;--lp-glow:rgba(239,68,68,0.35);padding:0 0 24px}
+.lp-header{margin-bottom:20px}
+.lp-title{font-family:var(--font-brand);font-size:20px;color:var(--lp-accent);letter-spacing:2px;text-shadow:0 0 24px var(--lp-glow)}
+.lp-sub{font-family:var(--font-ui);font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+
+.lp-kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:1100px){.lp-kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.lp-kpi-grid{grid-template-columns:1fr 1fr}}
+
+.lp-kpi-card{background:var(--surface);border:1px solid rgba(239,68,68,0.18);border-radius:10px;padding:16px;text-align:center;position:relative;overflow:hidden;transition:border-color .3s,box-shadow .3s}
+.lp-kpi-card:hover{border-color:rgba(239,68,68,0.5);box-shadow:0 0 20px var(--lp-glow)}
+.lp-kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--lp-accent),transparent);opacity:.6;animation:lp-scanline 3s linear infinite}
+@keyframes lp-scanline{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.lp-kpi-icon{width:32px;height:32px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:rgba(239,68,68,0.1)}
+.lp-kpi-icon svg{stroke:var(--lp-accent);fill:none;stroke-width:1.8}
+.lp-kpi-value{font-family:var(--font-brand);font-size:22px;font-weight:700;color:#e2f0ff;line-height:1.2;text-shadow:0 0 14px var(--lp-glow)}
+.lp-kpi-label{font-family:var(--font-ui);font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.lp-kpi-delta{font-family:var(--font-data);font-size:10px;margin-top:3px}
+.lp-delta-up{color:var(--green,#10d984)}
+.lp-delta-down{color:#ef4444}
+
+.lp-panels{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.lp-panels{grid-template-columns:1fr}}
+.lp-full{grid-column:1/-1}
+
+.lp-panel{background:var(--surface);border:1px solid rgba(239,68,68,0.15);border-radius:10px;overflow:hidden;transition:border-color .3s,box-shadow .3s;position:relative}
+.lp-panel:hover{border-color:rgba(239,68,68,0.4);box-shadow:0 0 16px rgba(239,68,68,0.1)}
+.lp-panel::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--lp-accent),transparent);opacity:.3;animation:lp-scanline 4.5s linear infinite}
+.lp-panel-hdr{padding:12px 16px;border-bottom:1px solid rgba(239,68,68,0.12);display:flex;align-items:center;justify-content:space-between}
+.lp-panel-hdr h3{font-family:var(--font-brand);font-size:12px;color:var(--lp-accent);letter-spacing:1px;margin:0}
+.lp-panel-badge{font-family:var(--font-data);font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(239,68,68,0.12);color:var(--lp-accent)}
+.lp-panel-body{padding:14px 16px;max-height:340px;overflow-y:auto}
+
+.lp-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(239,68,68,0.06);font-size:12px}
+.lp-row:last-child{border-bottom:none}
+.lp-row-label{color:var(--text-muted);font-family:var(--font-ui);display:flex;align-items:center}
+.lp-row-val{color:#e2f0ff;font-family:var(--font-data);font-size:11px}
+.lp-row-bar{flex:1;max-width:120px;height:5px;border-radius:3px;background:rgba(239,68,68,0.1);margin:0 12px;overflow:hidden}
+.lp-row-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--lp-accent),rgba(239,68,68,0.5));transition:width .6s ease}
+
+.lp-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;flex-shrink:0}
+.lp-dot-green{background:var(--green,#10d984);box-shadow:0 0 6px rgba(16,217,132,0.5)}
+.lp-dot-orange{background:var(--orange,#ff6b35);box-shadow:0 0 6px rgba(255,107,53,0.5)}
+.lp-dot-red{background:#ef4444;box-shadow:0 0 6px rgba(239,68,68,0.5)}
+
+.lp-agent-tag{display:inline-block;font-size:9px;padding:2px 6px;border-radius:3px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:4px}
+.lp-tag-react{background:rgba(239,68,68,0.12);color:var(--lp-accent)}
+.lp-tag-plan{background:rgba(124,58,237,0.12);color:var(--purple,#7c3aed)}
+.lp-tag-custom{background:rgba(0,212,255,0.12);color:var(--cyan,#00d4ff)}
+
+.lp-limit-track{height:6px;border-radius:3px;background:rgba(239,68,68,0.08);overflow:hidden;margin-top:4px}
+.lp-limit-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.lp-limit-ok{background:linear-gradient(90deg,var(--lp-accent),rgba(239,68,68,0.6))}
+.lp-limit-warn{background:linear-gradient(90deg,var(--orange,#ff6b35),rgba(255,107,53,0.6))}
+.lp-limit-crit{background:linear-gradient(90deg,#dc2626,rgba(220,38,38,0.6))}
+</style>
+
+<div class="lp-header">
+  <div class="lp-title">LANGCHAIN PIPELINE</div>
+  <div class="lp-sub">Orchestration Layer &mdash; Chains &bull; Agents &bull; Memory &bull; Tools</div>
+</div>
+
+<div class="lp-kpi-grid">
+  <div class="lp-kpi-card">
+    <div class="lp-kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+    <div class="lp-kpi-value" x-text="kpi.chains"></div>
+    <div class="lp-kpi-label">Active Chains</div>
+    <div class="lp-kpi-delta lp-delta-up" x-text="kpi.chainsDelta"></div>
+  </div>
+  <div class="lp-kpi-card">
+    <div class="lp-kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+    <div class="lp-kpi-value" x-text="kpi.success"></div>
+    <div class="lp-kpi-label">Success Rate</div>
+    <div class="lp-kpi-delta lp-delta-up" x-text="kpi.successDelta"></div>
+  </div>
+  <div class="lp-kpi-card">
+    <div class="lp-kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+    <div class="lp-kpi-value" x-text="kpi.avgTime"></div>
+    <div class="lp-kpi-label">Avg Chain Time</div>
+    <div class="lp-kpi-delta lp-delta-down" x-text="kpi.avgTimeDelta"></div>
+  </div>
+  <div class="lp-kpi-card">
+    <div class="lp-kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
+    <div class="lp-kpi-value" x-text="kpi.agents"></div>
+    <div class="lp-kpi-label">Active Agents</div>
+    <div class="lp-kpi-delta lp-delta-up" x-text="kpi.agentsDelta"></div>
+  </div>
+  <div class="lp-kpi-card">
+    <div class="lp-kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg></div>
+    <div class="lp-kpi-value" x-text="kpi.tokens"></div>
+    <div class="lp-kpi-label">Token Spend</div>
+    <div class="lp-kpi-delta lp-delta-down" x-text="kpi.tokensDelta"></div>
+  </div>
+  <div class="lp-kpi-card">
+    <div class="lp-kpi-icon"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+    <div class="lp-kpi-value" x-text="kpi.tools"></div>
+    <div class="lp-kpi-label">Tools Bound</div>
+    <div class="lp-kpi-delta lp-delta-up" x-text="kpi.toolsDelta"></div>
+  </div>
+</div>
+
+<div class="lp-panels">
+  <div class="lp-panel lp-full">
+    <div class="lp-panel-hdr"><h3>CHAIN EXECUTIONS</h3><span class="lp-panel-badge" x-text="chains.badge"></span></div>
+    <div class="lp-panel-body" id="lp-chains-body"></div>
+  </div>
+  <div class="lp-panel">
+    <div class="lp-panel-hdr"><h3>AGENTS</h3><span class="lp-panel-badge" x-text="agents.badge"></span></div>
+    <div class="lp-panel-body" id="lp-agents-body"></div>
+  </div>
+  <div class="lp-panel">
+    <div class="lp-panel-hdr"><h3>MEMORY</h3><span class="lp-panel-badge" x-text="memory.badge"></span></div>
+    <div class="lp-panel-body" id="lp-memory-body"></div>
+  </div>
+  <div class="lp-panel">
+    <div class="lp-panel-hdr"><h3>TOOLS</h3><span class="lp-panel-badge" x-text="tools.badge"></span></div>
+    <div class="lp-panel-body" id="lp-tools-body"></div>
+  </div>
+  <div class="lp-panel">
+    <div class="lp-panel-hdr"><h3>LLM CALLS</h3><span class="lp-panel-badge" x-text="llm.badge"></span></div>
+    <div class="lp-panel-body" id="lp-llm-body"></div>
+  </div>
+  <div class="lp-panel lp-full">
+    <div class="lp-panel-hdr"><h3>VECTOR STORES</h3><span class="lp-panel-badge" x-text="vstores.badge"></span></div>
+    <div class="lp-panel-body" id="lp-vstores-body"></div>
+  </div>
+</div>
+
+<script>
+function lpInit(){
+  return {
+    kpi:{chains:'14',success:'96.2%',avgTime:'3.4s',agents:'6',tokens:'2.1M',tools:'18',chainsDelta:'+3',successDelta:'+0.4%',avgTimeDelta:'-0.2s',agentsDelta:'+1',tokensDelta:'+280K',toolsDelta:'+2'},
+    chains:{badge:'14 RUNNING'},agents:{badge:'6 ACTIVE'},memory:{badge:'12 BUFFERS'},tools:{badge:'18 BOUND'},llm:{badge:'4 PROVIDERS'},vstores:{badge:'2 STORES'},
+
+    init(){
+      this.renderChains();this.renderAgents();this.renderMemory();
+      this.renderTools();this.renderLLMCalls();this.renderVectorStores();
+      this._fetchLive=setInterval(()=>this.tick(),7000);fetch('/api/langchain/status').then(r=>r.json()).then(d=>{if(d.status==='ok'){this.kpi.chains=d.active_chains+'';this.kpi.success=d.success_rate_pct.toFixed(1)+'%';this.kpi.avgTime=d.avg_time_ms+'ms';this.kpi.agents=d.total_executions.toLocaleString();}}).catch(()=>{});
+    },
+
+    tick(){
+      const r=()=>Math.floor(Math.random()*20)-5;
+      this.kpi.chains=(14+r())+'';
+      this.kpi.success=(96+Math.random()*2).toFixed(1)+'%';
+      this.kpi.avgTime=(3.4+Math.random()*0.4).toFixed(1)+'s';
+      this.kpi.agents=(6+Math.floor(Math.random()*2))+'';
+      this.kpi.tokens=((2.1+Math.random()*0.2).toFixed(1))+'M';
+      this.renderChains();this.renderAgents();this.renderMemory();
+      this.renderTools();this.renderLLMCalls();this.renderVectorStores();
+    },
+
+    _clr(id){const e=document.getElementById(id);if(e)e.textContent='';return e},
+    _row(c,label,val,barPct){
+      const d=document.createElement('div');d.className='lp-row';
+      const l=document.createElement('span');l.className='lp-row-label';
+      if(c){const dot=document.createElement('span');dot.className='lp-dot lp-dot-'+c;l.prepend(dot)}
+      l.appendChild(document.createTextNode(label));d.appendChild(l);
+      if(barPct!=null){const b=document.createElement('div');b.className='lp-row-bar';const f=document.createElement('div');f.className='lp-row-bar-fill';f.style.width=barPct+'%';b.appendChild(f);d.appendChild(b)}
+      const v=document.createElement('span');v.className='lp-row-val';v.textContent=val;d.appendChild(v);
+      return d;
+    },
+
+    renderChains(){
+      const el=this._clr('lp-chains-body');if(!el)return;
+      [{name:'SequentialChain',status:'green',runs:842,lat:Math.floor(3200+Math.random()*400)+'ms'},
+       {name:'RouterChain',status:'green',runs:412,lat:Math.floor(2800+Math.random()*300)+'ms'},
+       {name:'LLMChain (summarize)',status:'green',runs:1890,lat:Math.floor(1400+Math.random()*200)+'ms'},
+       {name:'TransformChain',status:'orange',runs:148,lat:Math.floor(4800+Math.random()*600)+'ms'},
+       {name:'ConversationalChain',status:'green',runs:634,lat:Math.floor(2200+Math.random()*300)+'ms'},
+       {name:'ParallelChain',status:'green',runs:92,lat:Math.floor(980+Math.random()*100)+'ms'}
+      ].forEach(c=>el.appendChild(this._row(c.status,c.name,c.runs+' runs / '+c.lat,Math.min(c.runs/2000*100,100))));
+    },
+
+    renderAgents(){
+      const el=this._clr('lp-agents-body');if(!el)return;
+      [{name:'ReAct Agent',tag:'react',status:'green',steps:4.2,success:'98%'},
+       {name:'Plan-and-Execute',tag:'plan',status:'green',steps:6.8,success:'94%'},
+       {name:'Custom Tool Agent',tag:'custom',status:'orange',steps:3.1,success:'89%'},
+       {name:'ReAct Agent v2',tag:'react',status:'green',steps:3.9,success:'97%'},
+       {name:'Structured Chat',tag:'custom',status:'green',steps:5.4,success:'92%'},
+       {name:'Plan Agent (code)',tag:'plan',status:'green',steps:7.2,success:'91%'}
+      ].forEach(a=>{
+        const d=document.createElement('div');d.className='lp-row';
+        const l=document.createElement('span');l.className='lp-row-label';
+        const dot=document.createElement('span');dot.className='lp-dot lp-dot-'+a.status;l.prepend(dot);
+        const t=document.createElement('span');t.className='lp-agent-tag lp-tag-'+a.tag;t.textContent=a.tag;l.appendChild(t);
+        const nm=document.createElement('span');nm.textContent=a.name;nm.style.fontFamily='var(--font-data)';nm.style.fontSize='11px';l.appendChild(nm);
+        d.appendChild(l);
+        const v=document.createElement('span');v.className='lp-row-val';v.textContent=a.steps+' steps / '+a.success;d.appendChild(v);
+        el.appendChild(d);
+      });
+    },
+
+    renderMemory(){
+      const el=this._clr('lp-memory-body');if(!el)return;
+      [{label:'Conversation Buffers',val:'12 / 16',pct:75},
+       {label:'Summarized Memories',val:'8 active',pct:50},
+       {label:'Token Usage ( buffers )',val:Math.floor(42000+Math.random()*5000).toLocaleString(),pct:65},
+       {label:'Token Usage ( summary )',val:Math.floor(18000+Math.random()*2000).toLocaleString(),pct:28},
+       {label:'Entity Memory',val:'342 entities',pct:42},
+       {label:'KG Memory',val:'1,247 triples',pct:38}
+      ].forEach(m=>el.appendChild(this._row(null,m.label,m.val,m.pct)));
+    },
+
+    renderTools(){
+      const el=this._clr('lp-tools-body');if(!el)return;
+      [{name:'SerpAPI Search',calls:342,status:'green'},{name:'Calculator',calls:189,status:'green'},
+       {name:'Python REPL',calls:97,status:'green'},{name:'Requests API',calls:64,status:'orange'},
+       {name:'Wikipedia',calls:128,status:'green'},{name:'SQLDatabase',calls:45,status:'green'}
+      ].forEach(t=>{
+        el.appendChild(this._row(t.status,t.name,t.calls+' calls',Math.min(t.calls/400*100,100)));
+      });
+    },
+
+    renderLLMCalls(){
+      const el=this._clr('lp-llm-body');if(!el)return;
+      [{provider:'OpenAI',model:'gpt-4o',tokens:Math.floor(840000+Math.random()*50000),cost:'$12.40'},
+       {provider:'Anthropic',model:'claude-3.5-sonnet',tokens:Math.floor(620000+Math.random()*30000),cost:'$9.30'},
+       {provider:'OpenAI',model:'gpt-4o-mini',tokens:Math.floor(420000+Math.random()*20000),cost:'$0.84'},
+       {provider:'Ollama',model:'llama3.1:8b',tokens:Math.floor(180000+Math.random()*10000),cost:'$0.00'}
+      ].forEach(l=>{
+        const d=document.createElement('div');d.className='lp-row';
+        const l1=document.createElement('span');l1.className='lp-row-label';
+        const nm=document.createElement('span');nm.textContent=l.provider+' / '+l.model;nm.style.fontFamily='var(--font-data)';nm.style.fontSize='11px';l1.appendChild(nm);
+        d.appendChild(l1);
+        const v=document.createElement('span');v.className='lp-row-val';v.textContent=(l.tokens/1000).toFixed(0)+'K tok / '+l.cost;d.appendChild(v);
+        el.appendChild(d);
+
+        const bar=document.createElement('div');bar.className='lp-limit-track';bar.style.width='100%';bar.style.marginBottom='6px';
+        const fill=document.createElement('div');fill.className='lp-limit-fill lp-limit-ok';fill.style.width=Math.min(l.tokens/10000,100)+'%';bar.appendChild(fill);el.appendChild(bar);
+      });
+    },
+
+    renderVectorStores(){
+      const el=this._clr('lp-vstores-body');if(!el)return;
+      [{name:'ChromaDB',collections:4,docs:Math.floor(142000+Math.random()*5000),lat:'18ms',status:'green'},
+       {name:'FAISS',collections:2,docs:Math.floor(84000+Math.random()*3000),lat:'8ms',status:'green'}
+      ].forEach(s=>{
+        const d=document.createElement('div');d.className='lp-row';
+        const l=document.createElement('span');l.className='lp-row-label';
+        const dot=document.createElement('span');dot.className='lp-dot lp-dot-'+s.status;l.prepend(dot);l.appendChild(document.createTextNode(s.name));
+        d.appendChild(l);
+        const v=document.createElement('span');v.className='lp-row-val';v.textContent=s.collections+' collections / '+(s.docs/1000).toFixed(0)+'K docs / '+s.lat;d.appendChild(v);
+        el.appendChild(d);
+
+        const bar=document.createElement('div');bar.className='lp-limit-track';bar.style.width='100%';bar.style.marginBottom='6px';
+        const fill=document.createElement('div');fill.className='lp-limit-fill lp-limit-ok';fill.style.width=Math.min(s.docs/2000,100)+'%';bar.appendChild(fill);el.appendChild(bar);
+      });
+    }
+  }
+}
+</script>
+</div>
+{% endblock %}

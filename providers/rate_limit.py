@@ -181,6 +181,33 @@ class GlobalRateLimiter:
         """Get remaining reactive wait time in seconds."""
         return max(0.0, self._blocked_until - time.monotonic())
 
+    def status(self) -> dict[str, Any]:
+        """Return a thread-safe snapshot of current rate-limit state.
+
+        Safe to call from sync code (e.g. dashboard endpoint). The read is
+        a single-pass copy under GIL guarantee; for full thread-safety switch
+        ``asyncio.Lock`` to ``threading.Lock`` in ``StrictSlidingWindowLimiter``.
+        """
+        now = time.monotonic()
+        sw = self._proactive_limiter
+        cutoff = now - sw._rate_window
+        active_times = [t for t in sw._times if t > cutoff]
+        active_count = len(active_times)
+        requests_remaining = max(0, sw._rate_limit - active_count)
+        oldest = next(iter(active_times), None)
+        window_reset = max(0.0, (oldest + sw._rate_window) - now) if oldest else 0.0
+        current_concurrency = self._max_concurrency - self._concurrency_sem._value  # type: ignore[attr-defined]
+        return {
+            "requests_remaining": requests_remaining,
+            "requests_limit": sw._rate_limit,
+            "window_seconds": sw._rate_window,
+            "window_reset_seconds": round(window_reset, 2),
+            "current_concurrency": current_concurrency,
+            "max_concurrency": self._max_concurrency,
+            "is_blocked": self.is_blocked(),
+            "blocked_remaining_seconds": round(self.remaining_wait(), 2),
+        }
+
     @asynccontextmanager
     async def concurrency_slot(self) -> AsyncIterator[None]:
         """Async context manager that holds one concurrency slot for a stream.

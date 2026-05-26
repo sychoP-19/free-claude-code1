@@ -1,0 +1,987 @@
+{% extends "base.html" %}
+{% set active = "vllm" %}
+{% block title %}vLLM Inference{% endblock %}
+
+{% block head %}
+<style>
+:root { --idash-accent: #7c3aed; --idash-accent-rgb: 124,58,237; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">vLLM INFERENCE ENGINE</div>
+    <div class="page-subtitle">HIGH-PERFORMANCE LLM SERVING WITH PAGEDATTENTION</div>
+  </div>
+  <div class="idash-impact-badge">24x FASTER THAN NAIVE SERVING</div>
+</div>
+
+<!-- IMPACT BAR -->
+<div class="idash-impact-bar">
+  <span>VLLM IMPACT: 24x faster inference than naive serving. PagedAttention eliminates memory waste. Production-grade LLM serving.</span>
+</div>
+
+<!-- SECTION 1: SERVING STATUS -->
+<div class="idash-section vllm-panel mb-16">
+  <div class="idash-header">
+    <span class="idash-header-title">Serving Status</span>
+    <span class="idash-badge vllm-badge">LIVE</span>
+    <span class="vllm-live-dot" id="vllm-live-dot"></span>
+  </div>
+  <div class="idash-body">
+    <div class="vllm-status-grid" id="vllm-status-grid">
+      <div class="vllm-stat-card">
+        <div class="vllm-stat-label">Status</div>
+        <div class="vllm-stat-value" id="vllm-serving-status">--</div>
+      </div>
+      <div class="vllm-stat-card">
+        <div class="vllm-stat-label">Running Models</div>
+        <div class="vllm-stat-value" id="vllm-running-count">0</div>
+      </div>
+      <div class="vllm-stat-card">
+        <div class="vllm-stat-label">GPU Utilization</div>
+        <div class="vllm-stat-value" id="vllm-gpu-util">--%</div>
+      </div>
+      <div class="vllm-stat-card">
+        <div class="vllm-stat-label">GPU Memory</div>
+        <div class="vllm-stat-value" id="vllm-gpu-mem">-- / -- GB</div>
+      </div>
+      <div class="vllm-stat-card">
+        <div class="vllm-stat-label">Batch Size</div>
+        <div class="vllm-stat-value" id="vllm-batch-size">--</div>
+      </div>
+      <div class="vllm-stat-card">
+        <div class="vllm-stat-label">Uptime</div>
+        <div class="vllm-stat-value" id="vllm-uptime">--</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2: THROUGHPUT MONITOR -->
+<div class="idash-section vllm-panel mb-16">
+  <div class="idash-header">
+    <span class="idash-header-title">Throughput Monitor</span>
+    <span class="idash-badge vllm-badge">METRICS</span>
+  </div>
+  <div class="idash-body">
+    <div class="vllm-metrics-row">
+      <div class="vllm-metric-tile vllm-metric-tokens">
+        <div class="vllm-metric-big" id="vllm-tokens-sec">0</div>
+        <div class="vllm-metric-unit">tokens/sec</div>
+      </div>
+      <div class="vllm-metric-tile vllm-metric-requests">
+        <div class="vllm-metric-big" id="vllm-concurrent">0</div>
+        <div class="vllm-metric-unit">concurrent requests</div>
+      </div>
+      <div class="vllm-metric-tile vllm-metric-queue">
+        <div class="vllm-metric-big" id="vllm-queue-depth">0</div>
+        <div class="vllm-metric-unit">queue depth</div>
+      </div>
+      <div class="vllm-metric-tile vllm-metric-latency">
+        <div class="vllm-metric-big" id="vllm-p99-latency">--</div>
+        <div class="vllm-metric-unit">p99 latency (ms)</div>
+      </div>
+    </div>
+    <div class="vllm-chart-container">
+      <canvas id="vllm-throughput-canvas" width="800" height="180"></canvas>
+      <div class="vllm-chart-label">Tokens/sec — Last 60 Samples</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3: MODEL MANAGER -->
+<div class="idash-section vllm-panel mb-16">
+  <div class="idash-header">
+    <span class="idash-header-title">Model Manager</span>
+    <span class="idash-badge vllm-badge">LOAD / UNLOAD</span>
+  </div>
+  <div class="idash-body">
+    <div class="vllm-model-form">
+      <div class="form-group">
+        <label class="form-label">Model Name / HuggingFace ID</label>
+        <input id="vllm-model-name" class="form-control" value="meta-llama/Meta-Llama-3-8B-Instruct" placeholder="org/model-name"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quantization</label>
+        <select id="vllm-quant-method" class="form-control">
+          <option value="">None (FP16/BF16)</option>
+          <option value="awq">AWQ</option>
+          <option value="gptq">GPTQ</option>
+          <option value="squeezellm">SqueezeLLM</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tensor Parallel</label>
+        <input id="vllm-tp" class="form-control" type="number" value="1" min="1" max="8"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Max Model Length</label>
+        <input id="vllm-max-len" class="form-control" type="number" value="8192" min="256" max="131072"/>
+      </div>
+      <button class="btn btn-primary vllm-btn-load" onclick="loadModel()">LOAD MODEL</button>
+    </div>
+    <div class="vllm-model-list-header">Loaded Models</div>
+    <div id="vllm-model-list" class="vllm-model-list"></div>
+  </div>
+</div>
+
+<!-- SECTION 4: BENCHMARK PANEL -->
+<div class="idash-section vllm-panel mb-16">
+  <div class="idash-header">
+    <span class="idash-header-title">Benchmark Panel</span>
+    <span class="idash-badge vllm-badge">PERF</span>
+  </div>
+  <div class="idash-body">
+    <div class="vllm-bench-form">
+      <div class="form-group">
+        <label class="form-label">Model</label>
+        <select id="vllm-bench-model" class="form-control">
+          <option value="default">Default (first loaded)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Input Tokens</label>
+        <input id="vllm-bench-input" class="form-control" type="number" value="128" min="1"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Output Tokens</label>
+        <input id="vllm-bench-output" class="form-control" type="number" value="256" min="1"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Concurrency</label>
+        <input id="vllm-bench-concurrency" class="form-control" type="number" value="1" min="1" max="256"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Num Requests</label>
+        <input id="vllm-bench-requests" class="form-control" type="number" value="10" min="1" max="1000"/>
+      </div>
+      <button class="btn btn-primary vllm-btn-bench" onclick="runBenchmark()">RUN BENCHMARK</button>
+    </div>
+    <div id="vllm-bench-status" class="vllm-bench-status" style="display:none;"></div>
+    <div id="vllm-bench-table-wrap" style="display:none;">
+      <table class="vllm-bench-table" id="vllm-bench-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody id="vllm-bench-tbody"></tbody>
+      </table>
+    </div>
+    <div id="vllm-bench-history-wrap" style="display:none;">
+      <div class="vllm-model-list-header">Benchmark History</div>
+      <table class="vllm-bench-table" id="vllm-bench-history-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Model</th>
+            <th>In / Out</th>
+            <th>Conc</th>
+            <th>Tok/s</th>
+            <th>Latency (ms)</th>
+          </tr>
+        </thead>
+        <tbody id="vllm-bench-history-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 5: API ENDPOINTS -->
+<div class="idash-section vllm-panel mb-16">
+  <div class="idash-header">
+    <span class="idash-header-title">API Endpoints</span>
+    <span class="idash-badge vllm-badge">curl</span>
+  </div>
+  <div class="idash-body">
+    <div class="vllm-endpoint-group">
+      <div class="vllm-endpoint-label">POST /v1/completions</div>
+      <div class="vllm-curl-block" id="vllm-curl-completions"></div>
+      <button class="vllm-copy-btn" onclick="copyCurl('completions')">COPY</button>
+    </div>
+    <div class="vllm-endpoint-group">
+      <div class="vllm-endpoint-label">POST /v1/chat/completions</div>
+      <div class="vllm-curl-block" id="vllm-curl-chat"></div>
+      <button class="vllm-copy-btn" onclick="copyCurl('chat')">COPY</button>
+    </div>
+    <div class="vllm-endpoint-group">
+      <div class="vllm-endpoint-label">GET /v1/models</div>
+      <div class="vllm-curl-block" id="vllm-curl-models"></div>
+      <button class="vllm-copy-btn" onclick="copyCurl('models')">COPY</button>
+    </div>
+    <div class="vllm-endpoint-config">
+      <div class="form-group">
+        <label class="form-label">vLLM Server Base URL</label>
+        <input id="vllm-server-url" class="form-control" value="http://localhost:8000" onchange="renderCurlCommands()"/>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 6: ENGINE CONFIG -->
+<div class="idash-section vllm-panel mb-16">
+  <div class="idash-header">
+    <span class="idash-header-title">Engine Config</span>
+    <span class="idash-badge vllm-badge">PAGEDATTENTION</span>
+  </div>
+  <div class="idash-body">
+    <div class="vllm-config-grid">
+      <div class="form-group">
+        <label class="form-label">max_model_len</label>
+        <input id="vllm-cfg-max-len" class="form-control" type="number" value="8192" min="256" max="131072"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">gpu_memory_utilization</label>
+        <input id="vllm-cfg-gpu-mem" class="form-control" type="number" value="0.90" min="0.1" max="0.99" step="0.01"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">tensor_parallel_size</label>
+        <input id="vllm-cfg-tp" class="form-control" type="number" value="1" min="1" max="8"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">pipeline_parallel_size</label>
+        <input id="vllm-cfg-pp" class="form-control" type="number" value="1" min="1" max="8"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">swap_space (GB)</label>
+        <input id="vllm-cfg-swap" class="form-control" type="number" value="4" min="0" max="64"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">enforce_eager</label>
+        <select id="vllm-cfg-eager" class="form-control">
+          <option value="false">false (CUDA graph)</option>
+          <option value="true">true (eager mode)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">max_num_seqs</label>
+        <input id="vllm-cfg-max-seqs" class="form-control" type="number" value="256" min="1" max="4096"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">max_num_batched_tokens</label>
+        <input id="vllm-cfg-max-batch-tokens" class="form-control" type="number" value="8192" min="256" max="1048576"/>
+      </div>
+    </div>
+    <button class="btn btn-primary vllm-btn-config" onclick="updateConfig()">UPDATE CONFIG</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.vllm-panel { border-color: rgba(124,58,237,0.25); }
+.vllm-panel .idash-header { border-color: rgba(124,58,237,0.2); }
+.vllm-panel .idash-body { background: rgba(124,58,237,0.03); }
+
+.vllm-badge { text-transform: uppercase; }
+
+.vllm-live-dot {
+  background: var(--red);
+  box-shadow: 0 0 6px rgba(239,68,68,0.6);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.vllm-live-dot.online {
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(16,185,129,0.6);
+  animation: vllm-blink 1.5s ease-in-out infinite;
+}
+
+.vllm-status-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+.vllm-stat-card {
+  background: rgba(124,58,237,0.06);
+  border: 1px solid rgba(124,58,237,0.15);
+  border-radius: 6px;
+  padding: 14px;
+  text-align: center;
+}
+.vllm-stat-label {
+  font-size: 10px;
+  color: var(--purple);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.vllm-stat-value {
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--white);
+}
+
+.vllm-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.vllm-metric-tile {
+  background: rgba(124,58,237,0.06);
+  border: 1px solid rgba(124,58,237,0.15);
+  border-radius: 6px;
+  padding: 16px;
+  text-align: center;
+}
+.vllm-metric-big {
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--purple);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.vllm-metric-unit {
+  font-size: 10px;
+  color: rgba(124,58,237,0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vllm-chart-container {
+  background: rgba(124,58,237,0.04);
+  border: 1px solid rgba(124,58,237,0.12);
+  border-radius: 6px;
+  padding: 12px;
+  position: relative;
+}
+.vllm-chart-container canvas {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
+.vllm-chart-label {
+  font-size: 10px;
+  color: rgba(124,58,237,0.5);
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vllm-model-form {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+.vllm-btn-load {
+  background: rgba(124,58,237,0.2) !important;
+  border: 1px solid rgba(124,58,237,0.5) !important;
+  color: var(--purple) !important;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.vllm-btn-load:hover { background: rgba(124,58,237,0.35) !important; }
+
+.vllm-model-list-header {
+  font-size: 11px;
+  color: var(--purple);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.vllm-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vllm-model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(124,58,237,0.06);
+  border: 1px solid rgba(124,58,237,0.15);
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+.vllm-model-item-name {
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  color: var(--white);
+  font-weight: 500;
+}
+.vllm-model-item-meta {
+  font-size: 10px;
+  color: rgba(124,58,237,0.6);
+  margin-left: 10px;
+}
+.vllm-model-item-actions {
+  display: flex;
+  gap: 8px;
+}
+.vllm-btn-unload {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid rgba(239,68,68,0.4);
+  background: rgba(239,68,68,0.1);
+  color: var(--red);
+  transition: all 0.2s;
+}
+.vllm-btn-unload:hover { background: rgba(239,68,68,0.25); }
+
+.vllm-bench-form {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+.vllm-btn-bench {
+  background: rgba(124,58,237,0.2) !important;
+  border: 1px solid rgba(124,58,237,0.5) !important;
+  color: var(--purple) !important;
+  font-weight: 600;
+}
+.vllm-btn-bench:hover { background: rgba(124,58,237,0.35) !important; }
+
+.vllm-bench-status {
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: rgba(124,58,237,0.08);
+  border: 1px solid rgba(124,58,237,0.2);
+  font-size: 12px;
+  color: var(--purple);
+  margin-bottom: 12px;
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+}
+.vllm-bench-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+.vllm-bench-table th {
+  text-align: left;
+  font-size: 10px;
+  color: var(--purple);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(124,58,237,0.2);
+}
+.vllm-bench-table td {
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  padding: 6px 10px;
+  color: var(--white);
+  border-bottom: 1px solid rgba(124,58,237,0.08);
+}
+.vllm-bench-table td:first-child { color: rgba(124,58,237,0.7); }
+
+.vllm-endpoint-group {
+  margin-bottom: 14px;
+  position: relative;
+}
+.vllm-endpoint-label {
+  font-size: 10px;
+  color: var(--purple);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.vllm-curl-block {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(124,58,237,0.15);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  color: rgba(226,243,255,0.7);
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.6;
+}
+.vllm-copy-btn {
+  position: absolute;
+  top: 20px;
+  right: 8px;
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid rgba(124,58,237,0.3);
+  background: rgba(124,58,237,0.1);
+  color: var(--purple);
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+.vllm-copy-btn:hover { background: rgba(124,58,237,0.25); }
+.vllm-copy-btn.copied {
+  border-color: rgba(16,185,129,0.4);
+  background: rgba(16,185,129,0.1);
+  color: var(--green);
+}
+.vllm-endpoint-config { margin-top: 10px; }
+
+.vllm-config-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.vllm-btn-config {
+  background: rgba(124,58,237,0.2) !important;
+  border: 1px solid rgba(124,58,237,0.5) !important;
+  color: var(--purple) !important;
+  font-weight: 600;
+}
+.vllm-btn-config:hover { background: rgba(124,58,237,0.35) !important; }
+
+@keyframes vllm-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(124,58,237,0.3); }
+  50% { box-shadow: 0 0 24px rgba(124,58,237,0.6); }
+}
+@keyframes vllm-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@media (max-width: 1100px) {
+  .vllm-status-grid { grid-template-columns: repeat(3, 1fr); }
+  .vllm-metrics-row { grid-template-columns: repeat(2, 1fr); }
+  .vllm-model-form { grid-template-columns: 1fr 1fr; }
+  .vllm-bench-form { grid-template-columns: 1fr 1fr; }
+  .vllm-config-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+<script>
+/* ── State ── */
+const _S = {
+  throughputHistory: new Array(60).fill(0),
+  models: [],
+  benchHistory: [],
+  serverUrl: 'http://localhost:8000',
+  pollInterval: null,
+};
+
+/* ── Section 1: Serving Status ── */
+async function loadStatus() {
+  const dot = document.getElementById('vllm-live-dot');
+  try {
+    const _base=(()=>{try{const u=new URL(_S.serverUrl);if(!['http:','https:'].includes(u.protocol))return null;return u.origin}catch{return null}})();if(!_base){dot.className='vllm-live-dot';return;}const r = await fetch(_base + '/health', { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      const data = await r.json();
+      dot.className = 'vllm-live-dot online';
+      document.getElementById('vllm-serving-status').textContent = 'ONLINE';
+      document.getElementById('vllm-serving-status').style.color = 'var(--green)';
+      document.getElementById('vllm-running-count').textContent = data.models ? data.models.length : '--';
+      if (data.gpu_utilization !== undefined) {
+        document.getElementById('vllm-gpu-util').textContent = (data.gpu_utilization * 100).toFixed(1) + '%';
+      }
+      if (data.gpu_memory_used_gb !== undefined) {
+        document.getElementById('vllm-gpu-mem').textContent = data.gpu_memory_used_gb.toFixed(1) + ' / ' + data.gpu_memory_total_gb.toFixed(1) + ' GB';
+      }
+      document.getElementById('vllm-batch-size').textContent = data.num_running_seqs !== undefined ? data.num_running_seqs : data.max_num_seqs || '--';
+      if (data.uptime_s !== undefined) {
+        const h = Math.floor(data.uptime_s / 3600);
+        const m = Math.floor((data.uptime_s % 3600) / 60);
+        document.getElementById('vllm-uptime').textContent = h + 'h ' + m + 'm';
+      }
+    } else {
+      throw new Error('not healthy');
+    }
+  } catch {
+    dot.className = 'vllm-live-dot';
+    document.getElementById('vllm-serving-status').textContent = 'OFFLINE';
+    document.getElementById('vllm-serving-status').style.color = 'var(--red)';
+    document.getElementById('vllm-gpu-util').textContent = '--%';
+    document.getElementById('vllm-gpu-mem').textContent = '-- / -- GB';
+    document.getElementById('vllm-batch-size').textContent = '--';
+    document.getElementById('vllm-uptime').textContent = '--';
+  }
+}
+
+/* ── Section 2: Throughput ── */
+async function loadThroughput() {
+  try {
+    const _base=(()=>{try{const u=new URL(_S.serverUrl);if(!['http:','https:'].includes(u.protocol))return null;return u.origin}catch{return null}})();if(!_base)throw new Error('invalid server URL');const r = await fetch(_base + '/stats', { signal: AbortSignal.timeout(3000) });
+    if (!r.ok) throw new Error('stats unavailable');
+    const d = await r.json();
+    const tps = d.request_total_tokens / Math.max(d.uptime_s, 1) || 0;
+    document.getElementById('vllm-tokens-sec').textContent = Math.round(tps).toLocaleString();
+    document.getElementById('vllm-concurrent').textContent = d.num_running_seqs || 0;
+    document.getElementById('vllm-queue-depth').textContent = d.num_waiting_seqs || 0;
+    document.getElementById('vllm-p99-latency').textContent = d.p99_latency_ms ? d.p99_latency_ms.toFixed(1) : '--';
+    _S.throughputHistory.shift();
+    _S.throughputHistory.push(Math.round(tps));
+  } catch {
+    _S.throughputHistory.shift();
+    _S.throughputHistory.push(0);
+  }
+  drawChart();
+}
+
+function drawChart() {
+  const canvas = document.getElementById('vllm-throughput-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const data = _S.throughputHistory;
+  const max = Math.max(...data, 1);
+  const step = w / (data.length - 1);
+
+  /* grid lines */
+  ctx.strokeStyle = 'rgba(124,58,237,0.1)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    const y = h * (i / 4);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+
+  /* line */
+  ctx.beginPath();
+  ctx.strokeStyle = '#7c3aed';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = 'rgba(124,58,237,0.5)';
+  ctx.shadowBlur = 8;
+  for (let i = 0; i < data.length; i++) {
+    const x = i * step;
+    const y = h - (data[i] / max) * h * 0.9;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  /* fill */
+  ctx.lineTo((data.length - 1) * step, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(124,58,237,0.2)');
+  grad.addColorStop(1, 'rgba(124,58,237,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+/* ── Section 3: Model Manager ── */
+async function loadModels() {
+  const list = document.getElementById('vllm-model-list');
+  list.textContent = '';
+  try {
+    const _base=(()=>{try{const u=new URL(_S.serverUrl);if(!['http:','https:'].includes(u.protocol))return null;return u.origin}catch{return null}})();if(!_base){list.textContent='Invalid server URL';return;}const r = await fetch(_base + '/v1/models', { signal: AbortSignal.timeout(3000) });
+    if (!r.ok) throw new Error('models unavailable');
+    const d = await r.json();
+    _S.models = d.data || [];
+    document.getElementById('vllm-running-count').textContent = _S.models.length;
+    _updateBenchModelSelect();
+
+    if (_S.models.length === 0) {
+      const p = document.createElement('div');
+      p.style.cssText = 'color:rgba(124,58,237,0.5);font-size:12px;padding:8px;';
+      p.textContent = 'No models loaded. Use the form above to load a model.';
+      list.appendChild(p);
+      return;
+    }
+
+    _S.models.forEach(function(m) {
+      const item = document.createElement('div');
+      item.className = 'vllm-model-item';
+
+      const info = document.createElement('div');
+      info.style.display = 'flex';
+      info.style.alignItems = 'center';
+
+      const name = document.createElement('span');
+      name.className = 'vllm-model-item-name';
+      name.textContent = m.id || m.model;
+
+      const meta = document.createElement('span');
+      meta.className = 'vllm-model-item-meta';
+      meta.textContent = (m.owned_by || 'local') + (m.quantization ? ' | ' + m.quantization : '');
+
+      info.appendChild(name);
+      info.appendChild(meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'vllm-model-item-actions';
+
+      const unloadBtn = document.createElement('button');
+      unloadBtn.className = 'vllm-btn-unload';
+      unloadBtn.textContent = 'UNLOAD';
+      unloadBtn.onclick = function() { unloadModel(m.id || m.model); };
+      actions.appendChild(unloadBtn);
+
+      item.appendChild(info);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  } catch {
+    const p = document.createElement('div');
+    p.style.cssText = 'color:rgba(124,58,237,0.5);font-size:12px;padding:8px;';
+    p.textContent = 'vLLM server not reachable. Start it and refresh.';
+    list.appendChild(p);
+  }
+}
+
+async function loadModel() {
+  const name = document.getElementById('vllm-model-name').value.trim();
+  if (!name) return;
+  const quant = document.getElementById('vllm-quant-method').value;
+  const tp = parseInt(document.getElementById('vllm-tp').value, 10) || 1;
+  const maxLen = parseInt(document.getElementById('vllm-max-len').value, 10) || 8192;
+
+  try {
+    const r = await fetch('/api/vllm/load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: name, quantization: quant || null, tensor_parallel_size: tp, max_model_len: maxLen }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      setTimeout(loadModels, 1500);
+    } else {
+      alert('Load error: ' + (d.error || d.message || 'Unknown'));
+    }
+  } catch (e) {
+    alert('Request failed: ' + e.message);
+  }
+}
+
+async function unloadModel(modelId) {
+  try {
+    const r = await fetch('/api/vllm/unload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: modelId }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      setTimeout(loadModels, 1000);
+    } else {
+      alert('Unload error: ' + (d.error || d.message || 'Unknown'));
+    }
+  } catch (e) {
+    alert('Request failed: ' + e.message);
+  }
+}
+
+function _updateBenchModelSelect() {
+  const sel = document.getElementById('vllm-bench-model');
+  sel.textContent = '';
+  const defOpt = document.createElement('option');
+  defOpt.value = 'default';
+  defOpt.textContent = 'Default (first loaded)';
+  sel.appendChild(defOpt);
+  _S.models.forEach(function(m) {
+    const opt = document.createElement('option');
+    opt.value = m.id || m.model;
+    opt.textContent = m.id || m.model;
+    sel.appendChild(opt);
+  });
+}
+
+/* ── Section 4: Benchmark ── */
+async function runBenchmark() {
+  const statusEl = document.getElementById('vllm-bench-status');
+  const tableWrap = document.getElementById('vllm-bench-table-wrap');
+  const tbody = document.getElementById('vllm-bench-tbody');
+  statusEl.style.display = 'block';
+  statusEl.textContent = 'Running benchmark...';
+  tableWrap.style.display = 'none';
+  tbody.textContent = '';
+
+  const model = document.getElementById('vllm-bench-model').value;
+  const inputLen = parseInt(document.getElementById('vllm-bench-input').value, 10);
+  const outputLen = parseInt(document.getElementById('vllm-bench-output').value, 10);
+  const concurrency = parseInt(document.getElementById('vllm-bench-concurrency').value, 10);
+  const numReqs = parseInt(document.getElementById('vllm-bench-requests').value, 10);
+
+  try {
+    const r = await fetch('/api/vllm/benchmark', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: model, input_len: inputLen, output_len: outputLen, concurrency: concurrency, num_requests: numReqs }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      statusEl.textContent = 'Benchmark complete.';
+      _renderBenchResults(d.results);
+      _S.benchHistory.unshift({ time: new Date().toLocaleTimeString(), model: model, in: inputLen, out: outputLen, conc: concurrency, tps: d.results.tokens_per_second, lat: d.results.mean_latency_ms });
+      _renderBenchHistory();
+    } else {
+      statusEl.textContent = 'Error: ' + (d.error || d.message || 'Unknown');
+    }
+  } catch (e) {
+    statusEl.textContent = 'Request failed: ' + e.message;
+  }
+}
+
+function _renderBenchResults(res) {
+  const tableWrap = document.getElementById('vllm-bench-table-wrap');
+  const tbody = document.getElementById('vllm-bench-tbody');
+  tableWrap.style.display = 'block';
+  tbody.textContent = '';
+
+  const metrics = [
+    { key: 'tokens_per_second', label: 'Tokens/sec' },
+    { key: 'requests_per_second', label: 'Requests/sec' },
+    { key: 'mean_latency_ms', label: 'Mean Latency (ms)' },
+    { key: 'p50_latency_ms', label: 'p50 Latency (ms)' },
+    { key: 'p99_latency_ms', label: 'p99 Latency (ms)' },
+    { key: 'mean_ttft_ms', label: 'Mean TTFT (ms)' },
+    { key: 'mean_itl_ms', label: 'Mean ITL (ms)' },
+    { key: 'total_requests', label: 'Total Requests' },
+    { key: 'total_tokens', label: 'Total Tokens' },
+  ];
+
+  metrics.forEach(function(m) {
+    const tr = document.createElement('tr');
+    const tdLabel = document.createElement('td');
+    tdLabel.textContent = m.label;
+    const tdVal = document.createElement('td');
+    tdVal.textContent = res[m.key] !== undefined ? (typeof res[m.key] === 'number' ? res[m.key].toFixed(2) : res[m.key]) : '--';
+    tr.appendChild(tdLabel);
+    tr.appendChild(tdVal);
+    tbody.appendChild(tr);
+  });
+}
+
+function _renderBenchHistory() {
+  const wrap = document.getElementById('vllm-bench-history-wrap');
+  const tbody = document.getElementById('vllm-bench-history-tbody');
+  wrap.style.display = 'block';
+  tbody.textContent = '';
+
+  _S.benchHistory.slice(0, 10).forEach(function(b) {
+    const tr = document.createElement('tr');
+    const cells = [
+      b.time,
+      b.model === 'default' ? 'default' : b.model.split('/').pop(),
+      b.in + ' / ' + b.out,
+      String(b.conc),
+      typeof b.tps === 'number' ? b.tps.toFixed(1) : '--',
+      typeof b.lat === 'number' ? b.lat.toFixed(1) : '--',
+    ];
+    cells.forEach(function(c) {
+      const td = document.createElement('td');
+      td.textContent = c;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+/* ── Section 5: API Endpoints ── */
+function renderCurlCommands() {
+  _S.serverUrl = document.getElementById('vllm-server-url').value.trim().replace(/\/+$/, '');
+
+  const completionsCurl =
+    "curl " + _S.serverUrl + "/v1/completions \\\n" +
+    "  -H 'Content-Type: application/json' \\\n" +
+    "  -d '{\n" +
+    '    "model": "meta-llama/Meta-Llama-3-8B-Instruct",\n' +
+    '    "prompt": "San Francisco is a",\n' +
+    '    "max_tokens": 128,\n' +
+    '    "temperature": 0.7\n' +
+    "  }'";
+
+  const chatCurl =
+    "curl " + _S.serverUrl + "/v1/chat/completions \\\n" +
+    "  -H 'Content-Type: application/json' \\\n" +
+    "  -d '{\n" +
+    '    "model": "meta-llama/Meta-Llama-3-8B-Instruct",\n' +
+    '    "messages": [\n' +
+    '      {"role": "system", "content": "You are a helpful assistant."},\n' +
+    '      {"role": "user", "content": "Explain quantum computing in one paragraph."}\n' +
+    '    ],\n' +
+    '    "max_tokens": 256,\n' +
+    '    "temperature": 0.7\n' +
+    "  }'";
+
+  const modelsCurl = "curl " + _S.serverUrl + "/v1/models";
+
+  document.getElementById('vllm-curl-completions').textContent = completionsCurl;
+  document.getElementById('vllm-curl-chat').textContent = chatCurl;
+  document.getElementById('vllm-curl-models').textContent = modelsCurl;
+}
+
+function copyCurl(type) {
+  const el = document.getElementById('vllm-curl-' + type);
+  navigator.clipboard.writeText(el.textContent).then(function() {
+    const btns = el.parentElement.querySelectorAll('.vllm-copy-btn');
+    btns.forEach(function(b) {
+      b.textContent = 'COPIED';
+      b.classList.add('copied');
+      setTimeout(function() {
+        b.textContent = 'COPY';
+        b.classList.remove('copied');
+      }, 1500);
+    });
+  });
+}
+
+/* ── Section 6: Engine Config ── */
+async function updateConfig() {
+  const config = {
+    max_model_len: parseInt(document.getElementById('vllm-cfg-max-len').value, 10),
+    gpu_memory_utilization: parseFloat(document.getElementById('vllm-cfg-gpu-mem').value),
+    tensor_parallel_size: parseInt(document.getElementById('vllm-cfg-tp').value, 10),
+    pipeline_parallel_size: parseInt(document.getElementById('vllm-cfg-pp').value, 10),
+    swap_space: parseInt(document.getElementById('vllm-cfg-swap').value, 10),
+    enforce_eager: document.getElementById('vllm-cfg-eager').value === 'true',
+    max_num_seqs: parseInt(document.getElementById('vllm-cfg-max-seqs').value, 10),
+    max_num_batched_tokens: parseInt(document.getElementById('vllm-cfg-max-batch-tokens').value, 10),
+  };
+  try {
+    const r = await fetch('/api/vllm/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const btn = document.querySelector('.vllm-btn-config');
+      btn.textContent = 'SAVED';
+      btn.style.borderColor = 'rgba(16,185,129,0.5)';
+      btn.style.color = 'var(--green)';
+      setTimeout(function() {
+        btn.textContent = 'UPDATE CONFIG';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      }, 1500);
+    } else {
+      alert('Config error: ' + (d.error || d.message || 'Unknown'));
+    }
+  } catch (e) {
+    alert('Request failed: ' + e.message);
+  }
+}
+
+/* ── Init ── */
+function _initPolling() {
+  loadStatus();
+  loadModels();
+  loadThroughput();
+  renderCurlCommands();
+
+  _S.pollInterval = setInterval(function() {
+    loadStatus();
+    loadThroughput();
+  }, 5000);
+
+  setInterval(loadModels, 30000);
+}
+
+document.addEventListener('DOMContentLoaded', _initPolling);
+</script>
+{% endblock %}

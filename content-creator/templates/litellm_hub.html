@@ -1,0 +1,845 @@
+{% extends "base.html" %}
+{% set active = "litellm_hub" %}
+{% block title %}LiteLLM Hub{% endblock %}
+
+{% block head %}
+<style>:root { --idash-accent: #00d4ff; --idash-accent-rgb: 0,212,255; }</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">LITELLM HUB</div>
+    <div class="page-subtitle">UNIFIED MODEL GATEWAY &mdash; ROUTE, MONITOR, OPTIMIZE</div>
+  </div>
+</div>
+
+<!-- KPI BAR -->
+<div class="litellm-kpi-row" id="kpi-row">
+  <div class="litellm-kpi-card">
+    <div class="litellm-kpi-value" id="kpi-models">--</div>
+    <div class="litellm-kpi-label">Active Models</div>
+  </div>
+  <div class="litellm-kpi-card">
+    <div class="litellm-kpi-value" id="kpi-requests">--</div>
+    <div class="litellm-kpi-label">Total Requests</div>
+  </div>
+  <div class="litellm-kpi-card">
+    <div class="litellm-kpi-value" id="kpi-latency">--</div>
+    <div class="litellm-kpi-label">Avg Latency</div>
+  </div>
+  <div class="litellm-kpi-card">
+    <div class="litellm-kpi-value litellm-savings" id="kpi-savings">--</div>
+    <div class="litellm-kpi-label">Cost Savings</div>
+  </div>
+</div>
+
+<!-- MODEL ROUTER PANEL -->
+<div class="hud-panel mb-16">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Model Router</span>
+    <span class="badge badge-blue" id="model-count-badge">0 MODELS</span>
+  </div>
+  <div class="hud-panel-body">
+    <div class="litellm-table-wrap">
+      <table class="litellm-table" id="model-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Provider</th>
+            <th>Model ID</th>
+            <th>Cost / 1K Tokens</th>
+            <th>Latency</th>
+            <th>Requests</th>
+          </tr>
+        </thead>
+        <tbody id="model-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- TWO-COL: Request Log + Fallback -->
+<div class="litellm-two-col">
+  <!-- REQUEST LOG -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Request Log</span>
+      <span class="badge badge-green" id="log-count-badge">0</span>
+    </div>
+    <div class="hud-panel-body litellm-log-body">
+      <div id="request-log-feed"></div>
+    </div>
+  </div>
+
+  <!-- FALLBACK STATUS -->
+  <div class="hud-panel">
+    <div class="hud-panel-header">
+      <span class="hud-panel-title">Fallback Status</span>
+      <span class="badge badge-blue" id="fallback-badge">STANDBY</span>
+    </div>
+    <div class="hud-panel-body">
+      <div id="fallback-diagram" class="litellm-fallback-section"></div>
+      <div id="fallback-events" class="litellm-fallback-events"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BUDGET TRACKER -->
+<div class="hud-panel mb-16">
+  <div class="hud-panel-header">
+    <span class="hud-panel-title">Budget Tracker</span>
+    <span class="badge badge-green" id="budget-badge">ON TRACK</span>
+  </div>
+  <div class="hud-panel-body">
+    <div class="litellm-budget-row">
+      <div class="litellm-budget-item">
+        <div class="litellm-budget-label">
+          <span>Daily Spend</span>
+          <span class="litellm-budget-num" id="daily-spend">$0.00</span>
+          <span class="litellm-budget-limit" id="daily-limit">/ $5.00</span>
+        </div>
+        <div class="litellm-bar-track">
+          <div class="litellm-bar-fill litellm-bar-cyan" id="daily-bar" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="litellm-budget-item">
+        <div class="litellm-budget-label">
+          <span>Monthly Spend</span>
+          <span class="litellm-budget-num" id="monthly-spend">$0.00</span>
+          <span class="litellm-budget-limit" id="monthly-limit">/ $100.00</span>
+        </div>
+        <div class="litellm-bar-track">
+          <div class="litellm-bar-fill litellm-bar-blue" id="monthly-bar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK ACTIONS -->
+<div class="litellm-actions-row" id="quick-actions">
+  <button class="litellm-action-btn" onclick="showAddModel()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Model
+  </button>
+  <button class="litellm-action-btn" onclick="testRouting()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+    Test Routing
+  </button>
+  <button class="litellm-action-btn" onclick="checkHealth()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    Check Health
+  </button>
+</div>
+
+<!-- ADD MODEL MODAL (hidden) -->
+<div class="litellm-modal-overlay" id="add-modal" style="display:none">
+  <div class="litellm-modal">
+    <div class="litellm-modal-title">Add Model</div>
+    <div class="litellm-modal-body">
+      <label class="litellm-modal-label">Provider</label>
+      <input id="add-provider" class="form-control" placeholder="anthropic / openai / cohere"/>
+      <label class="litellm-modal-label" style="margin-top:10px">Model ID</label>
+      <input id="add-model-id" class="form-control" placeholder="claude-sonnet-4-20250514"/>
+      <label class="litellm-modal-label" style="margin-top:10px">API Key (optional)</label>
+      <input id="add-api-key" class="form-control" type="password" placeholder="sk-..."/>
+      <label class="litellm-modal-label" style="margin-top:10px">Cost per 1K tokens ($)</label>
+      <input id="add-cost" class="form-control" type="number" step="0.0001" value="0.003"/>
+    </div>
+    <div class="litellm-modal-actions">
+      <button class="litellm-action-btn" onclick="hideAddModel()">Cancel</button>
+      <button class="btn btn-primary" onclick="addModel()">Add Model</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPACT -->
+<div class="litellm-impact">
+  <div class="litellm-impact-title">LITELLM IMPACT</div>
+  <div class="litellm-impact-text">
+    Unified model gateway &mdash; route 100+ LLMs through single API.
+    Cuts integration cost 80%, enables instant failover, transparent pricing.
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* ── KPI Row ── */
+.litellm-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.litellm-kpi-card {
+  background: var(--surface, rgba(0,30,70,0.5));
+  border: 1px solid var(--border, rgba(0,212,255,0.15));
+  border-radius: 8px;
+  padding: 16px 18px;
+  text-align: center;
+}
+.litellm-kpi-value {
+  font-family: var(--font-brand, 'Orbitron', monospace);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--cyan, #00d4ff);
+  line-height: 1.2;
+  text-shadow: 0 0 20px rgba(0,212,255,0.3);
+}
+.litellm-kpi-label {
+  font-family: var(--font-ui, 'Rajdhani', sans-serif);
+  font-size: 12px;
+  color: var(--text-muted, #4a7099);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+.litellm-savings { color: var(--green, #10d984); text-shadow: 0 0 20px rgba(16,217,132,0.3); }
+
+/* ── Model Table ── */
+.litellm-table-wrap { overflow-x: auto; }
+.litellm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-ui, 'Rajdhani', sans-serif);
+  font-size: 13px;
+}
+.litellm-table thead th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted, #4a7099);
+  border-bottom: 1px solid var(--border, rgba(0,212,255,0.15));
+}
+.litellm-table tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, rgba(0,212,255,0.06));
+  color: var(--text, #e2f0ff);
+}
+.litellm-table tbody tr:hover td { background: rgba(0,212,255,0.04); }
+.litellm-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red, #ef4444);
+}
+.litellm-status-dot.live { background: var(--green, #10d984); box-shadow: 0 0 6px rgba(16,217,132,0.5); }
+.litellm-model-id { font-family: var(--font-data, 'JetBrains Mono', monospace); font-size: 12px; }
+.litellm-provider-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+.litellm-provider-anthropic { background: rgba(255,107,53,0.15); color: var(--orange, #ff6b35); }
+.litellm-provider-openai { background: rgba(16,217,132,0.15); color: var(--green, #10d984); }
+.litellm-provider-cohere { background: rgba(124,58,237,0.15); color: var(--purple, #7c3aed); }
+.litellm-provider-google { background: rgba(59,130,246,0.15); color: var(--blue, #60a5fa); }
+.litellm-provider-nvidia { background: rgba(118,185,0,0.15); color: #76b900; }
+.litellm-provider-openrouter { background: rgba(0,212,255,0.15); color: var(--cyan, #00d4ff); }
+.litellm-provider-other { background: rgba(255,255,255,0.08); color: var(--text-muted, #4a7099); }
+
+/* ── Two-Column Layout ── */
+.litellm-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 900px) { .litellm-two-col { grid-template-columns: 1fr; } }
+
+/* ── Request Log ── */
+.litellm-log-body { max-height: 360px; overflow-y: auto; }
+.litellm-log-entry {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(0,212,255,0.05);
+  font-size: 12px;
+}
+.litellm-log-time {
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+  font-size: 10px;
+  color: var(--text-dim, #2a4060);
+  min-width: 58px;
+}
+.litellm-log-model {
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  color: var(--cyan, #00d4ff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.litellm-log-tokens, .litellm-log-latency, .litellm-log-cost {
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  text-align: right;
+}
+.litellm-log-cost { color: var(--orange, #ff6b35); }
+.litellm-log-latency { color: var(--text-muted, #4a7099); }
+
+/* ── Fallback ── */
+.litellm-fallback-section { margin-bottom: 12px; }
+.litellm-fallback-lane {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border, rgba(0,212,255,0.15));
+  background: rgba(0,212,255,0.03);
+}
+.litellm-fallback-lane.primary { border-left: 3px solid var(--cyan, #00d4ff); }
+.litellm-fallback-lane.secondary { border-left: 3px solid var(--orange, #ff6b35); }
+.litellm-fallback-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  min-width: 64px;
+}
+.litellm-fallback-label.primary-label { color: var(--cyan, #00d4ff); }
+.litellm-fallback-label.secondary-label { color: var(--orange, #ff6b35); }
+.litellm-fallback-name {
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  flex: 1;
+}
+.litellm-fallback-arrow {
+  color: var(--text-dim, #2a4060);
+  font-size: 14px;
+  text-align: center;
+  padding: 2px 0;
+}
+.litellm-fallback-events { margin-top: 8px; }
+.litellm-fallback-event {
+  font-size: 11px;
+  padding: 4px 8px;
+  margin-bottom: 3px;
+  border-radius: 3px;
+  background: rgba(0,212,255,0.04);
+  border-left: 2px solid var(--orange, #ff6b35);
+  color: var(--text-muted, #4a7099);
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+}
+
+/* ── Budget Tracker ── */
+.litellm-budget-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 700px) { .litellm-budget-row { grid-template-columns: 1fr; } }
+.litellm-budget-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-muted, #4a7099);
+}
+.litellm-budget-num {
+  font-family: var(--font-data, 'JetBrains Mono', monospace);
+  font-size: 14px;
+  color: var(--text, #e2f0ff);
+}
+.litellm-budget-limit { font-size: 11px; color: var(--text-dim, #2a4060); }
+.litellm-bar-track {
+  height: 8px;
+  background: rgba(0,212,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.litellm-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s var(--ease, cubic-bezier(0.16,1,0.3,1));
+}
+.litellm-bar-cyan { background: linear-gradient(90deg, var(--cyan, #00d4ff), rgba(0,212,255,0.6)); }
+.litellm-bar-blue { background: linear-gradient(90deg, var(--blue, #60a5fa), rgba(59,130,246,0.6)); }
+
+/* ── Quick Actions ── */
+.litellm-actions-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.litellm-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border-active, rgba(0,212,255,0.35));
+  background: rgba(0,212,255,0.06);
+  color: var(--cyan, #00d4ff);
+  font-family: var(--font-ui, 'Rajdhani', sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.litellm-action-btn:hover {
+  background: rgba(0,212,255,0.15);
+  border-color: rgba(0,212,255,0.6);
+  box-shadow: 0 0 12px rgba(0,212,255,0.2);
+}
+
+/* ── Modal ── */
+.litellm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2,12,27,0.85);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.litellm-modal {
+  background: var(--surface-2, #0f1f38);
+  border: 1px solid var(--border-active, rgba(0,212,255,0.35));
+  border-radius: 10px;
+  padding: 24px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 0 40px rgba(0,212,255,0.15);
+}
+.litellm-modal-title {
+  font-family: var(--font-brand, 'Orbitron', monospace);
+  font-size: 14px;
+  color: var(--cyan, #00d4ff);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.litellm-modal-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted, #4a7099);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.litellm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* ── Impact ── */
+.litellm-impact {
+  padding: 16px 20px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(0,212,255,0.06), rgba(124,58,237,0.06));
+  border: 1px solid rgba(0,212,255,0.15);
+}
+.litellm-impact-title {
+  font-family: var(--font-brand, 'Orbitron', monospace);
+  font-size: 12px;
+  color: var(--cyan, #00d4ff);
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+.litellm-impact-text {
+  font-size: 13px;
+  color: var(--text-muted, #4a7099);
+  line-height: 1.6;
+}
+
+/* ── Log empty state ── */
+.litellm-log-empty {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--text-dim, #2a4060);
+  font-size: 12px;
+}
+</style>
+
+<script>
+/* ── State ── */
+const STATE = {
+  models: [],
+  requests: [],
+  budget: { daily_spend: 0, daily_limit: 5, monthly_spend: 0, monthly_limit: 100 },
+  fallback: { primary: null, secondary: null, events: [] },
+  ws: null,
+};
+
+/* ── Mock seed data (until API exists) ── */
+const SEED_MODELS = [
+  { provider: 'nvidia', model_id: 'nvidia_nim/z-ai/glm-5.1', cost: 0.0002, latency: 320, requests: 1240, status: true },
+  { provider: 'openrouter', model_id: 'anthropic/claude-sonnet-4', cost: 0.003, latency: 580, requests: 890, status: true },
+  { provider: 'anthropic', model_id: 'claude-sonnet-4-20250514', cost: 0.003, latency: 610, requests: 45, status: false },
+  { provider: 'openai', model_id: 'gpt-4o', cost: 0.0025, latency: 490, requests: 320, status: true },
+  { provider: 'google', model_id: 'gemini-2.5-pro', cost: 0.0015, latency: 440, requests: 210, status: true },
+  { provider: 'cohere', model_id: 'command-r-plus', cost: 0.001, latency: 380, requests: 95, status: true },
+  { provider: 'openrouter', model_id: 'meta-llama/llama-3.1-405b', cost: 0.0008, latency: 520, requests: 170, status: true },
+  { provider: 'nvidia', model_id: 'nvidia_nim/deepseek-r1', cost: 0.0001, latency: 290, requests: 560, status: true },
+];
+
+/* ── API Calls ── */
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/litellm/status');
+    if (r.ok) { const d = await r.json(); renderStatus(d); return; }
+  } catch {}
+  renderStatus(mockStatus());
+}
+
+async function loadModels() {
+  try {
+    const r = await fetch('/api/litellm/models');
+    if (r.ok) { const d = await r.json(); STATE.models = d.models || d; renderModels(); return; }
+  } catch {}
+  STATE.models = SEED_MODELS;
+  renderModels();
+}
+
+function mockStatus() {
+  const totalReqs = STATE.models.reduce((s, m) => s + m.requests, 0);
+  const avgLat = STATE.models.length
+    ? Math.round(STATE.models.reduce((s, m) => s + m.latency, 0) / STATE.models.length)
+    : 0;
+  return {
+    active_models: STATE.models.filter(m => m.status).length,
+    total_requests: totalReqs,
+    avg_latency_ms: avgLat,
+    cost_savings_pct: 78,
+    budget: STATE.budget,
+    fallback: { primary: 'nvidia_nim/z-ai/glm-5.1', secondary: 'openrouter/anthropic/claude-sonnet-4', events: [] },
+  };
+}
+
+/* ── Renderers ── */
+function renderStatus(data) {
+  setText('kpi-models', data.active_models || 0);
+  setText('kpi-requests', (data.total_requests || 0).toLocaleString());
+  setText('kpi-latency', (data.avg_latency_ms || 0) + 'ms');
+  setText('kpi-savings', (data.cost_savings_pct || 0) + '%');
+
+  if (data.budget) {
+    STATE.budget = data.budget;
+    renderBudget();
+  }
+  if (data.fallback) {
+    STATE.fallback = data.fallback;
+    renderFallback();
+  }
+}
+
+function renderModels() {
+  const tbody = document.getElementById('model-tbody');
+  tbody.textContent = '';
+  let liveCount = 0;
+
+  STATE.models.forEach(function(m) {
+    if (m.status) liveCount++;
+    const tr = document.createElement('tr');
+
+    const tdDot = document.createElement('td');
+    const dot = document.createElement('span');
+    dot.className = 'litellm-status-dot' + (m.status ? ' live' : '');
+    tdDot.appendChild(dot);
+    tr.appendChild(tdDot);
+
+    const tdProv = document.createElement('td');
+    const tag = document.createElement('span');
+    const provClass = 'litellm-provider-' + (m.provider || 'other');
+    tag.className = 'litellm-provider-tag ' + provClass;
+    tag.textContent = m.provider || 'unknown';
+    tdProv.appendChild(tag);
+    tr.appendChild(tdProv);
+
+    const tdId = document.createElement('td');
+    const idSpan = document.createElement('span');
+    idSpan.className = 'litellm-model-id';
+    idSpan.textContent = m.model_id;
+    tdId.appendChild(idSpan);
+    tr.appendChild(tdId);
+
+    const tdCost = document.createElement('td');
+    tdCost.textContent = '$' + (m.cost || 0).toFixed(4);
+    tr.appendChild(tdCost);
+
+    const tdLat = document.createElement('td');
+    tdLat.textContent = (m.latency || 0) + 'ms';
+    tr.appendChild(tdLat);
+
+    const tdReq = document.createElement('td');
+    tdReq.textContent = (m.requests || 0).toLocaleString();
+    tr.appendChild(tdReq);
+
+    tbody.appendChild(tr);
+  });
+
+  setText('model-count-badge', liveCount + ' MODELS');
+}
+
+function renderBudget() {
+  const b = STATE.budget;
+  const dp = Math.min((b.daily_spend / b.daily_limit) * 100, 100);
+  const mp = Math.min((b.monthly_spend / b.monthly_limit) * 100, 100);
+
+  setText('daily-spend', '$' + b.daily_spend.toFixed(2));
+  setText('daily-limit', '/ $' + b.daily_limit.toFixed(2));
+  setText('monthly-spend', '$' + b.monthly_spend.toFixed(2));
+  setText('monthly-limit', '/ $' + b.monthly_limit.toFixed(2));
+
+  document.getElementById('daily-bar').style.width = dp + '%';
+  document.getElementById('monthly-bar').style.width = mp + '%';
+
+  const badge = document.getElementById('budget-badge');
+  if (mp > 90) {
+    badge.textContent = 'OVER BUDGET';
+    badge.className = 'badge badge-red';
+  } else if (mp > 70) {
+    badge.textContent = 'WARNING';
+    badge.className = 'badge badge-blue';
+  } else {
+    badge.textContent = 'ON TRACK';
+    badge.className = 'badge badge-green';
+  }
+}
+
+function renderFallback() {
+  const container = document.getElementById('fallback-diagram');
+  container.textContent = '';
+  const f = STATE.fallback;
+
+  const primaryLane = document.createElement('div');
+  primaryLane.className = 'litellm-fallback-lane primary';
+  const pLabel = document.createElement('span');
+  pLabel.className = 'litellm-fallback-label primary-label';
+  pLabel.textContent = 'PRIMARY';
+  const pName = document.createElement('span');
+  pName.className = 'litellm-fallback-name';
+  pName.textContent = f.primary || 'nvidia_nim/z-ai/glm-5.1';
+  primaryLane.appendChild(pLabel);
+  primaryLane.appendChild(pName);
+  container.appendChild(primaryLane);
+
+  const arrow = document.createElement('div');
+  arrow.className = 'litellm-fallback-arrow';
+  arrow.textContent = '↓ failover';
+  container.appendChild(arrow);
+
+  const secLane = document.createElement('div');
+  secLane.className = 'litellm-fallback-lane secondary';
+  const sLabel = document.createElement('span');
+  sLabel.className = 'litellm-fallback-label secondary-label';
+  sLabel.textContent = 'FALLBACK';
+  const sName = document.createElement('span');
+  sName.className = 'litellm-fallback-name';
+  sName.textContent = f.secondary || 'openrouter/anthropic/claude-sonnet-4';
+  secLane.appendChild(sLabel);
+  secLane.appendChild(sName);
+  container.appendChild(secLane);
+
+  const badge = document.getElementById('fallback-badge');
+  badge.textContent = 'ACTIVE';
+  badge.className = 'badge badge-green';
+
+  renderFallbackEvents();
+}
+
+function renderFallbackEvents() {
+  const container = document.getElementById('fallback-events');
+  container.textContent = '';
+  const events = STATE.fallback.events || [];
+  if (!events.length) {
+    const el = document.createElement('div');
+    el.className = 'litellm-log-empty';
+    el.textContent = 'No fallback events recorded.';
+    container.appendChild(el);
+    return;
+  }
+  events.slice(-10).forEach(function(ev) {
+    const el = document.createElement('div');
+    el.className = 'litellm-fallback-event';
+    el.textContent = ev.time + '  ' + ev.from + ' → ' + ev.to + (ev.reason ? '  (' + ev.reason + ')' : '');
+    container.appendChild(el);
+  });
+}
+
+function renderRequestLog() {
+  const feed = document.getElementById('request-log-feed');
+  feed.textContent = '';
+  const reqs = STATE.requests;
+  if (!reqs.length) {
+    const el = document.createElement('div');
+    el.className = 'litellm-log-empty';
+    el.textContent = 'No requests logged yet.';
+    feed.appendChild(el);
+    setText('log-count-badge', '0');
+    return;
+  }
+  setText('log-count-badge', reqs.length.toString());
+
+  reqs.slice(-20).reverse().forEach(function(r) {
+    const row = document.createElement('div');
+    row.className = 'litellm-log-entry';
+
+    const time = document.createElement('span');
+    time.className = 'litellm-log-time';
+    time.textContent = r.time || '--:--';
+
+    const model = document.createElement('span');
+    model.className = 'litellm-log-model';
+    model.textContent = r.model || 'unknown';
+
+    const tokens = document.createElement('span');
+    tokens.className = 'litellm-log-tokens';
+    tokens.textContent = (r.tokens || 0).toLocaleString() + ' tok';
+
+    const lat = document.createElement('span');
+    lat.className = 'litellm-log-latency';
+    lat.textContent = (r.latency || 0) + 'ms';
+
+    const cost = document.createElement('span');
+    cost.className = 'litellm-log-cost';
+    cost.textContent = '$' + (r.cost || 0).toFixed(4);
+
+    row.appendChild(time);
+    row.appendChild(model);
+    row.appendChild(tokens);
+    row.appendChild(lat);
+    row.appendChild(cost);
+    feed.appendChild(row);
+  });
+}
+
+/* ── Actions ── */
+function showAddModel() { document.getElementById('add-modal').style.display = 'flex'; }
+function hideAddModel() { document.getElementById('add-modal').style.display = 'none'; }
+
+async function addModel() {
+  const provider = document.getElementById('add-provider').value.trim();
+  const modelId = document.getElementById('add-model-id').value.trim();
+  const apiKey = document.getElementById('add-api-key').value.trim();
+  const cost = parseFloat(document.getElementById('add-cost').value) || 0;
+
+  if (!provider || !modelId) return;
+
+  try {
+    const r = await fetch('/api/litellm/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: provider, model_id: modelId, api_key: apiKey || undefined, cost: cost }),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.ok) { hideAddModel(); loadModels(); return; }
+      alert('Error: ' + (d.message || 'Unknown error'));
+      return;
+    }
+  } catch {}
+
+  /* Mock: add locally */
+  STATE.models.push({ provider: provider, model_id: modelId, cost: cost, latency: 0, requests: 0, status: true });
+  renderModels();
+  hideAddModel();
+}
+
+async function testRouting() {
+  try {
+    const r = await fetch('/api/litellm/test', { method: 'POST' });
+    if (r.ok) { const d = await r.json(); alert('Routing test: ' + (d.result || d.message || 'OK')); return; }
+  } catch {}
+  alert('Routing test: primary=nvidia_nim/z-ai/glm-5.1, fallback=openrouter. Mock OK.');
+}
+
+async function checkHealth() {
+  try {
+    const r = await fetch('/api/litellm/status');
+    if (r.ok) { loadStatus(); loadModels(); return; }
+  } catch {}
+  alert('Health check: using mock data. API endpoints not yet connected.');
+}
+
+/* ── Helpers ── */
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function timeStamp() {
+  const d = new Date();
+  return d.getHours().toString().padStart(2, '0') + ':' +
+         d.getMinutes().toString().padStart(2, '0') + ':' +
+         d.getSeconds().toString().padStart(2, '0');
+}
+
+/* ── WebSocket ── */
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  try {
+    STATE.ws = new WebSocket(proto + '://' + location.host + '/ws');
+  } catch { return; }
+
+  STATE.ws.onmessage = function(evt) {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === 'litellm_request' && msg.data) {
+        STATE.requests.push(msg.data);
+        renderRequestLog();
+      } else if (msg.type === 'litellm_status') {
+        renderStatus(msg.data);
+      } else if (msg.type === 'litellm_fallback') {
+        STATE.fallback.events.push(msg.data);
+        renderFallbackEvents();
+      }
+    } catch {}
+  };
+}
+
+/* ── Simulated request log (live feel until API connected) ── */
+function simulateRequest() {
+  const models = STATE.models.filter(function(m) { return m.status; });
+  if (!models.length) return;
+
+  const m = models[Math.floor(Math.random() * models.length)];
+  const entry = {
+    time: timeStamp(),
+    model: m.model_id,
+    tokens: Math.floor(Math.random() * 800) + 50,
+    latency: Math.floor(m.latency * (0.7 + Math.random() * 0.6)),
+    cost: m.cost * (Math.floor(Math.random() * 800) + 50) / 1000,
+  };
+
+  STATE.requests.push(entry);
+  if (STATE.requests.length > 200) STATE.requests = STATE.requests.slice(-200);
+  renderRequestLog();
+
+  /* Update budget mock */
+  STATE.budget.daily_spend += entry.cost;
+  STATE.budget.monthly_spend += entry.cost;
+  renderBudget();
+}
+
+/* ── Init ── */
+document.addEventListener('DOMContentLoaded', function() {
+  loadModels();
+  loadStatus();
+  connectWS();
+
+  /* Simulate a request every 4s for live feel */
+  setInterval(simulateRequest, 4000);
+
+  /* Refresh status every 30s */
+  setInterval(loadStatus, 30000);
+});
+</script>
+{% endblock %}

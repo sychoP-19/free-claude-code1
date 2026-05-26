@@ -107,10 +107,9 @@ class CLISession:
             self._is_busy = True
             env = os.environ.copy()
 
-            # The proxy validates the real API key from config; the env var is
-            # only set so the CLI child process doesn't error on missing key.
-            if "ANTHROPIC_API_KEY" not in env:
-                env["ANTHROPIC_API_KEY"] = os.environ.get("ANTHROPIC_API_KEY", "sk-placeholder")
+            # Use AUTH_TOKEN for proxy auth; unset API_KEY to avoid auth conflict.
+            env["ANTHROPIC_AUTH_TOKEN"] = os.environ.get("ANTHROPIC_AUTH_TOKEN", "freecc")
+            env.pop("ANTHROPIC_API_KEY", None)
 
             env["ANTHROPIC_API_URL"] = self.api_url
             if self.api_url.endswith("/v1"):
