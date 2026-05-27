@@ -206,7 +206,8 @@ const ChatOverlay = (() => {
       }
 
       messages.push({ role: 'assistant', content: reply });
-      _setStatus('green', 'proxy ok');
+
+    if (window.SoundAlerts) SoundAlerts.play('chat_incoming');      _setStatus('green', 'proxy ok');
       if (fromVoice && window.Voice) Voice.speak(reply.slice(0, 300));
       return;
 
@@ -228,7 +229,8 @@ const ChatOverlay = (() => {
       const reply = ollamaData.response || ollamaData.message || ollamaData.reply || 'No response from Ollama.';
       textEl.textContent = reply;
       messages.push({ role: 'assistant', content: reply });
-      _setStatus('amber', `ollama ok • proxy was: ${proxyErrMsg}`);
+
+    if (window.SoundAlerts) SoundAlerts.play('chat_incoming');      _setStatus('amber', `ollama ok • proxy was: ${proxyErrMsg}`);
       if (fromVoice && window.Voice) Voice.speak(reply.slice(0, 300));
     } catch (oe) {
       if (dotsEl) dotsEl.style.display = 'none';

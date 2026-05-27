@@ -178,6 +178,22 @@ async def probe_messages(_auth=Depends(require_api_key)):
     return _probe_response("POST, HEAD, OPTIONS")
 
 
+@router.post("/v1/responses")
+async def create_response(
+    request: Request,
+    service: ClaudeProxyService = Depends(get_proxy_service),
+    _auth=Depends(require_api_key),
+):
+    """OpenAI Responses API endpoint for Codex CLI compatibility."""
+    return await service.create_response(request)
+
+
+@router.api_route("/v1/responses", methods=["HEAD", "OPTIONS"])
+async def probe_responses(_auth=Depends(require_api_key)):
+    """Respond to compatibility probes for the responses endpoint."""
+    return _probe_response("POST, HEAD, OPTIONS")
+
+
 @router.post("/v1/messages/count_tokens")
 async def count_tokens(
     request_data: TokenCountRequest,
@@ -240,16 +256,19 @@ async def brain_switch(
     settings: Settings = Depends(get_settings),
     _auth=Depends(require_api_key),
 ):
-    """Switch the default brain for the next requests (not persisted)."""
+    """Switch the default brain fallback for the next requests."""
     body = await request.json()
     target = body.get("target")
     if target not in {"codex", "claude", "auto"}:
         raise HTTPException(status_code=400, detail="Invalid target")
 
+    settings.dual_brain_fallback = target
+
     return {
         "status": "ok",
         "target": target,
-        "note": "Per-request routing is intent-based; /switch affects fallback only",
+        "fallback_applied": True,
+        "note": "Fallback brain updated; per-request routing remains intent-based",
     }
 
 
@@ -259,26 +278,51 @@ async def probe_health():
     return _probe_response("GET, HEAD, OPTIONS")
 
 
-@router.get("/v1/models", response_model=ModelsListResponse)
+@router.get("/v1/models")
 async def list_models(
     request: Request,
     settings: Settings = Depends(get_settings),
     _auth=Depends(require_api_key),
 ):
-    """List the model ids this proxy advertises to Claude-compatible clients."""
+    """List the model ids this proxy advertises.
+
+    Returns Anthropic format by default, or OpenAI format when the
+    ``OpenAI-Format`` header is ``true`` or ``wire_api`` query param is
+    ``responses`` (used by Codex CLI).
+    """
     registry = getattr(request.app.state, "provider_registry", None)
     provider_registry = registry if isinstance(registry, ProviderRegistry) else None
-    response = _build_models_list_response(settings, provider_registry)
+    anthropic_response = _build_models_list_response(settings, provider_registry)
 
-    # Add discovery status
+    # Detect OpenAI/Codex client (User-Agent, query param, or header)
+    ua = (request.headers.get("user-agent", "") or "").lower()
+    use_openai_format = (
+        request.query_params.get("wire_api") == "responses"
+        or request.headers.get("openai-format", "").lower() == "true"
+        or "codex" in ua
+        or "openai" in ua
+    )
+
+    if use_openai_format:
+        openai_models = []
+        for m in anthropic_response.data:
+            openai_models.append({
+                "id": m.id,
+                "object": "model",
+                "created": 0,
+                "owned_by": "free-claude-code",
+            })
+        return {"models": openai_models}
+
+    # Anthropic format (default)
     if provider_registry:
-        response.discovery_status = {
+        anthropic_response.discovery_status = {
             "is_complete": provider_registry.is_discovery_complete(),
             "is_degraded": not provider_registry.is_discovery_complete(),
             "providers": provider_registry.get_discovery_status(),
         }
 
-    return response
+    return anthropic_response
 
 
 @router.get("/v1/providers/health")

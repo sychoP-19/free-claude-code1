@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Culturas de México · Cultural Flows</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #07060f;
+      --panel: rgba(15, 12, 28, 0.85);
+      --border: rgba(255,255,255,0.07);
+      --text: #f0ebe0;
+      --muted: rgba(240,235,224,0.45);
+      --accent-arte:   #e91e8c;
+      --accent-musica: #7c3aed;
+      --accent-gastro: #ea580c;
+      --accent-danza:  #0891b2;
+      --accent-artesania: #16a34a;
+      --accent-historia: #ca8a04;
+      --accent-gold: #f5c842;
+      --glow: rgba(196, 84, 42, 0.35);
+    }
+
+    html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--text); }
+
+    /* ── Layout ── */
+    #app { display: grid; grid-template-rows: 64px 1fr 70px; grid-template-columns: 220px 1fr 280px; height: 100vh; }
+
+    /* ── Header ── */
+    header {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 16px;
+      padding: 0 24px;
+      background: rgba(7,6,15,0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      position: relative; z-index: 10;
+    }
+    .logo-flag { display: flex; gap: 2px; height: 22px; }
+    .logo-flag span { display: block; width: 7px; border-radius: 1px; }
+    .logo-flag .g { background: #006847; }
+    .logo-flag .w { background: #f0f0f0; }
+    .logo-flag .r { background: #ce1126; }
+    header h1 { font-family: 'Playfair Display', serif; font-size: 1.4rem; letter-spacing: 0.01em; color: var(--text); }
+    header h1 span { color: var(--accent-gold); }
+    .header-sub { margin-left: auto; font-size: 0.72rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+    .year-badge {
+      background: rgba(245,200,66,0.12); border: 1px solid rgba(245,200,66,0.3);
+      border-radius: 20px; padding: 4px 12px; font-size: 0.72rem; color: var(--accent-gold);
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Left Sidebar ── */
+    #sidebar {
+      grid-row: 2;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+      padding: 20px 16px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .sidebar-section h3 { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 10px; }
+
+    .category-btn {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; padding: 9px 12px; border-radius: 10px;
+      border: 1px solid transparent;
+      background: rgba(255,255,255,0.03);
+      cursor: pointer; transition: all 0.2s; margin-bottom: 4px;
+      font-family: 'DM Sans', sans-serif; font-size: 0.82rem; color: var(--text);
+      text-align: left;
+    }
+    .category-btn:hover { background: rgba(255,255,255,0.06); }
+    .category-btn.active { background: rgba(255,255,255,0.07); border-color: var(--cat-color); }
+    .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--cat-color); box-shadow: 0 0 8px var(--cat-color); }
+    .cat-count { margin-left: auto; font-size: 0.72rem; color: var(--muted); background: rgba(255,255,255,0.06); border-radius: 20px; padding: 1px 7px; }
+
+    .intensity-wrap label { display: block; font-size: 0.72rem; color: var(--muted); margin-bottom: 8px; }
+    input[type=range] { width: 100%; appearance: none; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.1); outline: none; cursor: pointer; }
+    input[type=range]::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent-gold); cursor: pointer; box-shadow: 0 0 8px var(--accent-gold); }
+
+    /* ── Canvas ── */
+    #map-wrap {
+      grid-row: 2; position: relative; overflow: hidden;
+      background: radial-gradient(ellipse at 50% 55%, #1a0e28 0%, #07060f 70%);
+    }
+    canvas#map { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    /* ── Right Panel ── */
+    #detail {
+      grid-row: 2;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+      padding: 20px 18px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .detail-empty { text-align: center; color: var(--muted); font-size: 0.82rem; padding-top: 60px; line-height: 1.8; }
+    .detail-empty .hint-icon { font-size: 2rem; display: block; margin-bottom: 12px; opacity: 0.4; }
+
+    .city-header { border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+    .city-header h2 { font-family: 'Playfair Display', serif; font-size: 1.3rem; }
+    .city-header .region-tag {
+      display: inline-block; margin-top: 6px; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 3px 10px; border-radius: 20px; border: 1px solid; opacity: 0.8;
+    }
+
+    .detail-section h4 { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 10px; }
+
+    .flow-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      margin-bottom: 6px; cursor: pointer; transition: background 0.2s;
+    }
+    .flow-item:hover { background: rgba(255,255,255,0.06); }
+    .flow-icon { font-size: 1.2rem; flex-shrink: 0; }
+    .flow-text { flex: 1; }
+    .flow-name { font-size: 0.82rem; font-weight: 500; }
+    .flow-desc { font-size: 0.73rem; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+    .flow-arrow { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+
+    .stat-row { display: flex; gap: 10px; }
+    .stat-card {
+      flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px; text-align: center;
+    }
+    .stat-val { font-size: 1.4rem; font-weight: 600; }
+    .stat-label { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Timeline ── */
+    #timeline {
+      grid-column: 1 / -1;
+      background: rgba(7,6,15,0.95);
+      border-top: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      display: flex; align-items: center; gap: 20px;
+      padding: 0 24px;
+    }
+    #timeline .tl-label { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+    #timeline input[type=range] { flex: 1; }
+    #timeline .tl-year { font-size: 1rem; font-weight: 600; color: var(--accent-gold); min-width: 44px; text-align: center; }
+    .tl-marks { flex: 1; display: flex; justify-content: space-between; position: relative; pointer-events: none; }
+    .tl-wrap { flex: 1; position: relative; }
+    .play-btn {
+      width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(245,200,66,0.3);
+      background: rgba(245,200,66,0.08); color: var(--accent-gold); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: 0.85rem;
+      transition: all 0.2s; flex-shrink: 0;
+    }
+    .play-btn:hover { background: rgba(245,200,66,0.18); }
+
+    /* ── Tooltip ── */
+    #tooltip {
+      position: fixed; pointer-events: none; z-index: 100;
+      background: rgba(15,12,28,0.95); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 14px;
+      font-size: 0.8rem; max-width: 200px; display: none;
+      backdrop-filter: blur(12px);
+    }
+    #tooltip .tt-city { font-weight: 600; margin-bottom: 4px; }
+    #tooltip .tt-cats { display: flex; flex-wrap: wrap; gap: 4px; }
+    #tooltip .tt-tag {
+      font-size: 0.67rem; padding: 2px 7px; border-radius: 10px;
+      border: 1px solid; opacity: 0.85;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-flag"><span class="g"></span><span class="w"></span><span class="r"></span></div>
+    <h1>Culturas de <span>México</span></h1>
+    <div class="header-sub">Cultural Flows · Interactive Map</div>
+    <div class="year-badge" id="hdr-year">1960</div>
+  </header>
+
+  <!-- Left Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-section">
+      <h3>Cultural Categories</h3>
+      <button class="category-btn active" data-cat="arte" style="--cat-color: var(--accent-arte)">
+        <div class="cat-dot"></div> Arte & Pintura <span class="cat-count">8</span>
+      </button>
+      <button class="category-btn active" data-cat="musica" style="--cat-color: var(--accent-musica)">
+        <div class="cat-dot"></div> Música <span class="cat-count">10</span>
+      </button>
+      <button class="category-btn active" data-cat="gastro" style="--cat-color: var(--accent-gastro)">
+        <div class="cat-dot"></div> Gastronomía <span class="cat-count">9</span>
+      </button>
+      <button class="category-btn active" data-cat="danza" style="--cat-color: var(--accent-danza)">
+        <div class="cat-dot"></div> Danza & Teatro <span class="cat-count">7</span>
+      </button>
+      <button class="category-btn active" data-cat="artesania" style="--cat-color: var(--accent-artesania)">
+        <div class="cat-dot"></div> Artesanía <span class="cat-count">11</span>
+      </button>
+      <button class="category-btn active" data-cat="historia" style="--cat-color: var(--accent-historia)">
+        <div class="cat-dot"></div> Historia & Mitos <span class="cat-count">6</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="intensity-wrap">
+        <label>Flow Intensity: <span id="intensity-val">65%</span></label>
+        <input type="range" id="intensity" min="10" max="100" value="65" />
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="intensity-wrap">
+        <label>Particle Speed: <span id="speed-val">1.0×</span></label>
+        <input type="range" id="speed" min="1" max="40" value="10" />
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Active Flows</h3>
+      <div id="flow-count" style="font-size:0.82rem; color:var(--muted);">Hover a city to see its flows</div>
+    </div>
+  </aside>
+
+  <!-- Map Canvas -->
+  <main id="map-wrap">
+    <canvas id="map"></canvas>
+  </main>
+
+  <!-- Right Detail -->
+  <aside id="detail">
+    <div class="detail-empty" id="detail-empty">
+      <span class="hint-icon">🗺</span>
+      Hover over a city node on the map to explore its cultural contributions and connections.
+    </div>
+    <div id="detail-content" style="display:none"></div>
+  </aside>
+
+  <!-- Timeline -->
+  <div id="timeline">
+    <span class="tl-label">Época</span>
+    <div class="tl-wrap">
+      <input type="range" id="year-slider" min="1900" max="2024" value="1960" />
+    </div>
+    <span class="tl-year" id="tl-year">1960</span>
+    <button class="play-btn" id="play-btn" title="Play timeline">▶</button>
+  </div>
+
+</div>
+
+<div id="tooltip">
+  <div class="tt-city" id="tt-city"></div>
+  <div class="tt-cats" id="tt-cats"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════════
+
+const CAT_COLORS = {
+  arte:      '#e91e8c',
+  musica:    '#7c3aed',
+  gastro:    '#ea580c',
+  danza:     '#0891b2',
+  artesania: '#16a34a',
+  historia:  '#ca8a04',
+};
+
+// Cities: lon, lat, plus cultural data
+const CITIES = [
+  {
+    id: 'cdmx', name: 'Ciudad de México', region: 'Centro',
+    lon: -99.13, lat: 19.43,
+    categories: ['arte','musica','gastro','danza','historia'],
+    yearFrom: 1300,
+    flows: [
+      { cat:'arte',      icon:'🎨', name:'Muralismo Mexicano', desc:'Rivera, Orozco, Siqueiros revolucionaron el arte del siglo XX.', to:['gdl','oax','ver'] },
+      { cat:'musica',    icon:'🎵', name:'Bolero & Trova',     desc:'Capitalinas rolas que conquistaron Latinoamérica.', to:['ver','mtry'] },
+      { cat:'gastro',    icon:'🍲', name:'Tacos de Canasta',  desc:'Tradición capitalina exportada a toda la república.', to:['pue','oax'] },
+      { cat:'historia',  icon:'🏛', name:'Imperio Azteca',    desc:'Tenochtitlan, centro político y espiritual del mundo mexica.', to:['oax','ver','yuc'] },
+    ],
+    stats: { cultural_sites: 187, unesco: 3, traditions: 42 }
+  },
+  {
+    id: 'oax', name: 'Oaxaca', region: 'Sur',
+    lon: -96.73, lat: 17.07,
+    categories: ['artesania','gastro','danza','historia'],
+    yearFrom: 500,
+    flows: [
+      { cat:'artesania', icon:'🏺', name:'Alfarería Negra',    desc:'Barro negro de San Bartolo Coyotepec, reconocida mundialmente.', to:['cdmx','pue'] },
+      { cat:'gastro',    icon:'🌶', name:'Mole Negro',         desc:'Siete moles oaxaqueños, patrimonio culinario de México.', to:['cdmx','pue','chis'] },
+      { cat:'danza',     icon:'💃', name:'Guelaguetza',        desc:'La máxima fiesta de los pueblos indígenas del estado.', to:['cdmx'] },
+      { cat:'historia',  icon:'🏔', name:'Monte Albán',        desc:'Capital zapoteca, una de las primeras ciudades mesoamericanas.', to:['yuc','chis'] },
+    ],
+    stats: { cultural_sites: 94, unesco: 2, traditions: 58 }
+  },
+  {
+    id: 'gdl', name: 'Guadalajara', region: 'Occidente',
+    lon: -103.35, lat: 20.67,
+    categories: ['musica','artesania','danza','gastro'],
+    yearFrom: 1542,
+    flows: [
+      { cat:'musica',    icon:'🎺', name:'Mariachi',            desc:'Jalisco le dio al mundo el símbolo musical más reconocible de México.', to:['cdmx','mtry','tj'] },
+      { cat:'artesania', icon:'🏺', name:'Talavera Poblana',    desc:'Origen compartido con Puebla, cerámica de herencia árabe-española.', to:['cdmx','pue'] },
+      { cat:'danza',     icon:'🤠', name:'Charreada',           desc:'La charrería, deporte nacional y patrimonio de la humanidad.', to:['cdmx','mtry'] },
+      { cat:'gastro',    icon:'🥃', name:'Tequila',             desc:'Destilado de agave azul, bebida emblema de México.', to:['cdmx','tj','can'] },
+    ],
+    stats: { cultural_sites: 73, unesco: 1, traditions: 35 }
+  },
+  {
+    id: 'mtry', name: 'Monterrey', region: 'Norte',
+    lon: -100.32, lat: 25.68,
+    categories: ['musica','gastro','historia'],
+    yearFrom: 1596,
+    flows: [
+      { cat:'musica',    icon:'🎸', name:'Norteño & Grupero',  desc:'Epicentro de la música norteña, corridos y grupero contemporáneo.', to:['tj','cdmx'] },
+      { cat:'gastro',    icon:'🥩', name:'Cabrito al Pastor',  desc:'Gastronomía regiomontana con identidad propia del norte árido.', to:['cdmx'] },
+      { cat:'historia',  icon:'⚒', name:'Cultura Industrial', desc:'Primera ciudad industrial de México, puente a la modernidad.', to:['cdmx','tj'] },
+    ],
+    stats: { cultural_sites: 41, unesco: 0, traditions: 18 }
+  },
+  {
+    id: 'ver', name: 'Veracruz', region: 'Golfo',
+    lon: -96.13, lat: 19.18,
+    categories: ['musica','danza','gastro','historia'],
+    yearFrom: 1519,
+    flows: [
+      { cat:'musica',    icon:'🪗', name:'Son Jarocho',         desc:'La Bamba y el son afromestizo, raíz del folklore tropical.', to:['cdmx','oax'] },
+      { cat:'danza',     icon:'🎭', name:'Carnaval de Veracruz',desc:'El más antiguo y colorido de México, herencia afrocaribeña.', to:['cdmx','can'] },
+      { cat:'gastro',    icon:'☕', name:'Café de Altura',      desc:'Coatepec, la cuna del mejor café mexicano.', to:['cdmx','pue'] },
+      { cat:'historia',  icon:'⚓', name:'Puerto de Entrada',   desc:'Primera ciudad de América continental, puerta de la Conquista.', to:['cdmx','yuc'] },
+    ],
+    stats: { cultural_sites: 67, unesco: 1, traditions: 29 }
+  },
+  {
+    id: 'yuc', name: 'Mérida', region: 'Sureste',
+    lon: -89.62, lat: 20.97,
+    categories: ['historia','danza','artesania','gastro'],
+    yearFrom: 100,
+    flows: [
+      { cat:'historia',  icon:'🏛', name:'Mundo Maya',         desc:'Chichén Itzá, Uxmal — centros del conocimiento astronómico maya.', to:['cdmx','oax','chis'] },
+      { cat:'danza',     icon:'👗', name:'Jarana Yucateca',    desc:'Baile regional que mezcla influencias españolas y mayas.', to:['cdmx','ver'] },
+      { cat:'artesania', icon:'🌿', name:'Henequén & Hamacas',  desc:'Fibra de agave y hamacas, artesanía exportada al mundo.', to:['cdmx','can'] },
+      { cat:'gastro',    icon:'🐷', name:'Cochinita Pibil',     desc:'Método de cocción prehispánico, sabor único de la Península.', to:['cdmx','can'] },
+    ],
+    stats: { cultural_sites: 89, unesco: 2, traditions: 44 }
+  },
+  {
+    id: 'pue', name: 'Puebla', region: 'Centro-Sur',
+    lon: -98.20, lat: 19.04,
+    categories: ['gastro','artesania','historia','arte'],
+    yearFrom: 1531,
+    flows: [
+      { cat:'gastro',    icon:'🍫', name:'Mole Poblano',        desc:'El mole más famoso del mundo, símbolo de la fusión culinaria.', to:['cdmx','oax'] },
+      { cat:'artesania', icon:'🎨', name:'Talavera Poblana',    desc:'Cerámica patrimonio de la humanidad, orgullo poblano.', to:['cdmx','gdl'] },
+      { cat:'historia',  icon:'🌟', name:'5 de Mayo',           desc:'La batalla que detuvo al ejército francés, símbolo de resistencia.', to:['cdmx'] },
+      { cat:'arte',      icon:'⛪', name:'Barroco Novohispano', desc:'Templos y catedrales, cúspide del barroco en América.', to:['cdmx','oax'] },
+    ],
+    stats: { cultural_sites: 98, unesco: 1, traditions: 31 }
+  },
+  {
+    id: 'chis', name: 'San Cristóbal', region: 'Sureste',
+    lon: -92.64, lat: 16.74,
+    categories: ['artesania','historia','danza'],
+    yearFrom: 200,
+    flows: [
+      { cat:'artesania', icon:'🧵', name:'Textiles Tzotziles',  desc:'Bordados y tejidos indígenas, mapas cosmológicos en hilo.', to:['oax','cdmx'] },
+      { cat:'historia',  icon:'🌿', name:'Selva Lacandona',     desc:'Territorio de los últimos lacandones y la tradición maya viva.', to:['yuc','oax'] },
+      { cat:'danza',     icon:'🔥', name:'Danza de los Parachicos',desc:'Fiesta Grande de Chiapa de Corzo, patrimonio inmaterial de UNESCO.', to:['oax','cdmx'] },
+    ],
+    stats: { cultural_sites: 55, unesco: 1, traditions: 62 }
+  },
+  {
+    id: 'tj', name: 'Tijuana', region: 'Norte',
+    lon: -117.03, lat: 32.52,
+    categories: ['musica','arte','gastro'],
+    yearFrom: 1889,
+    flows: [
+      { cat:'musica',    icon:'🎧', name:'Nortec Collective',   desc:'Fusión electrónica-norteña, sonido fronterizo al mundo.', to:['cdmx','mtry'] },
+      { cat:'arte',      icon:'🖼', name:'Arte de Frontera',   desc:'Murales y arte urbano que narran la experiencia migratoria.', to:['cdmx'] },
+      { cat:'gastro',    icon:'🌮', name:'Taco de Birria',      desc:'La birria y las tortas ahogadas, conquista culinaria del norte.', to:['gdl','cdmx'] },
+    ],
+    stats: { cultural_sites: 28, unesco: 0, traditions: 14 }
+  },
+  {
+    id: 'can', name: 'Cancún / Riviera', region: 'Caribe',
+    lon: -86.85, lat: 21.16,
+    categories: ['historia','artesania','danza'],
+    yearFrom: 900,
+    flows: [
+      { cat:'historia',  icon:'🐚', name:'Civilización Costera',desc:'Tulum, Cobá y Ek Balam — ciudades mayas del Caribe.', to:['yuc','cdmx'] },
+      { cat:'artesania', icon:'💎', name:'Jade & Obsidiana',    desc:'Joyería prehispánica y artesanía contemporánea maya.', to:['yuc','cdmx'] },
+      { cat:'danza',     icon:'🌺', name:'Danza del Caribe',    desc:'Fusión maya-caribeña, identidad del Quintana Roo moderno.', to:['ver','cdmx'] },
+    ],
+    stats: { cultural_sites: 48, unesco: 1, traditions: 22 }
+  },
+];
+
+// Flows: source → target pairs
+const FLOWS = [];
+CITIES.forEach(city => {
+  city.flows.forEach(flow => {
+    flow.to.forEach(toId => {
+      FLOWS.push({ from: city.id, to: toId, cat: flow.cat, name: flow.name });
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+//  CANVAS ENGINE
+// ═══════════════════════════════════════════════════════
+
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+let activeCategories = new Set(['arte','musica','gastro','danza','artesania','historia']);
+let hoveredCity = null;
+let selectedCity = null;
+let particleSpeed = 1.0;
+let flowIntensity = 0.65;
+let currentYear = 1960;
+let playing = false;
+let playTimer = null;
+
+// Map geo → screen
+const GEO = { lonMin:-118, lonMax:-86, latMin:14, latMax:34 };
+
+function geoToScreen(lon, lat) {
+  const pad = { left: 0.06, right: 0.04, top: 0.04, bottom: 0.06 };
+  const mapW = W * (1 - pad.left - pad.right);
+  const mapH = H * (1 - pad.top - pad.bottom);
+  const x = W * pad.left + ((lon - GEO.lonMin) / (GEO.lonMax - GEO.lonMin)) * mapW;
+  const y = H * pad.top  + ((GEO.latMax - lat) / (GEO.latMax - GEO.latMin)) * mapH;
+  return { x, y };
+}
+
+// Mexico silhouette (simplified lon/lat polygon)
+const MEXICO_OUTLINE = [
+  [-117.1,32.5],[-115.5,32.6],[-114,32.4],[-111,31.3],[-108,31.5],
+  [-106,31.8],[-104.9,30.6],[-103.5,29.5],[-101.5,29.7],[-100.1,28.2],
+  [-99.5,26.5],[-97.5,26],[-97.1,23.7],[-97.5,22.5],[-97.7,20.8],
+  [-96.7,19.3],[-94.7,18.2],[-92.3,18.5],[-91.5,18.8],[-90,18],
+  [-89.2,17.7],[-88,16],[-87.5,15.9],[-88.5,15.7],[-89.2,15.6],
+  [-90.1,15.7],[-91.7,16],[-92.5,15.2],[-93.3,15.7],[-94.8,16.3],
+  [-96.3,15.7],[-97.8,16.1],[-99,16.3],[-101.7,17.2],[-103.5,18.7],
+  [-104.5,19.2],[-105.2,21],[-105.5,22.5],[-105.1,23.5],[-108,25],
+  [-109.5,23.6],[-110,24.2],[-110.5,26],[-109.5,27.5],[-110.5,28.5],
+  [-111.7,29.5],[-113.1,30.1],[-114.7,32],[-117.1,32.5]
+];
+
+// ── Particles ──
+class Particle {
+  constructor(sx, sy, ex, ey, cat) {
+    this.sx = sx; this.sy = sy;
+    this.ex = ex; this.ey = ey;
+    this.cat = cat;
+    this.color = CAT_COLORS[cat];
+    this.t = Math.random();
+    this.speed = (0.0015 + Math.random() * 0.002) * particleSpeed;
+    this.size = 2.5 + Math.random() * 2;
+    this.alpha = 0.5 + Math.random() * 0.5;
+  }
+  update() {
+    this.t += this.speed;
+    if (this.t > 1) this.t = 0;
+  }
+  position() {
+    const t = this.t;
+    // Cubic bezier with arc
+    const cx1 = this.sx + (this.ex - this.sx) * 0.25 - (this.ey - this.sy) * 0.35;
+    const cy1 = this.sy + (this.ey - this.sy) * 0.25 + (this.ex - this.sx) * 0.35;
+    const cx2 = this.sx + (this.ex - this.sx) * 0.75 - (this.ey - this.sy) * 0.35;
+    const cy2 = this.sy + (this.ey - this.sy) * 0.75 + (this.ex - this.sx) * 0.35;
+    const mt = 1 - t;
+    const x = mt*mt*mt*this.sx + 3*mt*mt*t*cx1 + 3*mt*t*t*cx2 + t*t*t*this.ex;
+    const y = mt*mt*mt*this.sy + 3*mt*mt*t*cy1 + 3*mt*t*t*cy2 + t*t*t*this.ey;
+    return { x, y };
+  }
+  draw() {
+    const { x, y } = this.position();
+    const fade = Math.sin(this.t * Math.PI); // fade in/out
+    ctx.beginPath();
+    ctx.arc(x, y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = hexAlpha(this.color, fade * this.alpha * flowIntensity);
+    ctx.fill();
+  }
+}
+
+let particles = [];
+
+function hexAlpha(hex, a) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${Math.max(0,Math.min(1,a))})`;
+}
+
+function buildParticles() {
+  particles = [];
+  const cityMap = {};
+  CITIES.forEach(c => { cityMap[c.id] = geoToScreen(c.lon, c.lat); });
+
+  FLOWS.forEach(flow => {
+    if (!activeCategories.has(flow.cat)) return;
+    const fromCity = CITIES.find(c => c.id === flow.from);
+    if (!fromCity || !fromCity.categories.some(cat => activeCategories.has(cat))) return;
+    const s = cityMap[flow.from], e = cityMap[flow.to];
+    if (!s || !e) return;
+    const count = Math.floor(4 * flowIntensity);
+    for (let i = 0; i < count; i++) particles.push(new Particle(s.x, s.y, e.x, e.y, flow.cat));
+  });
+}
+
+// ── Draw ──
+function resize() {
+  W = canvas.offsetWidth;
+  H = canvas.offsetHeight;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  buildParticles();
+}
+
+function drawMexicoSilhouette() {
+  ctx.beginPath();
+  MEXICO_OUTLINE.forEach(([lon, lat], i) => {
+    const { x, y } = geoToScreen(lon, lat);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+
+  const grd = ctx.createLinearGradient(0, 0, W, H);
+  grd.addColorStop(0, 'rgba(196,84,42,0.08)');
+  grd.addColorStop(0.5,'rgba(180,60,20,0.12)');
+  grd.addColorStop(1, 'rgba(100,30,10,0.07)');
+  ctx.fillStyle = grd;
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(196,84,42,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function drawFlowLines() {
+  const cityMap = {};
+  CITIES.forEach(c => { cityMap[c.id] = geoToScreen(c.lon, c.lat); });
+
+  FLOWS.forEach(flow => {
+    if (!activeCategories.has(flow.cat)) return;
+    const isHighlighted = hoveredCity && (flow.from === hoveredCity.id || flow.to === hoveredCity.id);
+    const s = cityMap[flow.from], e = cityMap[flow.to];
+    if (!s || !e) return;
+
+    const cx1 = s.x + (e.x - s.x) * 0.25 - (e.y - s.y) * 0.35;
+    const cy1 = s.y + (e.y - s.y) * 0.25 + (e.x - s.x) * 0.35;
+    const cx2 = s.x + (e.x - s.x) * 0.75 - (e.y - s.y) * 0.35;
+    const cy2 = s.y + (e.y - s.y) * 0.75 + (e.x - s.x) * 0.35;
+
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.bezierCurveTo(cx1, cy1, cx2, cy2, e.x, e.y);
+    ctx.strokeStyle = isHighlighted
+      ? hexAlpha(CAT_COLORS[flow.cat], 0.6)
+      : hexAlpha(CAT_COLORS[flow.cat], 0.08);
+    ctx.lineWidth = isHighlighted ? 1.5 : 0.7;
+    ctx.stroke();
+  });
+}
+
+function drawCities() {
+  CITIES.forEach(city => {
+    const { x, y } = geoToScreen(city.lon, city.lat);
+    const isHovered = hoveredCity && hoveredCity.id === city.id;
+    const isFiltered = city.categories.some(c => activeCategories.has(c));
+    if (!isFiltered) return;
+
+    // Pick dominant color
+    const activeCats = city.categories.filter(c => activeCategories.has(c));
+    const color = CAT_COLORS[activeCats[0]] || '#ffffff';
+
+    // Outer glow
+    const glowSize = isHovered ? 28 : 18;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, glowSize);
+    grad.addColorStop(0, hexAlpha(color, isHovered ? 0.35 : 0.15));
+    grad.addColorStop(1, hexAlpha(color, 0));
+    ctx.beginPath();
+    ctx.arc(x, y, glowSize, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Multi-color ring segments
+    const segCount = activeCats.length;
+    const segAngle = (Math.PI * 2) / segCount;
+    activeCats.forEach((cat, i) => {
+      ctx.beginPath();
+      ctx.arc(x, y, isHovered ? 9 : 6, i * segAngle - Math.PI/2, (i+1) * segAngle - Math.PI/2);
+      ctx.strokeStyle = CAT_COLORS[cat];
+      ctx.lineWidth = isHovered ? 2.5 : 1.8;
+      ctx.stroke();
+    });
+
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(x, y, isHovered ? 4.5 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = isHovered ? '#ffffff' : hexAlpha('#ffffff', 0.85);
+    ctx.fill();
+
+    // Label
+    if (isHovered || W > 800) {
+      ctx.font = `${isHovered ? '600' : '400'} ${isHovered ? 12 : 10}px "DM Sans", sans-serif`;
+      ctx.fillStyle = isHovered ? '#ffffff' : 'rgba(240,235,224,0.6)';
+      ctx.textAlign = 'center';
+      ctx.fillText(city.name, x, y + (isHovered ? 22 : 18));
+    }
+  });
+}
+
+function drawStars() {
+  if (!window._stars) {
+    window._stars = Array.from({length: 120}, () => ({
+      x: Math.random(), y: Math.random(),
+      r: Math.random() * 1.2,
+      a: Math.random() * 0.4 + 0.1
+    }));
+  }
+  window._stars.forEach(s => {
+    ctx.beginPath();
+    ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(255,255,255,${s.a})`;
+    ctx.fill();
+  });
+}
+
+let rafId;
+function frame() {
+  ctx.clearRect(0, 0, W, H);
+  drawStars();
+  drawMexicoSilhouette();
+  drawFlowLines();
+  particles.forEach(p => { p.speed = (0.0015 + Math.random() * 0.002) * particleSpeed; p.update(); p.draw(); });
+  drawCities();
+  rafId = requestAnimationFrame(frame);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════════════════
+
+function getHitCity(mx, my) {
+  const rect = canvas.getBoundingClientRect();
+  const x = mx - rect.left, y = my - rect.top;
+  for (const city of CITIES) {
+    const pos = geoToScreen(city.lon, city.lat);
+    const dist = Math.hypot(pos.x - x, pos.y - y);
+    if (dist < 18) return city;
+  }
+  return null;
+}
+
+canvas.addEventListener('mousemove', e => {
+  const city = getHitCity(e.clientX, e.clientY);
+  hoveredCity = city;
+  canvas.style.cursor = city ? 'pointer' : 'default';
+
+  const tt = document.getElementById('tooltip');
+  if (city) {
+    document.getElementById('tt-city').textContent = city.name;
+    const cats = document.getElementById('tt-cats');
+    cats.innerHTML = '';
+    city.categories.forEach(cat => {
+      if (!activeCategories.has(cat)) return;
+      const tag = document.createElement('span');
+      tag.className = 'tt-tag';
+      tag.style.color = CAT_COLORS[cat];
+      tag.style.borderColor = CAT_COLORS[cat];
+      tag.textContent = cat;
+      cats.appendChild(tag);
+    });
+    tt.style.display = 'block';
+    tt.style.left = (e.clientX + 14) + 'px';
+    tt.style.top  = (e.clientY - 10) + 'px';
+    showDetail(city);
+    // Flow count
+    const fc = FLOWS.filter(f => (f.from===city.id||f.to===city.id) && activeCategories.has(f.cat)).length;
+    document.getElementById('flow-count').textContent = `${fc} active flows`;
+  } else {
+    tt.style.display = 'none';
+    // Reset detail
+    document.getElementById('detail-empty').style.display = '';
+    document.getElementById('detail-content').style.display = 'none';
+    document.getElementById('flow-count').textContent = 'Hover a city to see its flows';
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  hoveredCity = null;
+  document.getElementById('tooltip').style.display = 'none';
+});
+
+function showDetail(city) {
+  document.getElementById('detail-empty').style.display = 'none';
+  const dc = document.getElementById('detail-content');
+  dc.style.display = 'flex';
+  dc.style.flexDirection = 'column';
+  dc.style.gap = '14px';
+
+  const activeCats = city.categories.filter(c => activeCategories.has(c));
+  const color = CAT_COLORS[activeCats[0]] || '#ca8a04';
+
+  dc.innerHTML = `
+    <div class="city-header">
+      <h2>${city.name}</h2>
+      <span class="region-tag" style="color:${color};border-color:${color}a0">${city.region}</span>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-val" style="color:${color}">${city.stats.cultural_sites}</div>
+        <div class="stat-label">Sitios Culturales</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:#f5c842">${city.stats.unesco}</div>
+        <div class="stat-label">UNESCO</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--accent-artesania)">${city.stats.traditions}</div>
+        <div class="stat-label">Tradiciones</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h4>Cultural Flows</h4>
+      ${city.flows.filter(f => activeCategories.has(f.cat)).map(f => `
+        <div class="flow-item">
+          <div class="flow-icon">${f.icon}</div>
+          <div class="flow-text">
+            <div class="flow-name" style="color:${CAT_COLORS[f.cat]}">${f.name}</div>
+            <div class="flow-desc">${f.desc}</div>
+          </div>
+          <div class="flow-arrow" style="color:${CAT_COLORS[f.cat]}">→ ${f.to.join(', ')}</div>
+        </div>
+      `).join('')}
+      ${city.flows.filter(f=>activeCategories.has(f.cat)).length === 0
+        ? '<div style="color:var(--muted);font-size:0.8rem">No active flows for selected categories.</div>'
+        : ''}
+    </div>
+  `;
+}
+
+// Category filter buttons
+document.querySelectorAll('.category-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const cat = btn.dataset.cat;
+    if (activeCategories.has(cat)) {
+      if (activeCategories.size > 1) { activeCategories.delete(cat); btn.classList.remove('active'); }
+    } else {
+      activeCategories.add(cat); btn.classList.add('active');
+    }
+    buildParticles();
+  });
+});
+
+// Intensity
+document.getElementById('intensity').addEventListener('input', e => {
+  flowIntensity = e.target.value / 100;
+  document.getElementById('intensity-val').textContent = e.target.value + '%';
+  buildParticles();
+});
+
+// Speed
+document.getElementById('speed').addEventListener('input', e => {
+  particleSpeed = e.target.value / 10;
+  document.getElementById('speed-val').textContent = particleSpeed.toFixed(1) + '×';
+});
+
+// Timeline
+const yearSlider = document.getElementById('year-slider');
+yearSlider.addEventListener('input', e => {
+  currentYear = parseInt(e.target.value);
+  document.getElementById('tl-year').textContent = currentYear;
+  document.getElementById('hdr-year').textContent = currentYear;
+  // Filter cities by yearFrom
+  buildParticles();
+});
+
+// Play button
+document.getElementById('play-btn').addEventListener('click', () => {
+  playing = !playing;
+  document.getElementById('play-btn').textContent = playing ? '⏸' : '▶';
+  if (playing) {
+    playTimer = setInterval(() => {
+      currentYear = currentYear >= 2024 ? 1900 : currentYear + 2;
+      yearSlider.value = currentYear;
+      document.getElementById('tl-year').textContent = currentYear;
+      document.getElementById('hdr-year').textContent = currentYear;
+    }, 80);
+  } else {
+    clearInterval(playTimer);
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+
+window.addEventListener('resize', () => { resize(); });
+resize();
+frame();
+</script>
+</body>
+</html>

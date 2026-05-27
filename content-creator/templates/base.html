@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/majd-v3.css"/>
+<link rel="stylesheet" href="/static/css/majd.css"/>
 <link rel="stylesheet" href="/static/css/integration-dashboard.css"/>
-<script defer src="https://unpkg.com/alpinejs@3.14.0/dist/cdn.min.js"></script>
-<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<script defer src="https://unpkg.com/alpinejs@3.14.0/dist/cdn.min.js" integrity="sha384-O8NPfezTLQ/sgLfQYBJEnezJLlum9L6KOqHsfIWauzaFfD1TQSuvA4iUpgWGHeuZ" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-YwQSRkoBOUtKKVfHQ8C2zCPslUZHuxiPHts6X/xQCuGHipTtRXd7ImqS1VTLlpiT" crossorigin="anonymous"></script>
 {% block head %}{% endblock %}
 </head>
 <body x-data="{ sidebarOpen: true, theme: 'light' }" :class="{ 'sidebar-collapsed': !sidebarOpen }"
@@ -77,6 +77,14 @@
       </svg>
     </button>
 
+      <button id="sound-toggle" title="Sound on — click to mute" class="topbar-btn" aria-label="Mute sound alerts">
+        <svg class="sound-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true">
+          <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>
+        <svg class="sound-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true" style="display:none">
+          <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+        </svg>
+      </button>
     <button title="Command palette (Ctrl+K)" onclick="window.CommandPalette && CommandPalette.open()"
       class="topbar-btn" aria-label="Open command palette">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true">
@@ -378,7 +386,15 @@
     </svg>
     <span>Media Lab</span>
   </a>
-  <a href="/repos" class="nav-item {% if active == 'repos' %}active{% endif %}"
+ <a href="/sound-alerts" class="nav-item {% if active == 'sound_alerts' %}active{% endif %}"
+  aria-current="{% if active == 'sound_alerts' %}page{% endif %}">
+  <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+   <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/>
+   <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+  </svg>
+  <span>Sound Alerts</span>
+ </a>
+ <a href="/repos" class="nav-item {% if active == 'repos' %}active{% endif %}"
     aria-current="{% if active == 'repos' %}page{% endif %}">
     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
       <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77"/>
@@ -476,6 +492,7 @@
 <script src="/static/js/voice.js"></script>
 <script src="/static/js/chat-overlay.js"></script>
 <script src="/static/js/toast.js"></script>
+<script src="/static/js/sound-alerts.js"></script>
 <script src="/static/js/command-palette.js"></script>
 <script src="/static/js/topbar-arc.js"></script>
 <script src="/static/js/mission-control.js"></script>

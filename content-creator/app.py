@@ -2,10 +2,12 @@ import asyncio
 import json
 import os
 import platform
+import re as _re
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Load free-claude-code .env files BEFORE importing modules that read them
 # (e.g. pipelines.llm reads ANTHROPIC_AUTH_TOKEN at import time).
@@ -36,6 +38,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -82,6 +85,7 @@ _agents = {
     name: {"active": False, "status": "STANDBY", "progress": 0}
     for name in ["spy", "trends", "factory", "money", "director", "shorts"]
 }
+_state_lock = asyncio.Lock()
 
 REVENUE_FILE = BASE / "data" / "revenue.json"
 (BASE / "data").mkdir(exist_ok=True)
@@ -110,7 +114,46 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="JARVIS Content Intelligence", version="2.0", lifespan=lifespan)
-app.mount("/static",  StaticFiles(directory=BASE / "static"),  name="static")
+
+
+# ── API key auth middleware ────────────────────────────────────────────────────────────────
+class AuthMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, api_key: str | None = None):
+        super().__init__(app)
+        self._api_key = api_key
+
+    async def dispatch(self, request, call_next):
+        # Skip auth for non-mutating methods, WebSocket, and static files
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return await call_next(request)
+        if request.url.path.startswith("/ws"):
+            return await call_next(request)
+        if request.url.path.startswith("/static"):
+            return await call_next(request)
+        # If no key configured, allow all
+        if not self._api_key:
+            return await call_next(request)
+        # Check API key
+        provided = request.headers.get("x-api-key", "")
+        if provided != self._api_key:
+            return JSONResponse(
+                {"status": "error", "message": "Unauthorized"},
+                status_code=401,
+            )
+        return await call_next(request)
+
+
+jarvis_api_key = os.environ.get("JARVIS_API_KEY", "") or None
+app.add_middleware(AuthMiddleware, api_key=jarvis_api_key)
+if jarvis_api_key:
+    import logging as _logging
+    _logging.getLogger(__name__).info("JARVIS API key auth enabled")
+else:
+    import logging as _logging
+    _logging.getLogger(__name__).warning("JARVIS_API_KEY not set — content-creator running WITHOUT authentication")
+
+
+app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 app.mount("/outputs", StaticFiles(directory=BASE / "outputs"), name="outputs")
 templates = Jinja2Templates(directory=BASE / "templates")
 
@@ -120,12 +163,16 @@ def _now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M")
 
 
-def _metrics() -> dict:
+async def _metrics() -> dict:
     outputs = list_outputs()
+    async with _state_lock:
+        videos = _state["videos_generated"]
+        channels = _state["channels_analyzed"]
+        trends = _state["trends_found"]
     return {
-        "videos_generated": _state["videos_generated"],
-        "channels_analyzed": _state["channels_analyzed"],
-        "trends_found": _state["trends_found"],
+        "videos_generated": videos,
+        "channels_analyzed": channels,
+        "trends_found": trends,
         "videos_today": 0,
         "channels_today": 0,
         "trending_now": 0,
@@ -140,17 +187,19 @@ def _recent_outputs(n: int = 4) -> list:
 
 
 async def _agent_start(name: str):
-    _agents[name]["active"] = True
-    _agents[name]["status"] = "RUNNING"
-    _agents[name]["progress"] = 0
+    async with _state_lock:
+        _agents[name]["active"] = True
+        _agents[name]["status"] = "RUNNING"
+        _agents[name]["progress"] = 0
     await manager.agent_update(name, "running", 0)
     await manager.log(f"Agent {name.upper()} started", "info")
 
 
 async def _agent_done(name: str):
-    _agents[name]["active"] = False
-    _agents[name]["status"] = "COMPLETE"
-    _agents[name]["progress"] = 100
+    async with _state_lock:
+        _agents[name]["active"] = False
+        _agents[name]["status"] = "COMPLETE"
+        _agents[name]["progress"] = 100
     await manager.agent_update(name, "complete", 100)
     await manager.log(f"Agent {name.upper()} finished", "success")
     _fire_gmail_notification(name)
@@ -169,8 +218,9 @@ def _fire_gmail_notification(agent_name: str):
 
 
 async def _agent_error(name: str, msg: str):
-    _agents[name]["active"] = False
-    _agents[name]["status"] = "ERROR"
+    async with _state_lock:
+        _agents[name]["active"] = False
+        _agents[name]["status"] = "ERROR"
     await manager.agent_update(name, "error", 0)
     await manager.log(f"Agent {name.upper()} error: {msg}", "error")
 
@@ -179,17 +229,20 @@ async def _autosave_loop():
     while True:
         await asyncio.sleep(_autosave_interval)
         if _autosave_enabled:
-            _do_save()
+            await _do_save()
             await manager.log("Auto-checkpoint saved", "info")
 
 
-def _do_save() -> str:
+async def _do_save() -> str:
     filename = datetime.now().strftime("%Y-%m-%d-%H-%M") + ".json"
     path = SESSIONS / filename
+    async with _state_lock:
+        state_snap = _state.copy()
+        agents_snap = {k: v["status"] for k, v in _agents.items()}
     payload = {
         "saved_at": _now_str(),
-        "state": _state,
-        "agents": {k: v["status"] for k, v in _agents.items()},
+        "state": state_snap,
+        "agents": agents_snap,
         "outputs": len(list_outputs()),
     }
     path.write_text(json.dumps(payload, indent=2))
@@ -217,6 +270,15 @@ def _list_sessions() -> list:
 # ── WebSocket ──────────────────────────────────────────────────────────────
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    # Origin validation
+    for hdr_name, hdr_val in ws.scope.get("headers", []):
+        if hdr_name == b"origin":
+            origin = hdr_val.decode("utf-8", errors="replace")
+            parsed = urlparse(origin)
+            if parsed.hostname not in ("localhost", "127.0.0.1"):
+                await ws.close(code=4403, reason="Origin not allowed")
+                return
+            break
     await manager.connect(ws)
     try:
         await manager.log("JARVIS system online. All agents ready.", "success")
@@ -271,6 +333,14 @@ async def money_page(request: Request):
 @app.get("/director")
 async def director_page(request: Request):
     return templates.TemplateResponse("director.html", {"request": request})
+
+
+@app.get("/sound-alerts")
+async def sound_alerts_page(request: Request):
+    return templates.TemplateResponse(
+        "sound_alert_center.html",
+        {"request": request, "active": "sound_alerts"},
+    )
 
 
 @app.get("/repos")
@@ -404,6 +474,7 @@ async def vllm_benchmark(request: Request):
     num_requests = min(int(body.get("num_requests", 10)), _VLLM_BENCHMARK_MAX_REQUESTS)
 
     # Attempt real benchmark via vLLM server
+    server_url = _validate_vllm_url(server_url)
     try:
         import time
         import random
@@ -610,7 +681,9 @@ async def revenue_get():
 async def revenue_update(request: Request):
     secret = request.headers.get("X-Portfolio-Secret", "")
     env_secret = os.environ.get("PORTFOLIO_SECRET", "")
-    if env_secret and secret != env_secret:
+    if not env_secret:
+        return JSONResponse({"status": "error", "message": "Revenue API not configured — PORTFOLIO_SECRET missing"}, status_code=503)
+    if secret != env_secret:
         return JSONResponse({"status": "error", "message": "Unauthorized"}, status_code=403)
     try:
         data = await request.json()
@@ -1029,10 +1102,11 @@ async def get_thumbnail(path: str = ""):
     """
     if not path:
         return JSONResponse({"status": "error", "message": "path required"}, status_code=400)
-    p = Path(path)
+    filename = Path(path).name  # strips directory components
+    p = (BASE / "outputs" / filename).resolve()
     # Security: restrict to files within the outputs directory
     try:
-        p.resolve().relative_to((BASE / "outputs").resolve())
+        p.relative_to((BASE / "outputs").resolve())
     except ValueError:
         return JSONResponse({"status": "error", "message": "path not allowed"}, status_code=403)
     if not p.exists() or not p.is_file():
@@ -1819,7 +1893,8 @@ async def reel_download(topic_id_platform: str):
     if len(parts) != 2:
         return JSONResponse({"status": "error", "message": "Invalid format. Use topicid_platform"}, status_code=400)
 
-    topic_id, platform = parts
+    topic_id = _re.sub(r'[^\w\-.]', '', parts[0])
+    platform = _re.sub(r'[^\w\-.]', '', parts[1]) if len(parts) > 1 else ""
     file_path = f"outputs/{topic_id}_{platform}.mp4"
     path = Path(__file__).parent / file_path
 
@@ -1836,6 +1911,15 @@ async def ws_reel(websocket: WebSocket):
     Connect to receive real-time updates on reel production pipeline.
     Frontend can send commands: start_production, approve_script, reject_script
     """
+    # Origin validation
+    for hdr_name, hdr_val in websocket.scope.get("headers", []):
+        if hdr_name == b"origin":
+            origin = hdr_val.decode("utf-8", errors="replace")
+            parsed = urlparse(origin)
+            if parsed.hostname not in ("localhost", "127.0.0.1"):
+                await websocket.close(code=4403, reason="Origin not allowed")
+                return
+            break
     await manager.connect(websocket)
     try:
         await manager.log("Reel producer WebSocket connected", "info")
@@ -2083,7 +2167,7 @@ async def api_reels_list():
                 "output_path": str(video),
                 "url": f"/outputs/{rel}",
                 "size_bytes": video.stat().st_size,
-                "created_at": datetime.utcfromtimestamp(video.stat().st_mtime).isoformat(),
+                "created_at": datetime.fromtimestamp(video.stat().st_mtime, tz=timezone.utc).isoformat(),
             })
     return {"ok": True, "reels": reel_list, "total": len(reel_list)}
 
@@ -2377,7 +2461,7 @@ async def api_voice_clone(req: Request):
     profiles = _load_voice_profiles()
     vid = f"custom-{int(time.time())}"
     profiles.append({"id": vid, "name": name, "lang": lang, "engine": "pyttsx3", "builtin": False,
-                     "created_at": datetime.utcnow().isoformat()})
+                     "created_at": datetime.now(timezone.utc).isoformat()})
     _save_voice_profiles(profiles)
     return {"ok": True, "voice_id": vid, "name": name,
             "message": f"Voice profile '{name}' saved. Full neural clone requires GPT-SoVITS (in ai-repositories/)."}
@@ -2397,7 +2481,7 @@ async def api_voice_synthesize(req: Request):
 
     uid = f"{int(time.time() * 1000)}"
     out_path = _AUDIO_OUT / f"{uid}.mp3"
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     # 1) Try gTTS (needs internet)
     def _gtts_sync():
@@ -2519,7 +2603,7 @@ async def _cinegen_run_job(job_id: str, prompt: str, style: str, num_scenes: int
             jobs[job_id].update({
                 "status": "done", "progress": 100, "output_path": str(dest),
                 "url": f"/outputs/videos/{job_id}.mp4",
-                "size_bytes": size, "completed_at": datetime.utcnow().isoformat(),
+                "size_bytes": size, "completed_at": datetime.now(timezone.utc).isoformat(),
             })
             await _cinegen_emit(job_id, 100, f"Done — {size // 1024} KB saved")
         else:
@@ -2547,7 +2631,7 @@ async def api_cinegen_generate(req: Request):
     jobs[job_id] = {
         "job_id": job_id, "prompt": prompt, "style": style,
         "num_scenes": num_scenes, "status": "queued",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     _cg_save_jobs(jobs)
     asyncio.create_task(_cinegen_run_job(job_id, prompt, style, num_scenes))
@@ -2568,7 +2652,7 @@ async def api_cinegen_img2vid(req: Request):
     jobs = _cg_load_jobs()
     jobs[job_id] = {
         "job_id": job_id, "prompt": prompt, "image_url": image_url,
-        "status": "queued", "created_at": datetime.utcnow().isoformat(),
+        "status": "queued", "created_at": datetime.now(timezone.utc).isoformat(),
     }
     _cg_save_jobs(jobs)
     asyncio.create_task(_cinegen_run_job(job_id, prompt, "cinematic", 4))
@@ -2588,7 +2672,7 @@ async def api_cinegen_history():
             scanned.append({
                 "job_id": job_id, "url": f"/outputs/videos/{mp4.name}",
                 "size_bytes": mp4.stat().st_size,
-                "created_at": datetime.utcfromtimestamp(mp4.stat().st_mtime).isoformat(),
+                "created_at": datetime.fromtimestamp(mp4.stat().st_mtime, tz=timezone.utc).isoformat(),
                 "status": "done", "prompt": job_id.replace("-", " "),
             })
     all_videos = done + scanned
@@ -2633,10 +2717,15 @@ async def api_publish_export(req: Request):
     title = str(body.get("title", "export")).strip()
     if not file_path:
         return JSONResponse({"ok": False, "error": "file_path required"}, status_code=400)
-    src = Path(file_path)
+    src = Path(file_path).resolve()
+    allowed_dirs = [(BASE / "outputs").resolve(), (BASE / "downloads").resolve()]
+    if not any(src.is_relative_to(d) for d in allowed_dirs):
+        return JSONResponse({"ok": False, "error": "Path not allowed"}, status_code=403)
     if not src.exists():
         # Try relative to content-creator dir
-        src = Path(__file__).parent / file_path.lstrip("/")
+        src = (Path(__file__).parent / file_path.lstrip("/")).resolve()
+        if not any(src.is_relative_to(d) for d in allowed_dirs):
+            return JSONResponse({"ok": False, "error": "Path not allowed"}, status_code=403)
     if not src.exists():
         return JSONResponse({"ok": False, "error": f"File not found: {file_path}"}, status_code=404)
     import shutil, re
@@ -2678,7 +2767,7 @@ async def api_publish_now(req: Request):
         "title": title, "caption": caption, "hashtags": hashtags,
         "platforms": platforms if isinstance(platforms, list) else [platforms],
         "file_path": file_path, "export_url": export_url, "status": "queued",
-        "created_at": datetime.utcnow().isoformat(), "scheduled_at": None,
+        "created_at": datetime.now(timezone.utc).isoformat(), "scheduled_at": None,
     }
     queue.append(item)
     _pq_save(queue)
@@ -2705,7 +2794,7 @@ async def api_publish_schedule(req: Request):
         "title": title, "caption": caption, "hashtags": hashtags,
         "platforms": platforms if isinstance(platforms, list) else [platforms],
         "file_path": file_path, "status": "scheduled",
-        "created_at": datetime.utcnow().isoformat(), "scheduled_at": scheduled_at or None,
+        "created_at": datetime.now(timezone.utc).isoformat(), "scheduled_at": scheduled_at or None,
     }
     queue.append(item)
     _pq_save(queue)
@@ -2918,7 +3007,7 @@ async def api_orchestrator_fan_all(req: Request):
         "youtube_topics": _safe(yt_task),
         "topic_metrics": _safe(metrics_task),
         "agents_ran": 4,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 

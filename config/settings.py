@@ -287,6 +287,7 @@ class Settings(BaseSettings):
     dual_brain_enabled: bool = Field(default=False, validation_alias="DUAL_BRAIN_ENABLED")
     dual_brain_codex_model: str | None = Field(default=None, validation_alias="DUAL_BRAIN_CODEX_MODEL")
     dual_brain_claude_model: str | None = Field(default=None, validation_alias="DUAL_BRAIN_CLAUDE_MODEL")
+    dual_brain_fallback: str = Field(default="auto", validation_alias="DUAL_BRAIN_FALLBACK")
 
     # ==================== NIM Settings ====================
     nim: NimSettings = Field(default_factory=NimSettings)

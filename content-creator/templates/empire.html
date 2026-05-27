@@ -323,7 +323,19 @@ function log(agent, msg, type='') {
   row.className = 'feed-entry';
   const now = new Date();
   const t = now.toTimeString().slice(0,8);
-  row.innerHTML = `<span class="feed-time">${t}</span><span class="feed-agent">[${agent}]</span><span class="feed-msg ${type}">${msg}</span>`;
+  const timeSpan = document.createElement('span');
+    timeSpan.className = 'feed-time';
+    timeSpan.textContent = t;
+    const agentSpan = document.createElement('span');
+    agentSpan.className = 'feed-agent';
+    agentSpan.textContent = `[${agent}]`;
+    const msgSpan = document.createElement('span');
+    msgSpan.className = 'feed-msg ' + type;
+    msgSpan.textContent = msg;
+    row.textContent = '';
+    row.appendChild(timeSpan);
+    row.appendChild(agentSpan);
+    row.appendChild(msgSpan);
   feed.appendChild(row);
   feed.scrollTop = feed.scrollHeight;
 }

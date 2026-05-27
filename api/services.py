@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
+
 import traceback
 import uuid
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
@@ -182,18 +184,24 @@ class ClaudeProxyService:
             return self._stream_from_resolved(fallback_routed, request_id=request_id)
 
         # If the first SSE chunk signals a rate-limit error, switch
-        if isinstance(first_chunk, str) and "rate_limit_error" in first_chunk:
-            logger.info(
-                "FALLBACK: detected rate_limit_error in stream, rerouting to {}",
-                fallback_routed.resolved.provider_model_ref,
-            )
-            return self._stream_from_resolved(fallback_routed, request_id=request_id)
-        if isinstance(first_chunk, str) and "overloaded_error" in first_chunk:
-            logger.info(
-                "FALLBACK: detected overloaded_error in stream, rerouting to {}",
-                fallback_routed.resolved.provider_model_ref,
-            )
-            return self._stream_from_resolved(fallback_routed, request_id=request_id)
+        if isinstance(first_chunk, str) and first_chunk.startswith("data: "):
+            try:
+                data = json.loads(first_chunk[6:])
+                error_type = data.get("error", {}).get("type", "")
+                if error_type == "rate_limit_error":
+                    logger.info(
+                        "FALLBACK: detected rate_limit_error in stream, rerouting to {}",
+                        fallback_routed.resolved.provider_model_ref,
+                    )
+                    return self._stream_from_resolved(fallback_routed, request_id=request_id)
+                if error_type == "overloaded_error":
+                    logger.info(
+                        "FALLBACK: detected overloaded_error in stream, rerouting to {}",
+                        fallback_routed.resolved.provider_model_ref,
+                    )
+                    return self._stream_from_resolved(fallback_routed, request_id=request_id)
+            except (json.JSONDecodeError, AttributeError):
+                pass
 
         # Not a rate-limit error — stitch the first chunk back into the stream
         async def _reattach_first() -> AsyncIterator[str]:
@@ -298,7 +306,7 @@ class ClaudeProxyService:
                             override_result.original_model,
                         )
                         # Update original request model and re-resolve
-                        request_data.model = override_result.overridden_model
+                        request_data = request_data.model_copy(update={"model": override_result.overridden_model})
                         routed = self._model_router.resolve_messages_request(request_data)
 
 
@@ -317,6 +325,38 @@ class ClaudeProxyService:
                 status_code=_http_status_for_unexpected_service_exception(e),
                 detail=get_user_facing_error_message(e),
             ) from e
+    async def create_response(self, request: Request) -> StreamingResponse:
+        """Handle OpenAI Responses API requests by converting to/from Anthropic format."""
+        from .responses_bridge import AnthropicToResponsesSseAdapter, convert_responses_to_anthropic
+
+        body = await request.json()
+
+        # Convert Responses API request to Anthropic Messages format
+        anthr_body = convert_responses_to_anthropic(body)
+
+        # Build a MessagesRequest from the converted body
+        messages_request = MessagesRequest(**anthr_body)
+
+        # Delegate to create_message to reuse validation, fallback routing,
+        # web tool handling, dual-brain, and optimization pipeline
+        response = await self.create_message(messages_request)
+
+        # If create_message returned a StreamingResponse, wrap it with
+        # the Responses SSE adapter; otherwise return as-is (e.g. optimization result)
+        if isinstance(response, StreamingResponse):
+            responses_adapter = AnthropicToResponsesSseAdapter(
+                response.body_iterator,
+                model=body.get("model", messages_request.model),
+                request_id=None,
+            )
+            return StreamingResponse(
+                responses_adapter.adapt(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+            )
+
+        return response
+
     def count_tokens(self, request_data: TokenCountRequest) -> TokenCountResponse:
         """Count tokens for a request after applying configured model routing."""
         request_id = f"req_{uuid.uuid4().hex[:12]}"

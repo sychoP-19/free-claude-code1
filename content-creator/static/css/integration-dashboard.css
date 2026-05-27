@@ -434,3 +434,9 @@
   .idash-grid-4 { grid-template-columns: 1fr; }
   .idash-grid-3 { grid-template-columns: 1fr; }
 }
+
+
+/* Sound Alerts */
+.sound-muted { opacity: 0.5; }
+.sound-muted .sound-on { display: none !important; }
+.sound-muted .sound-off { display: block !important; }

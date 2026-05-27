@@ -230,26 +230,36 @@ async function loadExports() {
       const date = v.created_at ? new Date(v.created_at).toLocaleDateString() : '—';
       const url = v.url || '#';
 
-      tr.innerHTML = `
-        <td>
-          <div class="export-row">
-            <div class="export-icon" aria-hidden="true">
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M2 8h4l3-3h6l3 3h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z"/><circle cx="12" cy="15" r="4"/></svg>
-            </div>
-            <div class="export-meta">
-              <div class="export-name truncate" title="${name}">${name}</div>
-              <div class="export-size">${v.style || 'auto'}</div>
-            </div>
-          </div>
-        </td>
-        <td class="font-mono text-xs">${sizeKB}</td>
-        <td class="text-muted text-sm">${date}</td>
-        <td><span class="badge badge-green">Done</span></td>
-        <td>
-          ${url !== '#' ? `<a href="${url}" download class="export-dl" aria-label="Download ${name}">Download</a>` : '<span class="text-faint text-xs">—</span>'}
-        </td>
-      `;
-      tbody.appendChild(tr);
+      // Cell 1: icon + name + style
+      const td1 = document.createElement('td');
+      const rowDiv = document.createElement('div'); rowDiv.className = 'export-row';
+      const iconDiv = document.createElement('div'); iconDiv.className = 'export-icon'; iconDiv.setAttribute('aria-hidden', 'true');
+      iconDiv.innerHTML = '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M2 8h4l3-3h6l3 3h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z"/><circle cx="12" cy="15" r="4"/></svg>';
+      const metaDiv = document.createElement('div'); metaDiv.className = 'export-meta';
+      const nameDiv = document.createElement('div'); nameDiv.className = 'export-name truncate'; nameDiv.title = name; nameDiv.textContent = name;
+      const sizeDiv = document.createElement('div'); sizeDiv.className = 'export-size'; sizeDiv.textContent = v.style || 'auto';
+      metaDiv.appendChild(nameDiv); metaDiv.appendChild(sizeDiv);
+      rowDiv.appendChild(iconDiv); rowDiv.appendChild(metaDiv);
+      td1.appendChild(rowDiv);
+      // Cell 2: size
+      const td2 = document.createElement('td'); td2.className = 'font-mono text-xs'; td2.textContent = sizeKB;
+      // Cell 3: date
+      const td3 = document.createElement('td'); td3.className = 'text-muted text-sm'; td3.textContent = date;
+      // Cell 4: badge
+      const td4 = document.createElement('td');
+      const badge = document.createElement('span'); badge.className = 'badge badge-green'; badge.textContent = 'Done';
+      td4.appendChild(badge);
+      // Cell 5: download link (validate URL origin)
+      const td5 = document.createElement('td');
+      if (url !== '#' && url.startsWith('/')) {
+        const a = document.createElement('a'); a.href = url; a.download = ''; a.className = 'export-dl'; a.setAttribute('aria-label', 'Download ' + name); a.textContent = 'Download';
+        td5.appendChild(a);
+      } else {
+        const span = document.createElement('span'); span.className = 'text-faint text-xs'; span.textContent = '—';
+        td5.appendChild(span);
+      }
+      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4); tr.appendChild(td5);
+      /* original innerHTML removed for XSS safety */
     });
   } catch(e) {
     console.error('Exports load error', e);

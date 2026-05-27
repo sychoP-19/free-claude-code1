@@ -17,9 +17,11 @@ venv/
 .cursor/
 .serena/
 .codegraph/
+.understand-anything/
 .scratch/
 .gemini/
 .claude-plugin/
+.cc-switch/
 
 # ── Trellis workspace ─────────────────────────────────────────────────
 .trellis/
@@ -66,3 +68,4 @@ simo.db
 # ── Node (if ever added at root) ──────────────────────────────────────
 node_modules/
 package-lock.json
+logs/simo/

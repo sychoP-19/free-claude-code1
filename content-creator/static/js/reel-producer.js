@@ -215,7 +215,11 @@
         statusClass = 'status-running';
       }
 
-      statusEl.innerHTML = '<span class="status-indicator ' + statusClass + '">' + statusText + '</span>';
+      const span = document.createElement('span');
+    span.className = 'status-indicator ' + statusClass;
+    span.textContent = statusText;
+    statusEl.textContent = '';
+    statusEl.appendChild(span);
     }
 
     // Update progress bar
@@ -232,7 +236,7 @@
     // Update icon for completed
     const icon = targetStage.querySelector('.stage-icon');
     if (status === 'completed' && icon) {
-      icon.innerHTML = '&#10003;';
+      icon.textContent = '✓';
     }
   }
 

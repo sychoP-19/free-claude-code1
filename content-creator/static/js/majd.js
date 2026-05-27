@@ -71,7 +71,8 @@ let wsReconnectTimer = null;
 
 function connectWebSocket() {
   try {
-    ws = new WebSocket(`ws://${location.host}/ws`);
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${wsProto}//${location.host}/ws`);
     ws.onopen = () => { setWsStatus(true); clearTimeout(wsReconnectTimer); notify('System connected', 'success'); };
     ws.onmessage = (e) => { try { handleServerMessage(JSON.parse(e.data)); } catch {} };
     ws.onclose = () => { setWsStatus(false); wsReconnectTimer = setTimeout(connectWebSocket, 3000); };
@@ -89,6 +90,7 @@ function setWsStatus(online) {
   dot.style.background = online ? 'var(--green)' : 'var(--yellow)';
   dot.style.boxShadow  = online ? '0 0 8px var(--green)' : '0 0 8px var(--yellow)';
   text.textContent     = online ? 'LIVE' : 'RECONNECTING...';
+ if (window.SoundAlerts) SoundAlerts.play(online ? 'ws_connect' : 'ws_disconnect');
 }
 
 function handleServerMessage(msg) {

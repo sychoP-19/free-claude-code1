@@ -1,0 +1,235 @@
+<!-- Install Prompt Modal -->
+<div id="install-modal" class="install-modal hidden" role="dialog" aria-modal="true" aria-labelledby="install-modal-title">
+  <div class="install-modal-backdrop"></div>
+  <div class="install-modal-content">
+    <button class="install-modal-close" aria-label="Close">&times;</button>
+
+    <div class="install-modal-header">
+      <div class="install-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="#f5c842"/>
+          <path d="M24 12v24M12 20l12-8 12 8" stroke="#07060f" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2 id="install-modal-title">Install Mexico Cultural Flows</h2>
+    </div>
+
+    <div class="install-modal-body">
+      <p>Get the full experience with our app:</p>
+      <ul class="install-benefits">
+        <li>
+          <span class="benefit-icon">&#9889;</span>
+          <span>Works offline - no internet needed</span>
+        </li>
+        <li>
+          <span class="benefit-icon">&#128241;</span>
+          <span> instant loading - faster than browser</span>
+        </li>
+        <li>
+          <span class="benefit-icon">&#128276;</span>
+          <span>Get notified about new cultural content</span>
+        </li>
+        <li>
+          <span class="benefit-icon">&#127760;</span>
+          <span>Full-screen immersive experience</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="install-modal-actions">
+      <button id="install-cta" class="btn btn-primary btn-install">
+        <span class="btn-text">Install App</span>
+        <span class="btn-icon">&#8594;</span>
+      </button>
+      <button id="install-later" class="btn btn-secondary">
+        Maybe Later
+      </button>
+    </div>
+
+    <label class="install-remember">
+      <input type="checkbox" id="install-remember">
+      <span>Don't show this again</span>
+    </label>
+  </div>
+</div>
+
+<!-- Install Button (hidden until available) -->
+<button id="install-btn" class="install-btn hidden" aria-label="Install Mexico Cultural Flows">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M12 3v12M7 8l5-5 5 5M3 13v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/>
+  </svg>
+  <span>Install</span>
+</button>
+
+<style>
+/* Install Prompt Styles */
+.install-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.install-modal.hidden {
+  display: none;
+}
+
+.install-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 6, 15, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.install-modal-content {
+  position: relative;
+  background: #1a1a2e;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(245, 200, 66, 0.1);
+}
+
+.install-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  line-height: 1;
+}
+
+.install-modal-close:hover {
+  color: #f5c842;
+}
+
+.install-modal-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.install-icon {
+  margin-bottom: 1rem;
+}
+
+.install-modal-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f5c842;
+  margin: 0;
+}
+
+.install-modal-body p {
+  color: #9ca3af;
+  margin-bottom: 1rem;
+}
+
+.install-benefits {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem 0;
+}
+
+.install-benefits li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  color: #d1d5db;
+}
+
+.benefit-icon {
+  font-size: 1.25rem;
+}
+
+.install-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.btn {
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #f5c842 0%, #e0b629 100%);
+  color: #07060f;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 200, 66, 0.4);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: #9ca3af;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #d1d5db;
+}
+
+.btn-install {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.install-remember {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.install-remember input[type="checkbox"] {
+  accent-color: #f5c842;
+}
+
+.install-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(245, 200, 66, 0.1);
+  border: 1px solid rgba(245, 200, 66, 0.3);
+  border-radius: 8px;
+  color: #f5c842;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.install-btn:hover {
+  background: rgba(245, 200, 66, 0.2);
+  border-color: rgba(245, 200, 66, 0.5);
+}
+
+.install-btn.hidden {
+  display: none;
+}
+</style>
