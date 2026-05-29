@@ -216,12 +216,27 @@ class OpenAIChatTransport(BaseProvider):
         request_id: str | None = None,
         thinking_enabled: bool | None = None,
     ) -> AsyncIterator[str]:
-        """Stream response in Anthropic SSE format."""
-        with logger.contextualize(request_id=request_id):
+        """Stream response in Anthropic SSE format.
+
+        The logging context is entered/exited manually rather than via ``with``:
+        this async generator is iterated across asyncio contexts by the ASGI
+        server, and loguru's ``contextualize`` resets its ContextVar token on
+        teardown, which raises ``ValueError`` ("created in a different Context")
+        and abnormally terminates the SSE stream. We swallow that teardown-only
+        error so the stream closes cleanly for streaming clients.
+        """
+        log_context = logger.contextualize(request_id=request_id)
+        log_context.__enter__()
+        try:
             async for event in self._stream_response_impl(
                 request, input_tokens, request_id, thinking_enabled=thinking_enabled
             ):
                 yield event
+        finally:
+            try:
+                log_context.__exit__(None, None, None)
+            except ValueError:
+                pass
 
     async def _stream_response_impl(
         self,
