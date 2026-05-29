@@ -118,6 +118,13 @@ class Settings(BaseSettings):
     # ==================== GLM (ZhipuAI) Config ====================
     glm_api_key: str = Field(default="", validation_alias="GLM_API_KEY")
 
+    # ==================== FreeLLMAPI Config ====================
+    freellmapi_api_key: str = Field(default="", validation_alias="FREELLMAPI_API_KEY")
+    freellmapi_base_url: str = Field(
+        default="http://localhost:3001/v1",
+        validation_alias="FREELLMAPI_BASE_URL",
+    )
+
     # ==================== Messaging Platform Selection ====================
     # Valid: "telegram" | "discord" | "none"
     messaging_platform: str = Field(
@@ -192,6 +199,7 @@ class Settings(BaseSettings):
     llamacpp_proxy: str = Field(default="", validation_alias="LLAMACPP_PROXY")
     kimi_proxy: str = Field(default="", validation_alias="KIMI_PROXY")
     glm_proxy: str = Field(default="", validation_alias="GLM_PROXY")
+    freellmapi_proxy: str = Field(default="", validation_alias="FREELLMAPI_PROXY")
 
     # ==================== Provider Rate Limiting ====================
     provider_rate_limit: int = Field(default=40, validation_alias="PROVIDER_RATE_LIMIT")
@@ -224,6 +232,15 @@ class Settings(BaseSettings):
     http_connect_timeout: float = Field(
         default=HTTP_CONNECT_TIMEOUT_DEFAULT,
         validation_alias="HTTP_CONNECT_TIMEOUT",
+    )
+    http_max_connections: int = Field(
+        default=100, validation_alias="HTTP_MAX_CONNECTIONS"
+    )
+    http_max_keepalive_connections: int = Field(
+        default=50, validation_alias="HTTP_MAX_KEEPALIVE_CONNECTIONS"
+    )
+    http_keepalive_expiry: float = Field(
+        default=30.0, validation_alias="HTTP_KEEPALIVE_EXPIRY"
     )
 
     # ==================== Fast Prefix Detection ====================

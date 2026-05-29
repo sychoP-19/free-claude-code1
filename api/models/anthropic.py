@@ -92,7 +92,10 @@ class SystemContent(_AnthropicBlockBase):
 # Message Types
 # =============================================================================
 class Message(BaseModel):
-    role: Literal["user", "assistant"]
+    # ``system`` is accepted because some clients (e.g. Claude Code via this proxy)
+    # place a system-role entry inside ``messages``. The OpenAI converter keeps it
+    # inline; the native Anthropic path folds it into the top-level ``system`` field.
+    role: Literal["user", "assistant", "system"]
     content: (
         str
         | list[

@@ -77,27 +77,24 @@ class OpenAIChatTransport(BaseProvider):
             rate_window=config.rate_window,
             max_concurrency=config.max_concurrency,
         )
-        http_client = None
-        if config.proxy:
-            http_client = httpx.AsyncClient(
-                proxy=config.proxy,
-                timeout=httpx.Timeout(
-                    config.http_read_timeout,
-                    connect=config.http_connect_timeout,
-                    read=config.http_read_timeout,
-                    write=config.http_write_timeout,
-                ),
-            )
-        self._client = AsyncOpenAI(
-            api_key=self._api_key,
-            base_url=self._base_url,
-            max_retries=0,
+        http_client = httpx.AsyncClient(
+            proxy=config.proxy or None,
             timeout=httpx.Timeout(
                 config.http_read_timeout,
                 connect=config.http_connect_timeout,
                 read=config.http_read_timeout,
                 write=config.http_write_timeout,
             ),
+            limits=httpx.Limits(
+                max_connections=config.http_max_connections,
+                max_keepalive_connections=config.http_max_keepalive_connections,
+                keepalive_expiry=config.http_keepalive_expiry,
+            ),
+        )
+        self._client = AsyncOpenAI(
+            api_key=self._api_key,
+            base_url=self._base_url,
+            max_retries=0,
             http_client=http_client,
         )
 

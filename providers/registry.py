@@ -93,6 +93,12 @@ def _create_glm(config: ProviderConfig, _settings: Settings) -> BaseProvider:
     return GlmProvider(config)
 
 
+def _create_freellmapi(config: ProviderConfig, _settings: Settings) -> BaseProvider:
+    from providers.freellmapi import FreeLLMAPIProvider
+
+    return FreeLLMAPIProvider(config)
+
+
 PROVIDER_FACTORIES: dict[str, ProviderFactory] = {
     "nvidia_nim": _create_nvidia_nim,
     "open_router": _create_open_router,
@@ -102,6 +108,7 @@ PROVIDER_FACTORIES: dict[str, ProviderFactory] = {
     "ollama": _create_ollama,
     "kimi": _create_kimi,
     "glm": _create_glm,
+    "freellmapi": _create_freellmapi,
 }
 
 if set(PROVIDER_DESCRIPTORS) != set(SUPPORTED_PROVIDER_IDS) or set(
@@ -158,6 +165,9 @@ def build_provider_config(
         http_read_timeout=settings.http_read_timeout,
         http_write_timeout=settings.http_write_timeout,
         http_connect_timeout=settings.http_connect_timeout,
+        http_max_connections=settings.http_max_connections,
+        http_max_keepalive_connections=settings.http_max_keepalive_connections,
+        http_keepalive_expiry=settings.http_keepalive_expiry,
         enable_thinking=settings.enable_model_thinking,
         proxy=proxy,
         log_raw_sse_events=settings.log_raw_sse_events,

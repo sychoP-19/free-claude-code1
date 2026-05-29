@@ -15,6 +15,7 @@ TransportType = Literal["openai_chat", "anthropic_messages"]
 NVIDIA_NIM_DEFAULT_BASE = "https://integrate.api.nvidia.com/v1"
 KIMI_DEFAULT_BASE = "https://api.moonshot.cn/v1"
 GLM_DEFAULT_BASE = "https://open.bigmodel.cn/api/paas/v4"
+FREELLMAPI_DEFAULT_BASE = "http://localhost:3001/v1"
 # DeepSeek Anthropic-compatible Messages API (not OpenAI ``/v1`` chat completions).
 DEEPSEEK_ANTHROPIC_DEFAULT_BASE = "https://api.deepseek.com/anthropic"
 # Historical export name: DeepSeek upstream is the native Anthropic path above.
@@ -123,6 +124,16 @@ PROVIDER_CATALOG: dict[str, ProviderDescriptor] = {
         default_base_url=GLM_DEFAULT_BASE,
         proxy_attr="glm_proxy",
         capabilities=("chat", "streaming", "tools"),
+    ),
+    "freellmapi": ProviderDescriptor(
+        provider_id="freellmapi",
+        transport_type="openai_chat",
+        credential_env="FREELLMAPI_API_KEY",
+        credential_attr="freellmapi_api_key",
+        default_base_url=FREELLMAPI_DEFAULT_BASE,
+        base_url_attr="freellmapi_base_url",
+        proxy_attr="freellmapi_proxy",
+        capabilities=("chat", "streaming", "tools", "thinking", "local"),
     ),
 }
 

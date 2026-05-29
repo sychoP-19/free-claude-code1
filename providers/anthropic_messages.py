@@ -78,6 +78,11 @@ class AnthropicMessagesTransport(BaseProvider):
                 read=config.http_read_timeout,
                 write=config.http_write_timeout,
             ),
+            limits=httpx.Limits(
+                max_connections=config.http_max_connections,
+                max_keepalive_connections=config.http_max_keepalive_connections,
+                keepalive_expiry=config.http_keepalive_expiry,
+            ),
         )
 
     async def cleanup(self) -> None:
@@ -362,9 +367,11 @@ class AnthropicMessagesTransport(BaseProvider):
                         await send_response.aclose()
                         send_response.raise_for_status()
                     if send_response.status_code != 200:
-                        await self._raise_for_status(send_response, req_tag=req_tag)
-                        if not send_response.is_closed:
-                            await send_response.aclose()
+                        try:
+                            await self._raise_for_status(send_response, req_tag=req_tag)
+                        finally:
+                            if not send_response.is_closed:
+                                await send_response.aclose()
                     return send_response
 
                 response = await self._global_rate_limiter.execute_with_retry(

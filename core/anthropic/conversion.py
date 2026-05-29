@@ -181,12 +181,15 @@ class AnthropicToOpenAIConverter:
         messages: list[Any],
         *,
         reasoning_replay: ReasoningReplayMode = ReasoningReplayMode.THINK_TAGS,
+        supports_system_role: bool = True,
     ) -> list[dict[str, Any]]:
         result: list[dict[str, Any]] = []
         pending: _PendingAfterTools | None = None
 
         for msg in messages:
             role = msg.role
+            if role == "system" and not supports_system_role:
+                role = "user"
             content = msg.content
             reasoning_content = _clean_reasoning_content(
                 getattr(msg, "reasoning_content", None)
@@ -576,18 +579,22 @@ def build_base_request_body(
     *,
     default_max_tokens: int | None = None,
     reasoning_replay: ReasoningReplayMode = ReasoningReplayMode.THINK_TAGS,
+    supports_system_role: bool = True,
 ) -> dict[str, Any]:
     """Build the common parts of an OpenAI-format request body."""
     _openai_reject_native_only_top_level_fields(request_data)
     messages = AnthropicToOpenAIConverter.convert_messages(
         request_data.messages,
         reasoning_replay=reasoning_replay,
+        supports_system_role=supports_system_role,
     )
 
     system = getattr(request_data, "system", None)
     if system:
         system_msg = AnthropicToOpenAIConverter.convert_system_prompt(system)
         if system_msg:
+            if not supports_system_role:
+                system_msg["role"] = "user"
             messages.insert(0, system_msg)
 
     body: dict[str, Any] = {"model": request_data.model, "messages": messages}

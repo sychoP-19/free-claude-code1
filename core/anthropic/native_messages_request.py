@@ -170,6 +170,54 @@ def sanitize_native_messages_thinking_policy(
     return sanitized_messages
 
 
+def _system_block_text(content: Any) -> str:
+    """Extract concatenated text from a system message ``content`` (str or blocks)."""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = [
+            block["text"]
+            for block in content
+            if isinstance(block, dict)
+            and block.get("type") == "text"
+            and isinstance(block.get("text"), str)
+        ]
+        return "\n\n".join(parts).strip()
+    return ""
+
+
+def fold_system_messages_into_system(body: dict[str, Any]) -> None:
+    """Move ``system``-role entries out of ``messages`` into the top-level ``system``.
+
+    The native Anthropic Messages API permits only ``user``/``assistant`` roles in
+    ``messages``; system content must live in the top-level ``system`` field. Some
+    clients place a system-role entry inside ``messages`` instead, which upstream
+    rejects. This consolidates them so the request stays spec-compliant.
+    """
+    messages = body.get("messages")
+    if not isinstance(messages, list):
+        return
+
+    system_texts: list[str] = []
+    remaining: list[Any] = []
+    for message in messages:
+        if isinstance(message, dict) and message.get("role") == "system":
+            text = _system_block_text(message.get("content"))
+            if text:
+                system_texts.append(text)
+            continue
+        remaining.append(message)
+
+    if not system_texts:
+        return
+
+    body["messages"] = remaining
+    existing = _system_block_text(body.get("system"))
+    body["system"] = "\n\n".join(
+        part for part in ([existing] if existing else []) + system_texts if part
+    )
+
+
 def _normalize_system_prompt_for_openrouter(system: Any) -> Any:
     """Flatten Claude SDK system blocks for OpenRouter's native endpoint."""
     if not isinstance(system, list):
@@ -226,6 +274,8 @@ def build_base_native_anthropic_request_body(
             thinking_enabled=thinking_enabled,
         )
 
+    fold_system_messages_into_system(body)
+
     return body
 
 
@@ -253,6 +303,7 @@ def build_openrouter_native_request_body(
         body.get("messages"),
         thinking_enabled=thinking_enabled,
     )
+    fold_system_messages_into_system(body)
     if "system" in body:
         body["system"] = _normalize_system_prompt_for_openrouter(body["system"])
     body["stream"] = True
