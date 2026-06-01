@@ -1,0 +1,3 @@
+[submodule "docs/java-guide"]
+	path = docs/java-guide
+	url = https://github.com/Snailclimb/JavaGuide.git
