@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-
+import os
 import traceback
 import uuid
 from collections.abc import AsyncIterator, Callable
@@ -48,6 +49,11 @@ ProviderGetter = Callable[[str], BaseProvider]
 
 # Providers that use ``/chat/completions`` + Anthropic-to-OpenAI conversion (not native Messages).
 _OPENAI_CHAT_UPSTREAM_IDS = frozenset({"nvidia_nim", "kimi", "glm"})
+
+# Fail-fast time-to-first-token (seconds): if the primary model emits no first
+# chunk within this window, fall over to the configured fallback instead of
+# hanging up to the upstream timeout (~300s). Env-overridable; additive only.
+_FIRST_TOKEN_TIMEOUT_S = float(os.getenv("FCC_FIRST_TOKEN_TIMEOUT_S", "90"))
 
 
 def anthropic_sse_streaming_response(
@@ -205,17 +211,30 @@ class ClaudeProxyService:
         if fallback_routed is None:
             return response  # No fallback available, serve primary as-is
 
-        # Peek at first events; if it's a rate-limit error, switch to fallback
+        # Peek at first event; switch to fallback if the primary rate-limits OR
+        # stalls past the first-token timeout (fail fast — still pre-stream, so safe).
         stream_iter = response.body_iterator
+
+        async def _peek_first() -> str:
+            return await stream_iter.__anext__()
+
         try:
-            first_chunk = await stream_iter.__anext__()
+            first_chunk = await asyncio.wait_for(
+                _peek_first(), timeout=_FIRST_TOKEN_TIMEOUT_S
+            )
         except StopAsyncIteration:
             return response  # Empty stream, nothing to do
-        except RateLimitError:
+        except (RateLimitError, TimeoutError):
             logger.info(
-                "FALLBACK: primary rate-limited, rerouted to {}",
+                "FALLBACK: primary rate-limited or stalled >{}s, rerouted to {}",
+                _FIRST_TOKEN_TIMEOUT_S,
                 fallback_routed.resolved.provider_model_ref,
             )
+            if hasattr(stream_iter, "aclose"):
+                try:
+                    await stream_iter.aclose()
+                except Exception:  # noqa: BLE001 - best-effort close of stalled stream
+                    pass
             return self._stream_from_resolved(fallback_routed, request_id=request_id)
 
         # If the first SSE chunk signals a rate-limit error, switch

@@ -1,8 +1,0 @@
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-pythonpath = ["."]
-testpaths = ["tests"]
-markers = [
-    "network: tests that hit live services (Ollama, YouTube, GitHub) — skip with -m 'not network'",
-]
-addopts = "-m 'not network'"

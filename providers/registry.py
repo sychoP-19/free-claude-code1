@@ -8,6 +8,7 @@ from collections.abc import Callable, Iterable, MutableMapping
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 import httpx
 from loguru import logger
@@ -159,8 +160,8 @@ def build_provider_config(
     return ProviderConfig(
         api_key=credential,
         base_url=base_url or descriptor.default_base_url,
-        rate_limit=settings.provider_rate_limit,
-        rate_window=settings.provider_rate_window,
+        rate_limit=settings.provider_rate_limit_for(descriptor.provider_id),
+        rate_window=settings.provider_rate_window_for(descriptor.provider_id),
         max_concurrency=settings.provider_max_concurrency,
         http_read_timeout=settings.http_read_timeout,
         http_write_timeout=settings.http_write_timeout,

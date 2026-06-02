@@ -3,6 +3,8 @@
 import httpx
 import openai
 
+from api.rate_limit_error_handler import generate_rate_limit_error_message
+
 from core.anthropic import get_user_facing_error_message
 from providers.exceptions import (
     APIError,
@@ -45,6 +47,9 @@ def map_error(
         return AuthenticationError(message, raw_error=str(e))
     if isinstance(e, openai.RateLimitError):
         limiter.set_blocked(60)
+        # Use the rate limit error handler to generate a more user-friendly message
+        provider_id = getattr(limiter, '_provider_id', 'unknown')
+        message = generate_rate_limit_error_message(provider_id)
         return RateLimitError(message, raw_error=str(e))
     if isinstance(e, openai.BadRequestError):
         return InvalidRequestError(message, raw_error=str(e))
@@ -64,6 +69,9 @@ def map_error(
             return AuthenticationError(message, raw_error=str(e))
         if status == 429:
             limiter.set_blocked(60)
+            # Use the rate limit error handler to generate a more user-friendly message
+            provider_id = getattr(limiter, '_provider_id', 'unknown')
+            message = generate_rate_limit_error_message(provider_id)
             return RateLimitError(message, raw_error=str(e))
         if status == 400:
             return InvalidRequestError(message, raw_error=str(e))
