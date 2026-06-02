@@ -241,34 +241,11 @@ class ClaudeProxyService:
         if isinstance(first_chunk, str) and first_chunk.startswith("data: "):
             try:
                 data = json.loads(first_chunk[6:])
-                error = data.get("error", {})
-                error_type = error.get("type", "")
+                error_type = data.get("error", {}).get("type", "")
                 if error_type in ("rate_limit_error", "overloaded_error"):
                     logger.info(
                         "FALLBACK: detected {} in stream, rerouting to {}",
                         error_type,
-                        fallback_routed.resolved.provider_model_ref,
-                    )
-                    return self._stream_from_resolved(
-                        fallback_routed, request_id=request_id
-                    )
-            except (json.JSONDecodeError, AttributeError):
-                pass
-        if isinstance(first_chunk, str) and first_chunk.startswith("data: "):
-            try:
-                data = json.loads(first_chunk[6:])
-                error_type = data.get("error", {}).get("type", "")
-                if error_type == "rate_limit_error":
-                    logger.info(
-                        "FALLBACK: detected rate_limit_error in stream, rerouting to {}",
-                        fallback_routed.resolved.provider_model_ref,
-                    )
-                    return self._stream_from_resolved(
-                        fallback_routed, request_id=request_id
-                    )
-                if error_type == "overloaded_error":
-                    logger.info(
-                        "FALLBACK: detected overloaded_error in stream, rerouting to {}",
                         fallback_routed.resolved.provider_model_ref,
                     )
                     return self._stream_from_resolved(
@@ -290,15 +267,17 @@ class ClaudeProxyService:
                             error_type = error.get("type", "")
                             if error_type in ("rate_limit_error", "overloaded_error"):
                                 logger.info(
-                                    "FALLBACK: detected {} in mid-stream, triggering fallback",
+                                    "FALLBACK: detected {} in mid-stream, emitting SSE error",
                                     error_type,
                                 )
-                                # Close the current stream and trigger fallback
                                 if hasattr(stream_iter, "aclose"):
-                                    await stream_iter.aclose()
-                                # Re-raise as RateLimitError to trigger fallback logic above
-                                from providers.exceptions import RateLimitError
-                                raise RateLimitError(f"Mid-stream {error_type} detected")
+                                    try:
+                                        await stream_iter.aclose()
+                                    except Exception:
+                                        pass
+                                # Emit SSE error event so client can handle gracefully
+                                yield f"data: {json.dumps({'error': {'type': error_type, 'message': f'Provider {error_type}; retrying fallback'}})}\n\n"
+                                return
                         except (json.JSONDecodeError, AttributeError):
                             pass
                     yield chunk
