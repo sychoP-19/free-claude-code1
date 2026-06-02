@@ -93,6 +93,14 @@ def configure_logging(
     # Remove default loguru handler (writes to stderr)
     logger.remove()
 
+    # ORG: keep logs under logs/ so the repo root stays clean, regardless of the
+    # (possibly timestamped) bare filename the caller passes. Explicit paths that
+    # already include a directory (e.g. tests using a tmp dir) are left untouched.
+    _lf = Path(log_file)
+    if _lf.parent in (Path(""), Path(".")):
+        Path("logs").mkdir(parents=True, exist_ok=True)
+        log_file = str(Path("logs") / _lf.name)
+
     # Truncate log file on fresh start for clean debugging
     Path(log_file).write_text("")
 
@@ -104,6 +112,8 @@ def configure_logging(
         encoding="utf-8",
         mode="a",
         rotation="50 MB",
+        retention=5,
+        compression="gz",
     )
 
     # Intercept stdlib logging: route all root logger output to loguru

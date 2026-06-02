@@ -16,6 +16,7 @@ from loguru import logger
 from config.settings import Settings
 from core.anthropic import get_token_count, get_user_facing_error_message
 from core.anthropic.sse import ANTHROPIC_SSE_RESPONSE_HEADERS
+from core.cache import ResponseCache, request_cache_key
 from providers.base import BaseProvider
 from providers.exceptions import InvalidRequestError, ProviderError, RateLimitError
 
@@ -96,6 +97,33 @@ def _require_non_empty_messages(messages: list[Any]) -> None:
         raise InvalidRequestError("messages cannot be empty")
 
 
+_RESPONSE_CACHE: ResponseCache | None = None
+
+
+def _get_response_cache(settings: Settings) -> ResponseCache:
+    """Lazily build the process-wide response cache."""
+    global _RESPONSE_CACHE
+    if _RESPONSE_CACHE is None:
+        _RESPONSE_CACHE = ResponseCache(
+            settings.response_cache_path,
+            ttl_seconds=settings.response_cache_ttl_seconds,
+        )
+    return _RESPONSE_CACHE
+
+
+async def _replay_cached_sse(sse_text: str) -> AsyncIterator[str]:
+    """Replay stored SSE text as a single chunk (byte-identical to the client)."""
+    yield sse_text
+
+
+def _sse_text_is_cacheable(sse_text: str) -> bool:
+    """Only cache clean, complete responses (no error / rate-limit events)."""
+    if not sse_text:
+        return False
+    lowered = sse_text.lower()
+    return "event: error" not in lowered and "rate_limit_error" not in lowered
+
+
 class ClaudeProxyService:
     """Coordinate request optimization, model routing, token count, and providers."""
 
@@ -111,7 +139,9 @@ class ClaudeProxyService:
         self._provider_getter = provider_getter
         self._model_router = model_router or ModelRouter(settings)
         self._token_counter = token_counter
-        self._prompt_rebuilder = prompt_rebuilder or PromptRebuilder(settings, provider_getter)
+        self._prompt_rebuilder = prompt_rebuilder or PromptRebuilder(
+            settings, provider_getter
+        )
 
     def _stream_from_resolved(
         self, routed: RoutedMessagesRequest, *, request_id: str | None = None
@@ -169,7 +199,9 @@ class ClaudeProxyService:
         raise immediately so the caller can fall back.
         """
         response = self._stream_from_resolved(routed, request_id=request_id)
-        fallback_routed = self._try_fallback_re_resolve(request_data, primary_routed=routed)
+        fallback_routed = self._try_fallback_re_resolve(
+            request_data, primary_routed=routed
+        )
         if fallback_routed is None:
             return response  # No fallback available, serve primary as-is
 
@@ -180,10 +212,29 @@ class ClaudeProxyService:
         except StopAsyncIteration:
             return response  # Empty stream, nothing to do
         except RateLimitError:
-            logger.info("FALLBACK: primary rate-limited, rerouted to {}", fallback_routed.resolved.provider_model_ref)
+            logger.info(
+                "FALLBACK: primary rate-limited, rerouted to {}",
+                fallback_routed.resolved.provider_model_ref,
+            )
             return self._stream_from_resolved(fallback_routed, request_id=request_id)
 
         # If the first SSE chunk signals a rate-limit error, switch
+        if isinstance(first_chunk, str) and first_chunk.startswith("data: "):
+            try:
+                data = json.loads(first_chunk[6:])
+                error = data.get("error", {})
+                error_type = error.get("type", "")
+                if error_type in ("rate_limit_error", "overloaded_error"):
+                    logger.info(
+                        "FALLBACK: detected {} in stream, rerouting to {}",
+                        error_type,
+                        fallback_routed.resolved.provider_model_ref,
+                    )
+                    return self._stream_from_resolved(
+                        fallback_routed, request_id=request_id
+                    )
+            except (json.JSONDecodeError, AttributeError):
+                pass
         if isinstance(first_chunk, str) and first_chunk.startswith("data: "):
             try:
                 data = json.loads(first_chunk[6:])
@@ -193,21 +244,44 @@ class ClaudeProxyService:
                         "FALLBACK: detected rate_limit_error in stream, rerouting to {}",
                         fallback_routed.resolved.provider_model_ref,
                     )
-                    return self._stream_from_resolved(fallback_routed, request_id=request_id)
+                    return self._stream_from_resolved(
+                        fallback_routed, request_id=request_id
+                    )
                 if error_type == "overloaded_error":
                     logger.info(
                         "FALLBACK: detected overloaded_error in stream, rerouting to {}",
                         fallback_routed.resolved.provider_model_ref,
                     )
-                    return self._stream_from_resolved(fallback_routed, request_id=request_id)
+                    return self._stream_from_resolved(
+                        fallback_routed, request_id=request_id
+                    )
             except (json.JSONDecodeError, AttributeError):
                 pass
 
-        # Not a rate-limit error — stitch the first chunk back into the stream
+        # Not a rate-limit error — stitch the first chunk back into the stream and monitor all subsequent chunks
         async def _reattach_first() -> AsyncIterator[str]:
             try:
                 yield first_chunk
                 async for chunk in stream_iter:
+                    # Monitor every chunk for rate limit errors, not just the first one
+                    if isinstance(chunk, str) and chunk.startswith("data: "):
+                        try:
+                            data = json.loads(chunk[6:])
+                            error = data.get("error", {})
+                            error_type = error.get("type", "")
+                            if error_type in ("rate_limit_error", "overloaded_error"):
+                                logger.info(
+                                    "FALLBACK: detected {} in mid-stream, triggering fallback",
+                                    error_type,
+                                )
+                                # Close the current stream and trigger fallback
+                                if hasattr(stream_iter, "aclose"):
+                                    await stream_iter.aclose()
+                                # Re-raise as RateLimitError to trigger fallback logic above
+                                from providers.exceptions import RateLimitError
+                                raise RateLimitError(f"Mid-stream {error_type} detected")
+                        except (json.JSONDecodeError, AttributeError):
+                            pass
                     yield chunk
             finally:
                 if hasattr(stream_iter, "aclose"):
@@ -220,14 +294,25 @@ class ClaudeProxyService:
         )
 
     def _try_fallback_re_resolve(
-        self, request_data: MessagesRequest, *, primary_routed: RoutedMessagesRequest | None = None
+        self,
+        request_data: MessagesRequest,
+        *,
+        primary_routed: RoutedMessagesRequest | None = None,
     ) -> RoutedMessagesRequest | None:
         """Re-resolve the request using fallback models. Returns None if no fallback."""
         if primary_routed is None:
             primary_routed = self._model_router.resolve_messages_request(request_data)
-        fallback_routed = self._model_router.resolve_messages_request(request_data, use_fallback=True)
-        if fallback_routed.resolved.provider_model_ref == primary_routed.resolved.provider_model_ref:
-            logger.warning("FALLBACK: no distinct fallback configured, primary='{}'", primary_routed.resolved.provider_model_ref)
+        fallback_routed = self._model_router.resolve_messages_request(
+            request_data, use_fallback=True
+        )
+        if (
+            fallback_routed.resolved.provider_model_ref
+            == primary_routed.resolved.provider_model_ref
+        ):
+            logger.warning(
+                "FALLBACK: no distinct fallback configured, primary='{}'",
+                primary_routed.resolved.provider_model_ref,
+            )
             return None
         logger.warning(
             "RATE_LIMIT_FALLBACK: primary='{}' fallback='{}'",
@@ -240,16 +325,67 @@ class ClaudeProxyService:
                 web_tools_enabled=self._settings.enable_web_server_tools,
             )
             if tool_err is not None:
-                logger.warning("FALLBACK: tool error on fallback provider, skipping: {}", tool_err)
+                logger.warning(
+                    "FALLBACK: tool error on fallback provider, skipping: {}", tool_err
+                )
                 return None
         return fallback_routed
+
+    async def _cached_stream(
+        self,
+        request_data: MessagesRequest,
+        routed: RoutedMessagesRequest,
+        request_id: str,
+    ) -> StreamingResponse:
+        """Serve from the exact-match response cache, else stream and store.
+
+        Only invoked when ``enable_response_cache`` is true, so the normal path
+        is byte-for-byte unchanged when the cache is off.
+        """
+        cache = _get_response_cache(self._settings)
+        key = request_cache_key(routed.request)
+        cached = cache.get(key)
+        if cached is not None:
+            logger.info("CACHE_HIT: request_id={} key={}", request_id, key[:12])
+            return anthropic_sse_streaming_response(_replay_cached_sse(cached))
+
+        response = await self._stream_with_fallback(
+            request_data, routed, request_id=request_id
+        )
+        source = response.body_iterator
+
+        async def _tee() -> AsyncIterator[str]:
+            parts: list[str] = []
+            try:
+                async for chunk in source:
+                    parts.append(chunk)
+                    yield chunk
+            finally:
+                if hasattr(source, "aclose"):
+                    await source.aclose()
+            sse_text = "".join(parts)
+            if _sse_text_is_cacheable(sse_text):
+                try:
+                    cache.set(key, sse_text)
+                    logger.info(
+                        "CACHE_STORE: request_id={} key={} bytes={}",
+                        request_id,
+                        key[:12],
+                        len(sse_text),
+                    )
+                except Exception:  # noqa: BLE001 - cache writes must never break a response
+                    logger.debug("CACHE_STORE failed for request_id={}", request_id)
+
+        return anthropic_sse_streaming_response(_tee())
 
     async def create_message(self, request_data: MessagesRequest) -> object:
         """Create a message response or streaming response."""
         try:
             _require_non_empty_messages(request_data.messages)
 
-            if self._settings.enable_prompt_rebuilding and is_prompt_rebuild_request(request_data):
+            if self._settings.enable_prompt_rebuilding and is_prompt_rebuild_request(
+                request_data
+            ):
                 request_data = await self._prompt_rebuilder.rebuild(request_data)
 
             routed = self._model_router.resolve_messages_request(request_data)
@@ -306,18 +442,25 @@ class ClaudeProxyService:
                             override_result.original_model,
                         )
                         # Update original request model and re-resolve
-                        request_data = request_data.model_copy(update={"model": override_result.overridden_model})
-                        routed = self._model_router.resolve_messages_request(request_data)
-
+                        request_data = request_data.model_copy(
+                            update={"model": override_result.overridden_model}
+                        )
+                        routed = self._model_router.resolve_messages_request(
+                            request_data
+                        )
 
             request_id = f"req_{uuid.uuid4().hex[:12]}"
+
+            if self._settings.enable_response_cache:
+                return await self._cached_stream(request_data, routed, request_id)
+
             return await self._stream_with_fallback(
                 request_data, routed, request_id=request_id
             )
 
         except ProviderError:
             raise
-        except Exception as e:
+        except Exception as e:  # Handle unexpected errors with specific logging
             _log_unexpected_service_exception(
                 self._settings, e, context="CREATE_MESSAGE_ERROR"
             )
@@ -325,9 +468,13 @@ class ClaudeProxyService:
                 status_code=_http_status_for_unexpected_service_exception(e),
                 detail=get_user_facing_error_message(e),
             ) from e
+
     async def create_response(self, request: Request) -> StreamingResponse:
         """Handle OpenAI Responses API requests by converting to/from Anthropic format."""
-        from .responses_bridge import AnthropicToResponsesSseAdapter, convert_responses_to_anthropic
+        from .responses_bridge import (
+            AnthropicToResponsesSseAdapter,
+            convert_responses_to_anthropic,
+        )
 
         body = await request.json()
 
@@ -352,7 +499,11 @@ class ClaudeProxyService:
             return StreamingResponse(
                 responses_adapter.adapt(),
                 media_type="text/event-stream",
-                headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                },
             )
 
         return response

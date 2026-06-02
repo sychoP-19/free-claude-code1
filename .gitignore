@@ -69,3 +69,6 @@ simo.db
 node_modules/
 package-lock.json
 logs/simo/
+
+# ── All runtime logs now live under logs/ (redirected from repo root) ──
+logs/

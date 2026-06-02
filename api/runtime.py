@@ -100,6 +100,9 @@ class AppRuntime:
 
     async def startup(self) -> None:
         logger.info("Starting Claude Code Proxy...")
+        from core.observability import setup_tracing
+
+        setup_tracing(self.settings)
         self._provider_registry = ProviderRegistry()
         self.app.state.provider_registry = self._provider_registry
         try:

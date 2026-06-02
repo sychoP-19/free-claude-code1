@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import dotenv_values
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .constants import HTTP_CONNECT_TIMEOUT_DEFAULT
@@ -107,19 +107,19 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # ==================== OpenRouter Config ====================
-    open_router_api_key: str = Field(default="", validation_alias="OPENROUTER_API_KEY")
+    open_router_api_key: SecretStr = SecretStr("")
 
     # ==================== DeepSeek Config ====================
-    deepseek_api_key: str = Field(default="", validation_alias="DEEPSEEK_API_KEY")
+    deepseek_api_key: SecretStr = SecretStr("")
 
     # ==================== Kimi Config ====================
-    kimi_api_key: str = Field(default="", validation_alias="KIMI_API_KEY")
+    kimi_api_key: SecretStr = SecretStr("")
 
     # ==================== GLM (ZhipuAI) Config ====================
-    glm_api_key: str = Field(default="", validation_alias="GLM_API_KEY")
+    glm_api_key: SecretStr = SecretStr("")
 
     # ==================== FreeLLMAPI Config ====================
-    freellmapi_api_key: str = Field(default="", validation_alias="FREELLMAPI_API_KEY")
+    freellmapi_api_key: SecretStr = SecretStr("")
     freellmapi_base_url: str = Field(
         default="http://localhost:3001/v1",
         validation_alias="FREELLMAPI_BASE_URL",
@@ -138,7 +138,7 @@ class Settings(BaseSettings):
     )
 
     # ==================== NVIDIA NIM Config ====================
-    nvidia_nim_api_key: str = ""
+    nvidia_nim_api_key: SecretStr = SecretStr("")
 
     # ==================== LM Studio Config ====================
     lm_studio_base_url: str = Field(
@@ -159,14 +159,20 @@ class Settings(BaseSettings):
     )
 
     # ==================== Model ====================
-    # All Claude model requests are mapped to this single model (fallback)
-    # Format: provider_type/model/name
-    model: str = "nvidia_nim/deepseek-ai/deepseek-v4-pro"
+    # All Claude model requests are mapped to this single model (global fallback).
+    # Format: provider_type/model_name. Each ref must use the model's NATIVE
+    # provider (deepseek/..., nvidia_nim/..., kimi/..., glm/...) — do NOT route a
+    # third-party model through another provider's prefix (e.g. nvidia_nim/deepseek-ai/...).
+    #
+    # Strategy: NVIDIA NIM (free, working) is the PRIMARY; DeepSeek V4 (top coder)
+    # is the armed FALLBACK. DeepSeek is the higher-quality brain, but a 402/no-balance
+    # response maps to APIError (NOT rate_limit/overloaded), so it does NOT trigger
+    # failover — it can only be the PRIMARY once the DeepSeek account is funded.
+    # When funded for max quality, swap primary<->fallback (MODEL_SONNET=deepseek/DeepSeek-V4-Pro).
+    model: str = "nvidia_nim/qwen/qwen3-coder-480b-a35b-instruct"
 
-    # Per-model overrides (optional, falls back to MODEL)
-    # Each can use a different provider
     model_opus: str | None = Field(
-        default="nvidia_nim/deepseek-ai/deepseek-v4-pro",
+        default="nvidia_nim/qwen/qwen3-coder-480b-a35b-instruct",
         validation_alias="MODEL_OPUS",
     )
     model_sonnet: str | None = Field(
@@ -174,22 +180,45 @@ class Settings(BaseSettings):
         validation_alias="MODEL_SONNET",
     )
     model_haiku: str | None = Field(
-        default="nvidia_nim/qwen/qwen3.5-122b-a10b",
+        default="nvidia_nim/meta/llama-3.3-70b-instruct",
         validation_alias="MODEL_HAIKU",
     )
 
-    # ==================== Fallback Models (when primary provider rate-limited) ====================
+    # ==================== Fallback Models (when primary returns 429 / 503 / overloaded) ====================
+    # Armed cross-provider net: when free NIM rate-limits, reroute to DeepSeek V4.
+    # Works the moment the DeepSeek account has balance; until then the fallback
+    # returns 402 (no worse than a bare NIM rate-limit, and self-documenting).
     model_opus_fallback: str | None = Field(
-        default="open_router/deepseek/deepseek-v4-flash:free",
+        default="deepseek/DeepSeek-V4-Pro",
         validation_alias="MODEL_OPUS_FALLBACK",
     )
     model_sonnet_fallback: str | None = Field(
-        default="open_router/qwen/qwen3-coder:free",
+        default="deepseek/DeepSeek-V4-Pro",
         validation_alias="MODEL_SONNET_FALLBACK",
     )
     model_haiku_fallback: str | None = Field(
-        default="open_router/nvidia/nemotron-3-super-120b-a12b:free",
+        default="deepseek/DeepSeek-V4-Flash",
         validation_alias="MODEL_HAIKU_FALLBACK",
+    )
+
+    # ==================== Gateway Model List (for /v1/models discovery) ====================
+    # Comma-separated provider/model refs to advertise in the /model picker
+    # beyond the configured + auto-discovered models. Format:
+    # nvidia_nim/model-name,open_router/org/model-name
+    gateway_models: str = Field(default="", validation_alias="GATEWAY_MODELS")
+
+    # ==================== Per-Provider Rate Limits (override global) ====================
+    nvidia_nim_rate_limit: int | None = Field(
+        default=None, validation_alias="NVIDIA_NIM_RATE_LIMIT"
+    )
+    nvidia_nim_rate_window: int | None = Field(
+        default=None, validation_alias="NVIDIA_NIM_RATE_WINDOW"
+    )
+    open_router_rate_limit: int | None = Field(
+        default=None, validation_alias="OPENROUTER_RATE_LIMIT"
+    )
+    open_router_rate_window: int | None = Field(
+        default=None, validation_alias="OPENROUTER_RATE_WINDOW"
     )
 
     # ==================== Per-Provider Proxy ====================
@@ -301,10 +330,40 @@ class Settings(BaseSettings):
     )
 
     # ==================== Dual-Brain Settings ====================
-    dual_brain_enabled: bool = Field(default=False, validation_alias="DUAL_BRAIN_ENABLED")
-    dual_brain_codex_model: str | None = Field(default=None, validation_alias="DUAL_BRAIN_CODEX_MODEL")
-    dual_brain_claude_model: str | None = Field(default=None, validation_alias="DUAL_BRAIN_CLAUDE_MODEL")
-    dual_brain_fallback: str = Field(default="auto", validation_alias="DUAL_BRAIN_FALLBACK")
+    dual_brain_enabled: bool = Field(
+        default=False, validation_alias="DUAL_BRAIN_ENABLED"
+    )
+    dual_brain_codex_model: str | None = Field(
+        default=None, validation_alias="DUAL_BRAIN_CODEX_MODEL"
+    )
+    dual_brain_claude_model: str | None = Field(
+        default=None, validation_alias="DUAL_BRAIN_CLAUDE_MODEL"
+    )
+    dual_brain_fallback: str = Field(
+        default="auto", validation_alias="DUAL_BRAIN_FALLBACK"
+    )
+
+    # ==================== Response Cache (default OFF, zero extra deps) ====================
+    # Exact-match SSE response cache (stdlib sqlite). Biggest win for repeated/local-iteration
+    # prompts against rate-limited free backends. Caveat: caches tool_use responses verbatim,
+    # so prefer it for deterministic workloads. No behavior change while False.
+    enable_response_cache: bool = Field(
+        default=False, validation_alias="ENABLE_RESPONSE_CACHE"
+    )
+    response_cache_path: str = Field(
+        default="data/response_cache.db", validation_alias="RESPONSE_CACHE_PATH"
+    )
+    response_cache_ttl_seconds: int = Field(
+        default=86400, validation_alias="RESPONSE_CACHE_TTL_SECONDS"
+    )
+
+    # ==================== Observability / Tracing (default OFF, optional deps) ====================
+    # When True AND OpenTelemetry packages are installed, export OTLP traces (e.g. to a local
+    # Arize Phoenix at :6006). No-op + warning if packages are missing. No required deps added.
+    enable_tracing: bool = Field(default=False, validation_alias="ENABLE_TRACING")
+    tracing_endpoint: str = Field(
+        default="http://localhost:6006/v1/traces", validation_alias="TRACING_ENDPOINT"
+    )
 
     # ==================== NIM Settings ====================
     nim: NimSettings = Field(default_factory=NimSettings)
@@ -569,6 +628,32 @@ class Settings(BaseSettings):
         if "sonnet" in name_lower and self.enable_sonnet_thinking is not None:
             return self.enable_sonnet_thinking
         return self.enable_model_thinking
+
+    def gateway_model_refs(self) -> tuple[str, ...]:
+        """Return parsed GATEWAY_MODELS as provider/model refs (drops blanks/invalid)."""
+        if not self.gateway_models.strip():
+            return ()
+        return tuple(
+            ref.strip()
+            for ref in self.gateway_models.split(",")
+            if ref.strip() and "/" in ref.strip()
+        )
+
+    def provider_rate_limit_for(self, provider_id: str) -> int:
+        """Return the effective rate limit for a provider (per-provider or global)."""
+        if provider_id == "nvidia_nim" and self.nvidia_nim_rate_limit is not None:
+            return self.nvidia_nim_rate_limit
+        if provider_id == "open_router" and self.open_router_rate_limit is not None:
+            return self.open_router_rate_limit
+        return self.provider_rate_limit
+
+    def provider_rate_window_for(self, provider_id: str) -> int:
+        """Return the effective rate window for a provider (per-provider or global)."""
+        if provider_id == "nvidia_nim" and self.nvidia_nim_rate_window is not None:
+            return self.nvidia_nim_rate_window
+        if provider_id == "open_router" and self.open_router_rate_window is not None:
+            return self.open_router_rate_window
+        return self.provider_rate_window
 
     def web_fetch_allowed_scheme_set(self) -> frozenset[str]:
         """Return normalized schemes allowed for web_fetch."""

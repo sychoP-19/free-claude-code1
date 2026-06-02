@@ -148,6 +148,9 @@ def _build_models_list_response(
                 supports_thinking=model_info.supports_thinking,
             )
 
+    for gateway_ref in settings.gateway_model_refs():
+        _append_provider_model_variants(models, seen, gateway_ref)
+
     for model in SUPPORTED_CLAUDE_MODELS:
         _append_unique_model(models, seen, model)
 
